@@ -1,0 +1,108 @@
+/* ========================= */
+/* HERO SECTION START */
+div.hero {
+  /* The main hero section styling */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  margin-bottom: 50px;
+}
+
+div.call_to_action {
+  /* Styling for the text in the hero section */
+  padding-right: 28%;
+  display: flex;
+  flex-direction: column;
+}
+
+img.hero_image {
+  /* Styling for the image section in the hero section */
+  border-style: solid;
+  border-radius: 12px;
+  width: 512px;
+  height: 384px;
+}
+
+div.hero_image {
+  /* Styling for the image itself */
+  background-color: lightcoral;
+  display: flex;
+}
+
+/* HERO SECTION END */
+/* ========================= */
+
+/* ========================= */
+/* SERVICE LIST SECTION START */
+
+div.service_list div.subtitle {
+  margin-bottom: -15px;
+  font-size: small;
+  color: var(--primary_color);
+}
+
+div.services div {
+  background-color: var(--secondary_color);
+  padding: 1px 15px;
+  flex: 1;
+}
+
+p.services_para {
+  font-size: small;
+  color: var(--black_70);
+}
+
+/* SERVICE LIST SECTION END */
+/* ========================= */
+
+/* ========================= */
+/* EXTRA INFO SECTION START */
+
+div.extra_info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 100px;
+  margin-bottom: 50px;
+}
+
+div.info {
+  flex: 1;
+  font-weight: normal;
+}
+
+div.info div.sub_subtitle {
+  font-size: x-small;
+  letter-spacing: 2px;
+  color: var(--primary_color);
+  margin-bottom: -15px;
+}
+
+div.info div.answer {
+  font-size: small;
+}
+
+/* EXTRA INFO SECTION END */
+/* ========================= */
+
+/* ========================= */
+/* CLOSING CALL SECTION START */
+
+div.closing_call {
+  margin-bottom: 50px;
+}
+
+div.closing_call div.title {
+  font-size: large;
+}
+
+div.closing_call div.para {
+  max-width: 38ch;
+  margin-top: -10px;
+  margin-bottom: 30px;
+  color: var(--black_70);
+}
+
+/* CLOSING CALL SECTION END */
+/* ========================= */

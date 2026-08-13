@@ -1,0 +1,124 @@
+/* ========================= */
+/* DECLARE GLOBAL CSS VARAIBLES TO USE START */
+
+:root {
+  --bg_color: #f3f2f2;
+
+  --primary_color: #0088b0;
+  --light_primary: color-mix(
+    in srgb,
+    var(--primary_color) 10%,
+    transparent
+  ); /* 10% transparent */
+
+  --secondary_color: #eae9e9;
+
+  --black_70: color-mix(in srgb, black 70%, transparent); /* 70% transparent */
+  --black_60: color-mix(in srgb, black 60%, transparent); /* 70% transparent */
+  --black_10: color-mix(in srgb, black 10%, transparent); /* 70% transparent */
+}
+
+/* DECLARE GLOBAL CSS VARAIBLES TO USE END */
+/* ========================= */
+
+/* ========================= */
+/* BODY STYLING SECTION START */
+
+body {
+  /* Styling that applies to the body of each page */
+  background-color: var(--bg_color);
+  margin-right: 10%;
+  margin-left: 10%;
+}
+
+/* BODY STYLING SECTION END */
+/* ========================= */
+
+/* ========================= */
+/* NAVBAR SECTION START */
+
+ul.navigation {
+  /* The bar itself */
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+ul.navigation li a {
+  /* all the links in the bar */
+  display: block;
+  color: black;
+  padding: 14px 16px;
+  text-decoration: none;
+}
+
+ul.navigation li.nav_right a {
+  /* all the links in the nav_right section of the bar */
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
+ul.navigation li.nav_right a:not(.custom_button):hover {
+  /* hover effects for all the links */
+  background-color: var(--secondary_color);
+}
+
+/* NAVBAR SECTION END */
+/* ========================= */
+
+/* ========================= */
+/* FOOTER SECTION START */
+div.footer {
+  /* Main style for the footer section */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+div.quick_links {
+  /* General styling for the footer links */
+  display: flex;
+}
+
+div.quick_links a {
+  /* Styling that applies to each link */
+  margin-left: 10px;
+  margin-right: 10px;
+  color: var(--primary_color);
+}
+/* FOOTER SECTION END */
+/* ========================= */
+
+/* ========================= */
+/* CUSTOM BUTTON STYLE START */
+
+.custom_button {
+  /* styling for the button style used throughout the site */
+  border-style: hidden;
+  border-radius: 2px;
+  font-weight: bold;
+  padding: 12px 24px; /* top/bottom, left/right */
+  text-decoration: none;
+}
+
+.custom_button_bg {
+  /* to be used for the button variants that need a background */
+  background-color: var(--primary_color);
+  color: white;
+}
+
+.custom_button_nobg {
+  /* to be used for the button variants that do not need a background */
+  color: var(--primary_color);
+}
+
+.custom_button_nobg:hover {
+  /* hover effects to highlight the no background button upon mouse hover */
+  background-color: var(--light_primary);
+}
+
+/* CUSTOM BUTTON STYLE END */
+/* ========================= */

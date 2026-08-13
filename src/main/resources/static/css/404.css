@@ -1,0 +1,43 @@
+body {
+  /* Set the body of the page to be flex and expand to occupy the whole screen height */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 95dvh;
+}
+
+/* ========================= */
+/* HERO SECTION START */
+div.hero {
+  /* The main hero section styling */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  margin-bottom: 50px;
+}
+
+div.hero div.sub_subtitle {
+  font-size: small;
+  letter-spacing: 2px;
+  color: var(--primary_color);
+  margin-bottom: -50px;
+}
+
+div.call_to_action {
+  /* Styling for the text in the hero section */
+  width: 60ch;
+  display: flex;
+  flex-direction: column;
+}
+
+div.call_to_action div.para {
+  width: 45ch;
+}
+
+a.back_to_home {
+  width: fit-content;
+}
+
+/* HERO SECTION END */
+/* ========================= */
