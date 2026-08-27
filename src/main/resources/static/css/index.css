@@ -1,108 +1,225 @@
-/* ========================= */
-/* HERO SECTION START */
-div.hero {
-  /* The main hero section styling */
-  display: flex;
+.public_hero {
+  padding: 65px 0 45px;
+  max-width: 760px;
+}
+.public_hero h1 {
+  font-size: 48px;
+  margin: 10px 0 18px;
+}
+.public_hero p {
+  font-size: 18px;
+  color: var(--black_70);
+  max-width: 58ch;
+}
+.service_detail {
+  padding: 28px 0;
+  border-top: 1px solid var(--black_20);
+}
+.service_detail:last-child {
+  border-bottom: 1px solid var(--black_20);
+}
+.price {
+  color: var(--primary_color);
+  font-size: 24px;
+  font-weight: bold;
+}
+.pricing_note {
+  margin-top: 35px;
+  padding: 24px;
+  background: var(--secondary_color);
+}
+.public_hero {
+  position: relative;
+  isolation: isolate;
+}
+.public_hero::before {
+  content: "";
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  right: 3%;
+  top: 20px;
+  border-radius: 50%;
+  background: linear-gradient(
+    135deg,
+    rgba(0, 136, 176, 0.2),
+    rgba(98, 197, 238, 0.04)
+  );
+  filter: blur(2px);
+  z-index: -1;
+}
+.service_detail {
+  transition:
+    padding 0.2s ease,
+    background-color 0.2s ease;
+}
+.service_detail:hover {
+  padding-left: 18px;
+  padding-right: 18px;
+  background: rgba(233, 248, 255, 0.55);
+}
+.trust_strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--black_10);
+  border: 1px solid var(--black_10);
+}
+.trust_item {
+  padding: 24px;
+  background: rgba(243, 242, 242, 0.96);
+}
+.trust_item strong {
+  display: block;
+  color: var(--primary_color);
+  font-size: 28px;
+}
+.testimonial {
+  position: relative;
+  padding-top: 35px;
+}
+.testimonial::before {
+  content: "“";
+  position: absolute;
+  top: -5px;
+  left: 18px;
+  color: var(--color-accent-200);
+  font-size: 70px;
+  line-height: 1;
+}
+.process_step {
+  border-top: 3px solid var(--color-accent);
+}
+@media (max-width: 800px) {
+  .trust_strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 520px) {
+  .public_hero h1 {
+    font-size: 38px;
+  }
+  .trust_strip {
+    grid-template-columns: 1fr;
+  }
+}
+.hero_saas {
+  min-height: 610px;
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 34px;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 10px;
-  margin-bottom: 50px;
+  padding: 54px;
+  margin: 34px 0;
+  border-radius: 30px;
+  color: white;
+  background: linear-gradient(135deg, #034b78 0%, #087fbd 46%, #7768e8 100%);
+  box-shadow: 0 30px 75px rgba(3, 75, 120, 0.3);
+  overflow: hidden;
+  position: relative;
 }
-
-div.call_to_action {
-  /* Styling for the text in the hero section */
-  padding-right: 28%;
-  display: flex;
-  flex-direction: column;
+.hero_saas::before {
+  content: "";
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  left: -210px;
+  top: -230px;
+  border: 70px solid rgba(56, 215, 242, 0.12);
+  animation: hero-ring 9s linear infinite;
 }
-
-img.hero_image {
-  /* Styling for the image section in the hero section */
-  border-style: solid;
+@keyframes hero-ring {
+  to {
+    transform: rotate(360deg) scale(1.08);
+  }
+}
+.hero_saas h1 {
+  font-size: clamp(44px, 5vw, 72px);
+  margin: 12px 0 20px;
+}
+.hero_saas p {
+  font-size: 19px;
+  color: rgba(255, 255, 255, 0.86);
+}
+.hero_visual {
+  position: relative;
+}
+.hero_visual img {
+  width: 100%;
+  border-radius: 24px;
+  box-shadow: 0 24px 50px rgba(0, 20, 45, 0.3);
+  animation: hero-float 5s ease-in-out infinite;
+}
+@keyframes hero-float {
+  50% {
+    transform: translateY(-12px);
+  }
+}
+.floating_chip {
+  position: absolute;
+  padding: 10px 14px;
   border-radius: 12px;
-  width: 512px;
-  height: 384px;
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--blue-ocean);
+  box-shadow: 0 14px 30px rgba(3, 75, 120, 0.24);
+  backdrop-filter: blur(12px);
+  animation: chip-float 4s ease-in-out infinite;
 }
-
-div.hero_image {
-  /* Styling for the image itself */
-  background-color: lightcoral;
-  display: flex;
+.chip_one {
+  left: -24px;
+  top: 12%;
 }
-
-/* HERO SECTION END */
-/* ========================= */
-
-/* ========================= */
-/* SERVICE LIST SECTION START */
-
-div.service_list div.subtitle {
-  margin-bottom: -15px;
-  font-size: small;
-  color: var(--primary_color);
+.chip_two {
+  right: -15px;
+  bottom: 10%;
+  animation-delay: -2s;
 }
-
-div.services div {
-  background-color: var(--secondary_color);
-  padding: 1px 15px;
-  flex: 1;
+@keyframes chip-float {
+  50% {
+    transform: translateY(-9px) rotate(1deg);
+  }
 }
-
-p.services_para {
-  font-size: small;
-  color: var(--black_70);
+.stat_number {
+  font-size: 34px;
+  font-weight: 700;
+  background: linear-gradient(90deg, var(--cyan), white);
+  -webkit-background-clip: text;
+  color: transparent;
 }
-
-/* SERVICE LIST SECTION END */
-/* ========================= */
-
-/* ========================= */
-/* EXTRA INFO SECTION START */
-
-div.extra_info {
-  display: flex;
-  justify-content: space-between;
+.logo_cloud {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
   align-items: center;
-  margin-top: 100px;
-  margin-bottom: 50px;
 }
-
-div.info {
-  flex: 1;
-  font-weight: normal;
+.logo_cloud span {
+  padding: 18px;
+  text-align: center;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.68);
+  color: var(--blue-ocean);
+  font-weight: 700;
+  box-shadow: 0 8px 20px rgba(3, 75, 120, 0.08);
 }
-
-div.info div.sub_subtitle {
-  font-size: x-small;
-  letter-spacing: 2px;
-  color: var(--primary_color);
-  margin-bottom: -15px;
+.faq_item {
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(3, 75, 120, 0.14);
 }
-
-div.info div.answer {
-  font-size: small;
+.faq_item summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--blue-ocean);
 }
-
-/* EXTRA INFO SECTION END */
-/* ========================= */
-
-/* ========================= */
-/* CLOSING CALL SECTION START */
-
-div.closing_call {
-  margin-bottom: 50px;
+.faq_item p {
+  padding-top: 12px;
 }
-
-div.closing_call div.title {
-  font-size: large;
+@media (max-width: 800px) {
+  .hero_saas {
+    grid-template-columns: 1fr;
+    padding: 32px;
+  }
+  .logo_cloud {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
-
-div.closing_call div.para {
-  max-width: 38ch;
-  margin-top: -10px;
-  margin-bottom: 30px;
-  color: var(--black_70);
-}
-
-/* CLOSING CALL SECTION END */
-/* ========================= */

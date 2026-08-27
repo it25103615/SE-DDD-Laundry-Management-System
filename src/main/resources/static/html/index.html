@@ -1,146 +1,316 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="description"
+      content="Laundry pickup, cleaning and delivery with LaundryLink."
+    />
     <title>LaundryLink</title>
-    <!-- Connect CSS file -->
     <link rel="stylesheet" href="../css/global.css" />
     <link rel="stylesheet" href="../css/index.css" />
+    <script src="../js/global-pre.js"></script>
   </head>
   <body>
-    <div class="navbar">
+    <nav class="navbar" aria-label="Main navigation">
       <ul class="navigation">
         <li class="logo">
-          <a href="#"><h3>LaundryLink</h3></a>
+          <a href="public/index.html"><h3>LaundryLink</h3></a>
         </li>
-        <li class="nav_right" style="display: flex">
-          <a href="#">Services</a>
-          <a href="#">Pricing</a>
-          <a
-            href="#"
-            style="
-              border-style: solid;
-              border-width: 0.5px;
-              border-radius: 2px;
-              border-color: rgba(0, 0, 0, 0.2);
-            "
+        <li class="nav_right">
+          <a href="#how-it-works">How it works</a
+          ><a href="public/services.html">Services</a
+          ><a href="public/pricing.html">Pricing</a
+          ><a class="custom_button custom_button_border" href="auth/login.html"
             >Log In</a
-          >
-          <a
-            class="custom_button custom_button_bg"
-            href="#"
-            style="font-weight: normal; color: white"
+          ><a class="custom_button custom_button_bg" href="auth/register.html"
             >Get Started</a
           >
         </li>
       </ul>
-    </div>
-    <div class="hero">
-      <div class="call_to_action">
-        <div class="large_title" style="font-size: x-large">
-          <h1>Laundry day, off your plate.</h1>
-        </div>
-        <div class="para">
-          <p style="opacity: 0.85">
-            Schedule a pickup in two minutes. We wash, dry, and press it — then
-            bring it back to your door, usually within 48 hours.
+    </nav>
+    <main>
+      <section class="hero_saas">
+        <div>
+          <div
+            class="subtitle"
+            style="color: #8edcff; -webkit-text-fill-color: initial"
+          >
+            PICKUP · CLEAN · DELIVER
+          </div>
+          <h1>Laundry day,<br />off your plate.</h1>
+          <p>
+            Schedule a pickup in two minutes. We wash, dry and press it—then
+            bring it back fresh, folded and ready for life.
+          </p>
+          <div class="actions">
+            <a
+              class="custom_button custom_button_bg"
+              style="background: linear-gradient(135deg, #38d7f2, #12b8a6)"
+              href="auth/register.html"
+              >Book your first pickup</a
+            ><a
+              class="custom_button custom_button_border"
+              style="color: white; border-color: rgba(255, 255, 255, 0.5)"
+              href="#how-it-works"
+              >See how it works</a
+            >
+          </div>
+          <p class="small" style="margin-top: 22px">
+            ✓ Free pickup &nbsp; ✓ No minimum order &nbsp; ✓ Live tracking
           </p>
         </div>
-        <div class="cta_list" style="display: flex">
-          <a class="custom_button custom_button_bg" href="#">Get Started</a>
-          <div class="cta_list_gap" style="width: 20px"></div>
-          <a class="custom_button custom_button_nobg" href="#"
-            >See how it works</a
+        <div class="hero_visual">
+          <img
+            src="../images/washingMachine.png"
+            alt="Washing machine, folded laundry and LaundryLink delivery van"
+          />
+          <div class="floating_chip chip_one">✦ 98% satisfaction</div>
+          <div class="floating_chip chip_two">✓ Delivered fresh</div>
+        </div>
+      </section>
+      <section class="section_band">
+        <div
+          class="grid grid_three"
+          style="grid-template-columns: repeat(4, 1fr)"
+        >
+          <div>
+            <div class="stat_number" data-counter="15000" data-suffix="+">
+              0
+            </div>
+            <span>Orders completed</span>
+          </div>
+          <div>
+            <div class="stat_number" data-counter="98" data-suffix="%">0</div>
+            <span>Customer satisfaction</span>
+          </div>
+          <div>
+            <div class="stat_number" data-counter="24" data-suffix=" hrs">
+              0
+            </div>
+            <span>Express turnaround</span>
+          </div>
+          <div>
+            <div class="stat_number" data-counter="5000" data-suffix="+">0</div>
+            <span>Active customers</span>
+          </div>
+        </div>
+      </section>
+      <section class="page_header">
+        <div class="subtitle">WHY LAUNDRYLINK</div>
+        <h2>More time for what matters</h2>
+        <p>
+          Professional garment care wrapped in a simple, trackable digital
+          experience.
+        </p>
+      </section>
+      <section class="grid grid_three">
+        <article class="card">
+          <div class="icon_bubble">⌁</div>
+          <h3>Door-to-door ease</h3>
+          <p class="muted">
+            Book in minutes and choose a pickup window that works around your
+            day.
+          </p>
+        </article>
+        <article class="card">
+          <div
+            class="icon_bubble"
+            style="
+              background: linear-gradient(135deg, var(--teal), var(--green));
+            "
+          >
+            ✓
+          </div>
+          <h3>Care you can trust</h3>
+          <p class="muted">
+            Every order is checked, tagged and handled according to your
+            preferences.
+          </p>
+        </article>
+        <article class="card">
+          <div
+            class="icon_bubble"
+            style="
+              background: linear-gradient(135deg, var(--purple), var(--orange));
+            "
+          >
+            ↗
+          </div>
+          <h3>Track every step</h3>
+          <p class="muted">
+            Follow pickup, cleaning and delivery milestones from one clear
+            dashboard.
+          </p>
+        </article>
+      </section>
+      <section class="section_band" id="how-it-works">
+        <div class="subtitle">HOW IT WORKS</div>
+        <h2>From hamper to wardrobe in three steps</h2>
+        <div class="grid grid_three">
+          <article class="card process_step">
+            <div class="icon_bubble">1</div>
+            <h3>Book</h3>
+            <p class="muted">
+              Choose services, list your items and select a pickup time.
+            </p>
+          </article>
+          <article class="card process_step">
+            <div
+              class="icon_bubble"
+              style="
+                background: linear-gradient(135deg, var(--teal), var(--green));
+              "
+            >
+              2
+            </div>
+            <h3>We clean</h3>
+            <p class="muted">
+              Specialists clean and finish everything to your preferences.
+            </p>
+          </article>
+          <article class="card process_step">
+            <div
+              class="icon_bubble"
+              style="
+                background: linear-gradient(
+                  135deg,
+                  var(--purple),
+                  var(--orange)
+                );
+              "
+            >
+              3
+            </div>
+            <h3>Delivered</h3>
+            <p class="muted">
+              Track your delivery and receive everything ready to wear.
+            </p>
+          </article>
+        </div>
+      </section>
+      <section class="page_header">
+        <div class="subtitle">FEATURE SHOWCASE</div>
+        <h2>One pickup. Every laundry need.</h2>
+      </section>
+      <section class="grid grid_two">
+        <article class="card">
+          <span class="status status_info">MOST POPULAR</span>
+          <h3>Wash &amp; Fold</h3>
+          <p class="muted">
+            Sorted, washed and neatly folded with your preferred detergent
+            settings.
+          </p>
+          <div class="progress"><span style="width: 88%"></span></div>
+          <p class="small muted">88% of customers add this service</p>
+        </article>
+        <article class="card">
+          <span class="status" style="color: var(--purple); background: #f1edff"
+            >PREMIUM CARE</span
+          >
+          <h3>Dry Cleaning &amp; Pressing</h3>
+          <p class="muted">
+            Specialist care for suits, dresses, linens and delicate garments.
+          </p>
+          <a class="link" href="public/services.html">Explore all services →</a>
+        </article>
+      </section>
+      <section class="page_header">
+        <div class="subtitle">CUSTOMER STORIES</div>
+        <h2>Fresh laundry. Happier weeks.</h2>
+      </section>
+      <section class="grid grid_three">
+        <blockquote class="card testimonial">
+          <p>
+            “The tracking feels like a real delivery app, and everything comes
+            back perfectly folded.”
+          </p>
+          <footer class="muted small">Priya F. · Colombo 07</footer>
+        </blockquote>
+        <blockquote class="card testimonial">
+          <p>
+            “Reliable pickups, careful cleaning and pricing I can understand
+            before confirming.”
+          </p>
+          <footer class="muted small">Kasun B. · Dehiwala</footer>
+        </blockquote>
+        <blockquote class="card testimonial">
+          <p>
+            “LaundryLink saved our family hours every week. The express service
+            is excellent.”
+          </p>
+          <footer class="muted small">Anjali S. · Nugegoda</footer>
+        </blockquote>
+      </section>
+      <section class="page_header">
+        <div class="subtitle">TRUSTED BY TEAMS AT</div>
+        <h2>Keeping Colombo looking sharp</h2>
+      </section>
+      <div class="logo_cloud">
+        <span>BLUEWAVE</span><span>CEYLON CO.</span><span>OCEANIC</span
+        ><span>METRO LABS</span><span>SKYLINE</span>
+      </div>
+      <section class="section_band">
+        <div class="grid grid_two">
+          <div>
+            <div class="subtitle">QUESTIONS, ANSWERED</div>
+            <h2>Everything before your first pickup</h2>
+            <p>Clear pricing, careful handling and support when you need it.</p>
+          </div>
+          <div>
+            <details class="faq_item">
+              <summary>How quickly will my order return?</summary>
+              <p>
+                Most standard orders return within 48 hours. Express options can
+                be ready within 24 hours.
+              </p>
+            </details>
+            <details class="faq_item">
+              <summary>Is there a minimum order?</summary>
+              <p>
+                No. Book exactly what you need, from a single shirt to the whole
+                family hamper.
+              </p>
+            </details>
+            <details class="faq_item">
+              <summary>Can I track my laundry?</summary>
+              <p>
+                Yes. Your dashboard shows pickup, facility and delivery progress
+                in real time.
+              </p>
+            </details>
+          </div>
+        </div>
+      </section>
+      <section class="public_hero">
+        <div
+          class="card"
+          style="
+            padding: 44px;
+            background: linear-gradient(135deg, #dff8ff, #ece8ff 58%, #fff0dc);
+          "
+        >
+          <div class="subtitle">READY WHEN YOU ARE</div>
+          <h2>Reclaim your weekend.</h2>
+          <p>
+            Create an account and book your first pickup—it takes less time than
+            sorting your hamper.
+          </p>
+          <a class="custom_button custom_button_bg" href="auth/register.html"
+            >Create your account</a
           >
         </div>
-      </div>
-      <div class="hero_image">
-        <img class="hero_image" href="#" />
-      </div>
-    </div>
-    <div class="service_list" style="margin-top: 100px; margin-bottom: 50px">
-      <div class="subtitle">
-        <h4>WHAT WE HANDLE</h4>
-      </div>
-      <div class="title">
-        <h2>Three services, one pickup</h2>
-      </div>
-      <div class="services" style="display: flex; gap: 20px">
-        <div class="washing">
-          <h3>Wash & Fold</h3>
-          <p class="services_para">
-            Everyday laundry, sorted, washed and folded the way you'd do it — if
-            you had the time.
-          </p>
-        </div>
-        <div class="dry_cleaning">
-          <h3>Dry Cleaning</h3>
-          <p class="services_para">
-            Suits, dresses, and anything with a delicate label, cleaned by hand
-            and pressed on hangers.
-          </p>
-        </div>
-        <div class="ironing">
-          <h3>Ironing</h3>
-          <p class="services_para">
-            Crisp collars and sharp creases on shirts and linens, ready to wear
-            straight from the bag.
-          </p>
-        </div>
-      </div>
-    </div>
-    <div class="extra_info">
-      <div class="info" style="display: flex; gap: 40px">
-        <div class="pickup">
-          <div class="sub_subtitle">
-            <h5>PICKUP</h5>
-          </div>
-          <div class="answer">
-            <h3>Free, next-day</h3>
-          </div>
-        </div>
-        <div class="turnaround">
-          <div class="sub_subtitle">
-            <h5>TURNAROUND</h5>
-          </div>
-          <div class="answer">
-            <h3>48 hours</h3>
-          </div>
-        </div>
-        <div class="min_order">
-          <div class="sub_subtitle">
-            <h5>MINIMUM ORDER</h5>
-          </div>
-          <div class="answer">
-            <h3>None</h3>
-          </div>
-        </div>
-      </div>
-      <a class="pricing_list custom_button custom_button_nobg" href="#">
-        Full Pricing
-      </a>
-    </div>
-    <div class="closing_call">
-      <div class="title">
-        <h2>Ready to reclaim your weekend?</h2>
-      </div>
-      <div class="para">
-        <p>
-          Create an account and book your first pickup — it takes less time than
-          sorting your hamper.
-        </p>
-      </div>
-      <a class="custom_button custom_button_bg" href="#">Create your account</a>
-    </div>
-    <div class="footer">
-      <div class="trademark">
-        <p>© 2026 LaundryLink</p>
-      </div>
+      </section>
+    </main>
+    <footer class="footer">
+      <p>© 2026 LaundryLink</p>
       <div class="quick_links">
-        <a href="#"> About </a>
-        <a href="#"> Contact </a>
-        <a href="#"> Terms </a>
+        <a href="public/about.html">About</a
+        ><a href="public/contact.html">Contact</a
+        ><a href="public/terms.html">Terms</a>
       </div>
-    </div>
+    </footer>
+    <script src="../js/global-post.js"></script>
   </body>
 </html>
