@@ -10,7 +10,6 @@ import java.util.*;
 @RequiredArgsConstructor
 public class LogService {
     private final LogRepository logRepository;
-    private final StatusService statusService;
 
     public List<Log> getAllLogs() {
         return logRepository.findAll();
