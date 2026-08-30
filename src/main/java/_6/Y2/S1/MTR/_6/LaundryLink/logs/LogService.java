@@ -1,6 +1,5 @@
 package _6.Y2.S1.MTR._6.LaundryLink.logs;
 
-import _6.Y2.S1.MTR._6.LaundryLink.status.StatusService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
