@@ -72,7 +72,7 @@ GO
 -- ============== Initialize Items Table - Start ==============
 
 CREATE TABLE items(
-    itemID INTEGER PRIMARY KEY,
+    itemID INTEGER IDENTITY(1, 1) PRIMARY KEY,
     itemName VARCHAR(30)
 );
 GO
@@ -84,7 +84,7 @@ GO
 -- ============= Initialize Services Table - Start ============
 
 CREATE TABLE services(
-    serviceID INTEGER PRIMARY KEY,
+    serviceID INTEGER IDENTITY(1, 1) PRIMARY KEY,
     serviceName VARCHAR(30)
 );
 GO
@@ -110,7 +110,7 @@ CREATE TABLE servicePricing(
 -- =============== Initialize User Table - Start ==============
 
 CREATE TABLE users(
-    userID INTEGER PRIMARY KEY,
+    userID INTEGER IDENTITY(1, 1) PRIMARY KEY,
     firstName VARCHAR(50),
     middleName VARCHAR(50),
     lastName VARCHAR(50),
@@ -130,7 +130,7 @@ GO
 -- ============ Initialize Addresses Table - Start ============
 
 CREATE TABLE addresses(
-    addressID INTEGER PRIMARY KEY, 
+    addressID INTEGER IDENTITY(1, 1) PRIMARY KEY, 
     nickname VARCHAR(50), 
     street VARCHAR(100), 
     city VARCHAR(30),
@@ -151,7 +151,7 @@ GO
 -- ============== Initialize Orders Table - Start =============
 
 CREATE TABLE orders(
-    orderID INTEGER PRIMARY KEY,
+    orderID INTEGER IDENTITY(1, 1) PRIMARY KEY,
     statusID INTEGER,
     userID INTEGER,
 
@@ -191,7 +191,7 @@ GO
 -- ============= Initialize Payments Table - Start ============
 
 CREATE TABLE payments(
-    paymentID INTEGER PRIMARY KEY,
+    paymentID INTEGER IDENTITY(1, 1) PRIMARY KEY,
     amount FLOAT NOT NULL,
     orderID INTEGER NOT NULL,
 
@@ -207,7 +207,7 @@ GO
 -- =============== Initialize Log Table - Start ===============
 
 CREATE TABLE logs(
-    logID INTEGER PRIMARY KEY,
+    logID INTEGER IDENTITY(1, 1) PRIMARY KEY,
     status_before INTEGER,
     status_after INTEGER,
     logDate DATE,
@@ -232,7 +232,7 @@ GO
 -- ============= Initialize Feedback Table - Start ============
 
 CREATE TABLE feedback(
-    feedbackID INTEGER PRIMARY KEY,
+    feedbackID INTEGER IDENTITY(1, 1) PRIMARY KEY,
     feedback VARCHAR(500),
     userID INTEGER NOT NULL,
     orderID INTEGER,
@@ -252,7 +252,7 @@ GO
 -- =============== Initialize Chat Table - Start ==============
 
 CREATE TABLE chat(
-    chatID INTEGER PRIMARY KEY,
+    chatID INTEGER IDENTITY(1, 1) PRIMARY KEY,
     sentAt DATETIME DEFAULT GETDATE(),
     message VARCHAR(250),
     userID INTEGER NOT NULL,
@@ -273,7 +273,7 @@ GO
 -- ============= Initialize Delivery Table - Start ============
 
 CREATE TABLE delivery(
-    deliverID INTEGER PRIMARY KEY,
+    deliverID INTEGER IDENTITY(1, 1) PRIMARY KEY,
     orderID INTEGER,
     userID INTEGER,
     pickup_riderID INTEGER,
@@ -366,16 +366,16 @@ IF OBJECT_ID('dbo.status', 'U') IS NOT NULL
 -- =============== Populate Items Table - Start ===============
 
 IF OBJECT_ID('dbo.items', 'U') IS NOT NULL
-    INSERT INTO items(itemID, itemName) VALUES
-        (1, 'Everyday Clothing'),
-        (2, 'Shirt / Blouse'),
-        (3, 'Bed Sheet'),
-        (4, 'Trousers / Skirt'),
-        (5, 'Bed Linen'),
-        (6, 'Two-Piece Suit'),
-        (7, 'Everyday Shoes'),
-        (8, 'Trainers'),
-        (9, 'Premium Material');
+    INSERT INTO items(itemName) VALUES
+        ('Everyday Clothing'),
+        ('Shirt / Blouse'),
+        ('Bed Sheet'),
+        ('Trousers / Skirt'),
+        ('Bed Linen'),
+        ('Two-Piece Suit'),
+        ('Everyday Shoes'),
+        ('Trainers'),
+        ('Premium Material');
     GO
 
 -- ================ Populate Items Table - End ================
@@ -385,11 +385,11 @@ IF OBJECT_ID('dbo.items', 'U') IS NOT NULL
 -- ============== Populate Services Table - Start =============
 
 IF OBJECT_ID('dbo.services', 'U') IS NOT NULL
-    INSERT INTO services(serviceID, serviceName) VALUES
-        (1, 'Wash and Fold'),
-        (2, 'Ironing'),
-        (3, 'Dry Cleaning'),
-        (4, 'Shoe Cleaning');
+    INSERT INTO services(serviceName) VALUES
+        ('Wash and Fold'),
+        ('Ironing'),
+        ('Dry Cleaning'),
+        ('Shoe Cleaning');
     GO
 
 -- =============== Populate Services Table - End ==============
@@ -417,61 +417,61 @@ IF OBJECT_ID('dbo.servicePricing', 'U') IS NOT NULL
 -- ============ Populate ServicePricing Table - End ===========
 -- ============================================================
 -- ============================================================
--- =============== Populate Users Table - Start ===============
+-- =============== Populate Users Table - Start ================
 
 IF OBJECT_ID('dbo.users', 'U') IS NOT NULL
-    INSERT INTO users(userID, firstName, middleName, lastName, email, password, phoneNumber, type) VALUES
-        (1, 'Nimal', NULL, 'Perera', 'nimal.perera@example.com', 'pass1234', '0711234567', 'CUSTOMER'),
-        (2, 'Kamala', NULL, 'Silva', 'kamala.silva@example.com', 'pass1234', '0722345678', 'CUSTOMER'),
-        (3, 'Ruwan', 'Chathura', 'Fernando', 'ruwan.fernando@example.com', 'pass1234', '0773456789', 'CUSTOMER'),
-        (4, 'Ishara', NULL, 'Jayawardena', 'ishara.jw@example.com', 'pass1234', '0764567890', 'CUSTOMER'),
-        (5, 'Saman', NULL, 'Kumara', 'saman.kumara@laundrylink.com', 'staffpass1', '0715678901', 'STAFF'),
-        (6, 'Dilani', NULL, 'Wickramasinghe', 'dilani.w@laundrylink.com', 'staffpass2', '0726789012', 'STAFF'),
-        (7, 'Chamara', NULL, 'Rajapaksha', 'chamara.r@laundrylink.com', 'riderpass1', '0777890123', 'RIDER'),
-        (8, 'Tharindu', NULL, 'Bandara', 'tharindu.b@laundrylink.com', 'riderpass2', '0768901234', 'RIDER'),
-        (9, 'Anusha', NULL, 'Gunasekara', 'anusha.g@laundrylink.com', 'adminpass1', '0719012345', 'ADMIN'),
-        (10, 'Priyanka', NULL, 'Weerasinghe', 'priyanka.w@example.com', 'pass1234', '0700123456', 'CUSTOMER'),
-        (11, 'Nadeeka', NULL, 'Ratnayake', 'nadeeka.r@laundrylink.com', 'managerpass1', '0711122334', 'MANAGER'),
-        (12, 'Sanjeewa', NULL, 'Herath', 'sanjeewa.h@laundrylink.com', 'managerpass2', '0722233445', 'MANAGER');
+    INSERT INTO users(firstName, middleName, lastName, email, password, phoneNumber, type) VALUES
+        ('Nimal', NULL, 'Perera', 'nimal.perera@example.com', 'pass1234', '0711234567', 'CUSTOMER'),
+        ('Kamala', NULL, 'Silva', 'kamala.silva@example.com', 'pass1234', '0722345678', 'CUSTOMER'),
+        ('Ruwan', 'Chathura', 'Fernando', 'ruwan.fernando@example.com', 'pass1234', '0773456789', 'CUSTOMER'),
+        ('Ishara', NULL, 'Jayawardena', 'ishara.jw@example.com', 'pass1234', '0764567890', 'CUSTOMER'),
+        ('Saman', NULL, 'Kumara', 'saman.kumara@laundrylink.com', 'staffpass1', '0715678901', 'STAFF'),
+        ('Dilani', NULL, 'Wickramasinghe', 'dilani.w@laundrylink.com', 'staffpass2', '0726789012', 'STAFF'),
+        ('Chamara', NULL, 'Rajapaksha', 'chamara.r@laundrylink.com', 'riderpass1', '0777890123', 'RIDER'),
+        ('Tharindu', NULL, 'Bandara', 'tharindu.b@laundrylink.com', 'riderpass2', '0768901234', 'RIDER'),
+        ('Anusha', NULL, 'Gunasekara', 'anusha.g@laundrylink.com', 'adminpass1', '0719012345', 'ADMIN'),
+        ('Priyanka', NULL, 'Weerasinghe', 'priyanka.w@example.com', 'pass1234', '0700123456', 'CUSTOMER'),
+        ('Nadeeka', NULL, 'Ratnayake', 'nadeeka.r@laundrylink.com', 'managerpass1', '0711122334', 'MANAGER'),
+        ('Sanjeewa', NULL, 'Herath', 'sanjeewa.h@laundrylink.com', 'managerpass2', '0722233445', 'MANAGER');
     GO
 
--- ================ Populate Users Table - End ================
+-- ================ Populate Users Table - End =================
 -- ============================================================
 
 -- ============================================================
--- ============= Populate Addresses Table - Start =============
+-- ============= Populate Addresses Table - Start ==============
 
 IF OBJECT_ID('dbo.addresses', 'U') IS NOT NULL
-    INSERT INTO addresses(addressID, nickname, street, city, state, DeliveryInstructions, isDefault, userID) VALUES
-        (1, 'Home', '12 Galle Road', 'Colombo', 'Western', 'Leave with security guard', 1, 1),
-        (2, 'Office', '45 Duplication Road', 'Colombo', 'Western', 'Ask for reception', 0, 1),
-        (3, 'Home', '78 Kandy Road', 'Kandy', 'Central', 'Gate code 2468', 1, 2),
-        (4, 'Home', '23 Negombo Road', 'Negombo', 'Western', 'Ring bell twice', 1, 3),
-        (5, 'Home', '9 Havelock Road', 'Colombo', 'Western', 'Call before arriving', 1, 4),
-        (6, 'Home', '56 Matara Road', 'Galle', 'Southern', 'Blue gate, back entrance', 1, 10);
+    INSERT INTO addresses(nickname, street, city, state, DeliveryInstructions, isDefault, userID) VALUES
+        ('Home', '12 Galle Road', 'Colombo', 'Western', 'Leave with security guard', 1, 1),
+        ('Office', '45 Duplication Road', 'Colombo', 'Western', 'Ask for reception', 0, 1),
+        ('Home', '78 Kandy Road', 'Kandy', 'Central', 'Gate code 2468', 1, 2),
+        ('Home', '23 Negombo Road', 'Negombo', 'Western', 'Ring bell twice', 1, 3),
+        ('Home', '9 Havelock Road', 'Colombo', 'Western', 'Call before arriving', 1, 4),
+        ('Home', '56 Matara Road', 'Galle', 'Southern', 'Blue gate, back entrance', 1, 10);
     GO
 
--- ============== Populate Addresses Table - End ==============
+-- ============== Populate Addresses Table - End ================
 -- ============================================================
 
 -- ============================================================
--- =============== Populate Orders Table - Start ==============
+-- =============== Populate Orders Table - Start ================
 
 IF OBJECT_ID('dbo.orders', 'U') IS NOT NULL
-    INSERT INTO orders(orderID, statusID, userID) VALUES
-        (1, 15, 1), -- Completed
-        (2, 9, 2),  -- Washing
-        (3, 3, 3),  -- Awaiting Pickup
-        (4, 14, 4), -- Delivered
-        (5, 16, 1), -- Payment Failed
-        (6, 11, 10); -- Ironing
+    INSERT INTO orders(statusID, userID) VALUES
+        (15, 1), -- Completed
+        (9, 2),  -- Washing
+        (3, 3),  -- Awaiting Pickup
+        (14, 4), -- Delivered
+        (16, 1), -- Payment Failed
+        (11, 10); -- Ironing
     GO
 
--- ================ Populate Orders Table - End ===============
+-- ================ Populate Orders Table - End =================
 -- ============================================================
 
 -- ============================================================
--- ============= Populate OrderLines Table - Start ============
+-- ============== Populate OrderLines Table - Start =============
 
 IF OBJECT_ID('dbo.orderLines', 'U') IS NOT NULL
     INSERT INTO orderLines(orderID, itemID, serviceID, quantity, linePrice) VALUES
@@ -485,85 +485,85 @@ IF OBJECT_ID('dbo.orderLines', 'U') IS NOT NULL
         (6, 5, 2, 2, 600.0);   -- 2x Bed Linen, Ironing
     GO
 
--- ============== Populate OrderLines Table - End =============
+-- =============== Populate OrderLines Table - End ===============
 -- ============================================================
 
 -- ============================================================
--- ============== Populate Payments Table - Start =============
+-- =============== Populate Payments Table - Start ===============
 
 IF OBJECT_ID('dbo.payments', 'U') IS NOT NULL
-    INSERT INTO payments(paymentID, amount, orderID) VALUES
-        (1, 1350.0, 1),
-        (2, 900.0, 2),
-        (3, 1240.0, 3),
-        (4, 1500.0, 4),
-        (5, 600.0, 6);
+    INSERT INTO payments(amount, orderID) VALUES
+        (1350.0, 1),
+        (900.0, 2),
+        (1240.0, 3),
+        (1500.0, 4),
+        (600.0, 6);
     GO
 
--- =============== Populate Payments Table - End ==============
+-- ================ Populate Payments Table - End ================
 -- ============================================================
 
 -- ============================================================
--- ================ Populate Logs Table - Start ===============
+-- ================= Populate Logs Table - Start =================
 
 IF OBJECT_ID('dbo.logs', 'U') IS NOT NULL
-    INSERT INTO logs(logID, status_before, status_after, logDate, logTime, orderID) VALUES
-        (1, 1, 2, '2026-08-10', '09:00:00', 1),
-        (2, 2, 3, '2026-08-10', '09:15:00', 1),
-        (3, 3, 14, '2026-08-12', '17:30:00', 1),
-        (4, 14, 15, '2026-08-13', '10:00:00', 1),
-        (5, 2, 3, '2026-08-20', '11:00:00', 2),
-        (6, 3, 9, '2026-08-21', '08:45:00', 2),
-        (7, 1, 2, '2026-08-25', '14:00:00', 3),
-        (8, 2, 3, '2026-08-25', '14:20:00', 3),
-        (9, 12, 13, '2026-08-24', '16:00:00', 4),
-        (10, 13, 14, '2026-08-24', '18:30:00', 4),
-        (11, 1, 16, '2026-08-26', '09:05:00', 5),
-        (12, 3, 9, '2026-08-27', '07:30:00', 6),
-        (13, 9, 11, '2026-08-27', '13:00:00', 6);
+    INSERT INTO logs(status_before, status_after, logDate, logTime, orderID) VALUES
+        (1, 2, '2026-08-10', '09:00:00', 1),
+        (2, 3, '2026-08-10', '09:15:00', 1),
+        (3, 14, '2026-08-12', '17:30:00', 1),
+        (14, 15, '2026-08-13', '10:00:00', 1),
+        (2, 3, '2026-08-20', '11:00:00', 2),
+        (3, 9, '2026-08-21', '08:45:00', 2),
+        (1, 2, '2026-08-25', '14:00:00', 3),
+        (2, 3, '2026-08-25', '14:20:00', 3),
+        (12, 13, '2026-08-24', '16:00:00', 4),
+        (13, 14, '2026-08-24', '18:30:00', 4),
+        (1, 16, '2026-08-26', '09:05:00', 5),
+        (3, 9, '2026-08-27', '07:30:00', 6),
+        (9, 11, '2026-08-27', '13:00:00', 6);
     GO
 
--- ================= Populate Logs Table - End ================
+-- ================== Populate Logs Table - End ===================
 -- ============================================================
 
 -- ============================================================
--- ============== Populate Feedback Table - Start =============
+-- ================ Populate Feedback Table - Start ================
 
 IF OBJECT_ID('dbo.feedback', 'U') IS NOT NULL
-    INSERT INTO feedback(feedbackID, feedback, userID, orderID) VALUES
-        (1, 'One of my shirts came back with a missing button.', 1, 1),
-        (2, 'Great service, very fast turnaround!', 2, 2),
-        (3, 'Driver was late for pickup by 30 minutes.', 3, 3),
-        (4, 'App is easy to use, love the tracking feature.', 4, NULL);
+    INSERT INTO feedback(feedback, userID, orderID) VALUES
+        ('One of my shirts came back with a missing button.', 1, 1),
+        ('Great service, very fast turnaround!', 2, 2),
+        ('Driver was late for pickup by 30 minutes.', 3, 3),
+        ('App is easy to use, love the tracking feature.', 4, NULL);
     GO
 
--- =============== Populate Feedback Table - End ==============
+-- ================= Populate Feedback Table - End =================
 -- ============================================================
 
 -- ============================================================
--- ================ Populate Chat Table - Start ===============
+-- ================== Populate Chat Table - Start ===================
 
 IF OBJECT_ID('dbo.chat', 'U') IS NOT NULL
-    INSERT INTO chat(chatID, sentAt, message, userID, feedbackID) VALUES
-        (1, '2026-08-13 10:15:00', 'We are sorry about the missing button. A replacement shirt credit has been issued.', 9, 1),
-        (2, '2026-08-13 10:20:00', 'Thank you for resolving this so quickly.', 1, 1),
-        (3, '2026-08-25 15:00:00', 'Apologies for the delay, we have flagged this with the rider.', 9, 3);
+    INSERT INTO chat(sentAt, message, userID, feedbackID) VALUES
+        ('2026-08-13 10:15:00', 'We are sorry about the missing button. A replacement shirt credit has been issued.', 9, 1),
+        ('2026-08-13 10:20:00', 'Thank you for resolving this so quickly.', 1, 1),
+        ('2026-08-25 15:00:00', 'Apologies for the delay, we have flagged this with the rider.', 9, 3);
     GO
 
--- ================= Populate Chat Table - End ================
+-- =================== Populate Chat Table - End ====================
 -- ============================================================
 
 -- ============================================================
--- ============== Populate Delivery Table - Start =============
+-- ================ Populate Delivery Table - Start ==================
 
 IF OBJECT_ID('dbo.delivery', 'U') IS NOT NULL
-    INSERT INTO delivery(deliverID, orderID, userID, pickup_riderID, delivery_riderID, riderNotes, pickup_scheduled, pickup_actual, delivery_time) VALUES
-        (1, 1, 1, 7, 8, 'Left at security desk on delivery', '2026-08-10 09:00:00', '2026-08-10 09:10:00', '2026-08-13 10:00:00'),
-        (2, 2, 2, 7, NULL, NULL, '2026-08-20 11:00:00', '2026-08-20 11:05:00', NULL),
-        (3, 3, 3, NULL, NULL, NULL, '2026-08-25 14:00:00', NULL, NULL),
-        (4, 4, 4, 8, 8, 'Customer requested evening delivery', '2026-08-23 16:00:00', '2026-08-23 16:05:00', '2026-08-24 18:30:00'),
-        (5, 6, 10, 7, NULL, 'Awaiting processing before delivery scheduling', '2026-08-27 08:00:00', '2026-08-27 08:10:00', NULL);
+    INSERT INTO delivery(orderID, userID, pickup_riderID, delivery_riderID, riderNotes, pickup_scheduled, pickup_actual, delivery_time) VALUES
+        (1, 1, 7, 8, 'Left at security desk on delivery', '2026-08-10 09:00:00', '2026-08-10 09:10:00', '2026-08-13 10:00:00'),
+        (2, 2, 7, NULL, NULL, '2026-08-20 11:00:00', '2026-08-20 11:05:00', NULL),
+        (3, 3, NULL, NULL, NULL, '2026-08-25 14:00:00', NULL, NULL),
+        (4, 4, 8, 8, 'Customer requested evening delivery', '2026-08-23 16:00:00', '2026-08-23 16:05:00', '2026-08-24 18:30:00'),
+        (6, 10, 7, NULL, 'Awaiting processing before delivery scheduling', '2026-08-27 08:00:00', '2026-08-27 08:10:00', NULL);
     GO
 
--- =============== Populate Delivery Table - End ==============
+-- ================= Populate Delivery Table - End ===================
 -- ============================================================
