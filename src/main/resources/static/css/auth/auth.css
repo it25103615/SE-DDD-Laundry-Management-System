@@ -2,64 +2,6 @@
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
-}
-.auth_main {
-  flex: 1;
-  display: grid;
-  place-items: center;
-  padding: 50px 0;
-}
-.auth_panel {
-  width: 100%;
-  max-width: 440px;
-  padding: 34px;
-  background: rgba(243, 242, 242, 0.72);
-  border: 1px solid rgba(0, 136, 176, 0.14);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(14px);
-}
-.auth_panel h1 {
-  font-size: 40px;
-  margin: 8px 0;
-}
-.auth_panel .custom_button {
-  width: 100%;
-}
-.auth_prompt {
-  text-align: center;
-  color: var(--black_60);
-  margin-top: 20px;
-}
-.password_strength {
-  margin: -8px 0 18px;
-}
-.password_strength .progress {
-  margin: 7px 0;
-}
-.form_message {
-  display: none;
-}
-.form_message:target {
-  display: block;
-}
-.error_page {
-  max-width: 700px;
-}
-.error_code {
-  color: var(--primary_color);
-  font-size: 15px;
-  letter-spacing: 3px;
-}
-@media (max-width: 520px) {
-  .auth_panel {
-    padding: 24px 18px;
-  }
-  .auth_panel h1 {
-    font-size: 34px;
-  }
-}
-.auth_body {
   background: linear-gradient(
     135deg,
     #e5faff 0%,
@@ -94,14 +36,73 @@
   );
   animation: float-orb 11s ease-in-out infinite alternate-reverse;
 }
+
+.auth_main {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 50px 0;
+}
+
 .auth_panel {
+  width: 100%;
+  max-width: 440px;
+  padding: 34px;
+  background: rgba(243, 242, 242, 0.72);
+  border: 1px solid rgba(0, 136, 176, 0.14);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(14px);
   position: relative;
   z-index: 1;
+}
+.auth_panel h1 {
+  font-size: 40px;
+  margin: 8px 0;
 }
 .auth_panel .subtitle {
   font-size: 12px;
   letter-spacing: 0.14em;
 }
+.auth_panel .custom_button {
+  width: 100%;
+}
+
+.auth_prompt {
+  text-align: center;
+  color: var(--black-60);
+  margin-top: 20px;
+}
+
+.password_strength {
+  margin: -8px 0 18px;
+}
 .password_strength .progress {
   height: 9px;
+  margin: 7px 0;
+}
+
+.form_message {
+  display: none;
+}
+.form_message:target {
+  display: block;
+}
+
+.error_page {
+  max-width: 700px;
+}
+.error_code {
+  color: var(--primary-color);
+  font-size: 15px;
+  letter-spacing: 3px;
+}
+
+@media (max-width: 520px) {
+  .auth_panel {
+    padding: 24px 18px;
+  }
+  .auth_panel h1 {
+    font-size: 34px;
+  }
 }
