@@ -228,6 +228,13 @@ ul.navigation li.nav_right a:not(.custom_button):hover {
   color: var(--primary-color);
 }
 
+@keyframes ripple {
+  to {
+    transform: scale(18);
+    opacity: 0;
+  }
+}
+
 .link {
   color: var(--primary-color);
 }
