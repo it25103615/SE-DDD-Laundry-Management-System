@@ -12,6 +12,7 @@
   --black-70: color-mix(in srgb, black 70%, transparent);
   --black-60: color-mix(in srgb, black 60%, transparent);
   --black-20: color-mix(in srgb, black 20%, transparent);
+  --black-10: color-mix(in srgb, black 10%, transparent);
 
   --color-bg: #f3f2f2;
 
@@ -543,6 +544,11 @@ tbody tr {
   background: rgba(255, 255, 255, 0.76);
   box-shadow: 0 8px 20px rgba(3, 75, 120, 0.08);
 }
+tbody tr:hover {
+  background: rgba(221, 247, 255, 0.95);
+  transform: translateY(-2px);
+  box-shadow: 0 13px 28px rgba(3, 75, 120, 0.14);
+}
 tbody td {
   border: 0;
 }
@@ -552,11 +558,6 @@ tbody td:first-child {
 }
 tbody td:last-child {
   border-radius: 0 12px 12px 0;
-}
-tbody tr:hover {
-  background: rgba(221, 247, 255, 0.95);
-  transform: translateY(-2px);
-  box-shadow: 0 13px 28px rgba(3, 75, 120, 0.14);
 }
 
 .metric strong {
