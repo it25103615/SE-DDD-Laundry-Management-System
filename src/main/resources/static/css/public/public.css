@@ -3,51 +3,17 @@
   flex-direction: column;
   min-height: 100dvh;
 }
+
 .public_main {
   flex: 1;
   display: grid;
   place-items: center;
   padding: 50px 0;
 }
-.error_page {
-  max-width: 700px;
-}
-.error_code {
-  color: var(--primary_color);
-  font-size: 15px;
-  letter-spacing: 3px;
-}
+
 .public_hero {
   padding: 65px 0 45px;
   max-width: 760px;
-}
-.public_hero h1 {
-  font-size: 48px;
-  margin: 10px 0 18px;
-}
-.public_hero p {
-  font-size: 18px;
-  color: var(--black_70);
-  max-width: 58ch;
-}
-.service_detail {
-  padding: 28px 0;
-  border-top: 1px solid var(--black_20);
-}
-.service_detail:last-child {
-  border-bottom: 1px solid var(--black_20);
-}
-.price {
-  color: var(--primary_color);
-  font-size: 24px;
-  font-weight: bold;
-}
-.pricing_note {
-  margin-top: 35px;
-  padding: 24px;
-  background: var(--secondary_color);
-}
-.public_hero {
   position: relative;
   isolation: isolate;
 }
@@ -67,7 +33,29 @@
   filter: blur(2px);
   z-index: -1;
 }
+
+.public_hero h1 {
+  font-size: 48px;
+  margin: 10px 0 18px;
+}
+.public_hero p {
+  font-size: 18px;
+  color: var(--black-70);
+  max-width: 58ch;
+}
+
+.error_page {
+  max-width: 700px;
+}
+.error_code {
+  color: var(--primary-color);
+  font-size: 15px;
+  letter-spacing: 3px;
+}
+
 .service_detail {
+  padding: 28px 0;
+  border-top: 1px solid var(--black-20);
   transition:
     padding 0.2s ease,
     background-color 0.2s ease;
@@ -77,12 +65,27 @@
   padding-right: 18px;
   background: rgba(233, 248, 255, 0.55);
 }
+.service_detail:last-child {
+  border-bottom: 1px solid var(--black-20);
+}
+
+.price {
+  color: var(--primary-color);
+  font-size: 24px;
+  font-weight: bold;
+}
+.pricing_note {
+  margin-top: 35px;
+  padding: 24px;
+  background: var(--secondary-color);
+}
+
 .trust_strip {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1px;
-  background: var(--black_10);
-  border: 1px solid var(--black_10);
+  background: var(--black-10);
+  border: 1px solid var(--black-10);
 }
 .trust_item {
   padding: 24px;
@@ -90,9 +93,10 @@
 }
 .trust_item strong {
   display: block;
-  color: var(--primary_color);
+  color: var(--primary-color);
   font-size: 28px;
 }
+
 .testimonial {
   position: relative;
   padding-top: 35px;
@@ -106,22 +110,11 @@
   font-size: 70px;
   line-height: 1;
 }
+
 .process_step {
-  border-top: 3px solid var(--color-accent);
+  border-top: 3px solid var(--primary-color);
 }
-@media (max-width: 800px) {
-  .trust_strip {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-@media (max-width: 520px) {
-  .public_hero h1 {
-    font-size: 38px;
-  }
-  .trust_strip {
-    grid-template-columns: 1fr;
-  }
-}
+
 .hero_saas {
   min-height: 610px;
   display: grid;
@@ -153,6 +146,7 @@
     transform: rotate(360deg) scale(1.08);
   }
 }
+
 .hero_saas h1 {
   font-size: clamp(44px, 5vw, 72px);
   margin: 12px 0 20px;
@@ -161,6 +155,7 @@
   font-size: 19px;
   color: rgba(255, 255, 255, 0.86);
 }
+
 .hero_visual {
   position: relative;
 }
@@ -175,6 +170,7 @@
     transform: translateY(-12px);
   }
 }
+
 .floating_chip {
   position: absolute;
   padding: 10px 14px;
@@ -199,13 +195,16 @@
     transform: translateY(-9px) rotate(1deg);
   }
 }
+
 .stat_number {
   font-size: 34px;
   font-weight: 700;
   background: linear-gradient(90deg, var(--cyan), white);
   -webkit-background-clip: text;
+  background-clip: text;
   color: transparent;
 }
+
 .logo_cloud {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -221,6 +220,7 @@
   font-weight: 700;
   box-shadow: 0 8px 20px rgba(3, 75, 120, 0.08);
 }
+
 .faq_item {
   padding: 18px 0;
   border-bottom: 1px solid rgba(3, 75, 120, 0.14);
@@ -233,12 +233,25 @@
 .faq_item p {
   padding-top: 12px;
 }
+
 @media (max-width: 800px) {
+  .trust_strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
   .hero_saas {
     grid-template-columns: 1fr;
     padding: 32px;
   }
   .logo_cloud {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .public_hero h1 {
+    font-size: 38px;
+  }
+  .trust_strip {
+    grid-template-columns: 1fr;
   }
 }

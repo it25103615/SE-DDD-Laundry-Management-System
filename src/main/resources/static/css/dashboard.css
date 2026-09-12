@@ -1,19 +1,30 @@
 .dashboard_nav {
-  border-bottom: 1px solid var(--black_20);
+  border-bottom: 1px solid var(--black-20);
+  margin-bottom: 6px;
 }
 .dashboard_nav .logo h3 {
   color: #201e1d;
 }
+
 .profile_badge {
   width: 38px;
   height: 38px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: var(--secondary_color);
-  color: var(--primary_color);
+  background: var(--secondary-color);
+  color: var(--primary-color);
   font-weight: bold;
+  box-shadow: inset 0 0 0 1px rgba(0, 136, 176, 0.18);
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease;
 }
+.profile_badge:hover {
+  transform: scale(1.06);
+  background: var(--color-accent-100);
+}
+
 .board_columns {
   display: grid;
   grid-template-columns: repeat(4, minmax(220px, 1fr));
@@ -21,23 +32,34 @@
   overflow-x: auto;
 }
 .board_column {
-  background: color-mix(in srgb, var(--secondary_color) 55%, transparent);
+  background: color-mix(in srgb, var(--secondary-color) 55%, transparent);
   padding: 14px;
   min-height: 360px;
 }
+
 .order_card {
-  background: var(--bg_color);
-  border: 1px solid var(--black_20);
+  background: var(--color-bg);
+  border: 1px solid var(--black-20);
   padding: 16px;
   margin: 12px 0;
+  border-radius: var(--radius-md);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+.order_card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 .order_card p {
   margin: 7px 0;
 }
+
 .task_address {
   font-size: 18px;
   line-height: 1.5;
 }
+
 .metric {
   position: relative;
   overflow: hidden;
@@ -46,6 +68,11 @@
     rgba(234, 233, 233, 0.96),
     rgba(233, 248, 255, 0.88)
   );
+  min-height: 168px;
+}
+.metric::before {
+  height: 5px;
+  transform: scaleX(1);
 }
 .metric::after {
   content: "";
@@ -57,34 +84,51 @@
   border-radius: 50%;
   background: rgba(0, 136, 176, 0.1);
 }
+
+.metric:nth-child(4n + 1)::before {
+  background: linear-gradient(90deg, var(--cyan), var(--blue-bright));
+}
+.metric:nth-child(4n + 1) .icon_bubble {
+  background: linear-gradient(135deg, var(--blue-bright), var(--cyan));
+}
+
+.metric:nth-child(4n + 2)::before {
+  background: linear-gradient(90deg, var(--teal), var(--green));
+}
+.metric:nth-child(4n + 2) .icon_bubble {
+  background: linear-gradient(135deg, var(--teal), var(--green));
+}
+
+.metric:nth-child(4n + 3)::before {
+  background: linear-gradient(90deg, var(--purple), #ae86ff);
+}
+.metric:nth-child(4n + 3) .icon_bubble {
+  background: linear-gradient(135deg, var(--purple), #a17df3);
+}
+
+.metric:nth-child(4n + 4)::before {
+  background: linear-gradient(90deg, var(--orange), #ffd070);
+}
+.metric:nth-child(4n + 4) .icon_bubble {
+  background: linear-gradient(135deg, var(--orange), #ffbf69);
+}
+
 .metric strong {
   color: var(--color-accent-700);
 }
-.profile_badge {
-  box-shadow: inset 0 0 0 1px rgba(0, 136, 176, 0.18);
-  transition:
-    transform 0.2s ease,
-    background-color 0.2s ease;
-}
-.profile_badge:hover {
-  transform: scale(1.06);
-  background: var(--color-accent-100);
-}
-.order_card {
-  border-radius: var(--radius-md);
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease;
-}
-.order_card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
+
 .timeline_item::before {
   box-shadow: 0 0 0 5px var(--color-accent-100);
 }
 .timeline_item.done::before {
   box-shadow: 0 0 0 5px rgba(0, 136, 176, 0.15);
+}
+
+.table_wrap {
+  padding: 14px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.48);
+  box-shadow: 0 14px 34px rgba(3, 75, 120, 0.09);
 }
 tbody tr {
   transition: background-color 0.18s ease;
@@ -92,6 +136,7 @@ tbody tr {
 tbody tr:hover {
   background: rgba(233, 248, 255, 0.65);
 }
+
 .welcome_banner {
   padding: 34px;
   border-radius: 24px;
@@ -125,18 +170,7 @@ tbody tr:hover {
   color: white;
   -webkit-text-fill-color: initial;
 }
-.metric:nth-child(4n + 1) .icon_bubble {
-  background: linear-gradient(135deg, var(--blue-bright), var(--cyan));
-}
-.metric:nth-child(4n + 2) .icon_bubble {
-  background: linear-gradient(135deg, var(--teal), var(--green));
-}
-.metric:nth-child(4n + 3) .icon_bubble {
-  background: linear-gradient(135deg, var(--purple), #a17df3);
-}
-.metric:nth-child(4n + 4) .icon_bubble {
-  background: linear-gradient(135deg, var(--orange), #ffbf69);
-}
+
 .reward_card {
   color: white;
   background: linear-gradient(135deg, var(--purple), var(--blue-bright));
@@ -144,6 +178,7 @@ tbody tr:hover {
 .reward_card::before {
   background: linear-gradient(90deg, var(--orange), var(--cyan));
 }
+
 .tracking_visual {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -165,11 +200,7 @@ tbody tr:hover {
     rgba(3, 75, 120, 0.12) 58%
   );
 }
-.tracking_milestone {
-  position: relative;
-  z-index: 1;
-  text-align: center;
-}
+
 .tracking_icon {
   width: 52px;
   height: 52px;
@@ -183,10 +214,17 @@ tbody tr:hover {
     0 0 0 7px #eff9ff,
     0 8px 20px rgba(3, 75, 120, 0.22);
 }
+
+.tracking_milestone {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
 .tracking_milestone.pending .tracking_icon {
-  color: var(--black_60);
+  color: var(--black-60);
   background: #e4edf2;
 }
+
 @media (max-width: 650px) {
   .tracking_visual {
     grid-template-columns: 1fr;
@@ -209,32 +247,4 @@ tbody tr:hover {
   .tracking_icon {
     margin: 0;
   }
-}
-.dashboard_nav {
-  margin-bottom: 6px;
-}
-.metric {
-  min-height: 168px;
-}
-.metric::before {
-  height: 5px;
-  transform: scaleX(1);
-}
-.metric:nth-child(4n + 1)::before {
-  background: linear-gradient(90deg, var(--cyan), var(--blue-bright));
-}
-.metric:nth-child(4n + 2)::before {
-  background: linear-gradient(90deg, var(--teal), var(--green));
-}
-.metric:nth-child(4n + 3)::before {
-  background: linear-gradient(90deg, var(--purple), #ae86ff);
-}
-.metric:nth-child(4n + 4)::before {
-  background: linear-gradient(90deg, var(--orange), #ffd070);
-}
-.table_wrap {
-  padding: 14px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.48);
-  box-shadow: 0 14px 34px rgba(3, 75, 120, 0.09);
 }
