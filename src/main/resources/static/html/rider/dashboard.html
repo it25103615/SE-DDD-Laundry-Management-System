@@ -10,7 +10,7 @@
 
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
-    <script src="../../js/rider/rider.js" defer></script>
+    <script src="../../js/rider/riderAll.js" defer></script>
   </head>
   <body>
     <nav class="dashboard_nav">
@@ -19,48 +19,61 @@
           <a href="dashboard.html"><h3>LaundryLink</h3></a>
         </li>
         <li class="nav_right">
-          <a href="dashboard.html">Dashboard</a
-          ><a href="task_list.html">Task List</a
-          ><span class="profile_badge">RK</span>
+          <a href="dashboard.html">Dashboard</a>
+          <a href="task_list.html">Task List</a>
+          <span class="profile_badge" id="profile_badge">R</span>
         </li>
       </ul>
     </nav>
+
     <main>
       <header class="page_header top_bar">
         <div>
           <div class="subtitle">RIDER DASHBOARD</div>
-          <h1>Good morning, Ravi</h1>
+          <h1 id="greeting">Good morning</h1>
           <p class="muted">Your pickup and delivery route for today.</p>
         </div>
         <a
           class="custom_button custom_button_bg"
           href="task_list.html"
           style="font-size: 17px; padding: 14px 28px; margin-top: 34px"
-          >Select New Assignments</a
-        >
+        >Select New Assignments</a>
       </header>
-      <section class="grid grid_three">
+
+      <section class="grid grid_three" aria-label="Dashboard summary">
         <article class="card metric">
-          <span class="muted small">TASKS TODAY</span><strong>8</strong>
+          <span class="muted small">TASKS AVAILABLE TODAY</span>
+          <div>
+            <strong>Pickup: <span id="available_pickup_count">0</span></strong>
+            <strong>Delivery: <span id="available_delivery_count">0</span></strong>
+          </div>
         </article>
+
         <article class="card metric">
-          <span class="muted small">COMPLETED</span><strong>3</strong>
+          <span class="muted small">COMPLETED</span>
+          <div>
+            <strong>Pickup: <span id="completed_pickup_count">0</span></strong>
+            <strong>Delivery: <span id="completed_delivery_count">0</span></strong>
+          </div>
         </article>
+
         <article class="card metric">
-          <span class="muted small">REMAINING</span><strong>5</strong>
+          <span class="muted small">REMAINING</span>
+          <div>
+            <strong>Pickup: <span id="remaining_pickup_count">0</span></strong>
+            <strong>Delivery: <span id="remaining_delivery_count">0</span></strong>
+          </div>
         </article>
       </section>
+
       <header class="page_header" style="margin-top: 44px">
         <div class="subtitle">ASSIGNED TO YOU</div>
         <h1>My Work</h1>
         <p>Tasks you've accepted for today.</p>
       </header>
+
       <div class="grid grid_two">
-        <section
-          class="task_section pickup_section"
-          data-role="mine"
-          aria-labelledby="dash_pickup_heading"
-        >
+        <section class="task_section pickup_section" data-role="mine" aria-labelledby="dash_pickup_heading">
           <div class="task_section_header">
             <div>
               <span class="task_icon" aria-hidden="true">↑</span>
@@ -69,12 +82,10 @@
                 <h2 id="dash_pickup_heading">Pickup Tasks</h2>
               </div>
             </div>
-            <span class="task_count">1 pickup</span>
+            <span class="task_count" data-count>0 pickups</span>
           </div>
-          <div
-            class="table_wrap"
-            style="max-height: 420px; overflow-y: auto; overflow-x: auto"
-          >
+
+          <div class="table_wrap" style="max-height: 420px; overflow-y: auto; overflow-x: auto">
             <table>
               <thead>
                 <tr>
@@ -85,33 +96,12 @@
                   <th></th>
                 </tr>
               </thead>
-              <tbody>
-                <tr
-                  data-order="1052"
-                  data-time="11:00 AM"
-                  data-type="pickup"
-                  data-name="Priya Fernando"
-                  data-address="24 Flower Road, Colombo 07"
-                  data-phone="+94 77 123 4567"
-                  data-bags="2"
-                  data-note="Call when you arrive at the gate."
-                  data-status="Pending"
-                >
-                  <td>11:00 AM</td>
-                  <td>#1052</td>
-                  <td>24 Flower Road, Colombo 07</td>
-                  <td><span class="status">Pending</span></td>
-                  <td></td>
-                </tr>
-              </tbody>
+              <tbody id="dashboard_pickups"></tbody>
             </table>
           </div>
         </section>
-        <section
-          class="task_section delivery_section"
-          data-role="mine"
-          aria-labelledby="dash_delivery_heading"
-        >
+
+        <section class="task_section delivery_section" data-role="mine" aria-labelledby="dash_delivery_heading">
           <div class="task_section_header">
             <div>
               <span class="task_icon" aria-hidden="true">↓</span>
@@ -120,55 +110,31 @@
                 <h2 id="dash_delivery_heading">Delivery Tasks</h2>
               </div>
             </div>
-            <span class="task_count">0 deliveries</span>
+            <span class="task_count" data-count>0 deliveries</span>
           </div>
-          <div
-            class="table_wrap"
-            style="max-height: 420px; overflow-y: auto; overflow-x: auto"
-          >
+
+          <div class="table_wrap" style="max-height: 420px; overflow-y: auto; overflow-x: auto">
             <table>
               <thead>
                 <tr>
-                  <th>TIME</th>
                   <th>ORDER</th>
                   <th>ADDRESS</th>
                   <th>STATUS</th>
                   <th></th>
                 </tr>
               </thead>
-              <tbody>
-                <tr class="empty_row">
-                  <td
-                    colspan="5"
-                    class="muted small"
-                    style="text-align: center; padding: 26px 12px"
-                  >
-                    No deliveries accepted yet — accept one from the Task List.
-                  </td>
-                </tr>
-              </tbody>
+              <tbody id="dashboard_deliveries"></tbody>
             </table>
           </div>
         </section>
       </div>
     </main>
+
     <div class="modal_overlay" id="task_modal" hidden>
-      <div
-        class="modal_box"
-        id="task_modal_box"
-        role="dialog"
-        aria-modal="true"
-      >
-        <button
-          type="button"
-          class="modal_close_x"
-          aria-label="Close"
-          data-modal-close
-        >
-          ×
-        </button>
+      <div class="modal_box" id="task_modal_box" role="dialog" aria-modal="true">
+        <button type="button" class="modal_close_x" aria-label="Close" data-modal-close>×</button>
+        <div id="modal_content"></div>
       </div>
     </div>
-    <script></script>
   </body>
 </html>
