@@ -6,6 +6,7 @@ import _6.Y2.S1.MTR._6.LaundryLink.logs.Log;
 import _6.Y2.S1.MTR._6.LaundryLink.logs.LogService;
 import _6.Y2.S1.MTR._6.LaundryLink.status.Status;
 import _6.Y2.S1.MTR._6.LaundryLink.status.StatusService;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,6 +54,55 @@ public class PaymentService {
         );
     }
 
+    public PaymentResponse createPayment(Integer managementUserID, PaymentCrudRequest request) {
+        paymentAccessService.requireManagementUser(managementUserID);
+        validatePaymentRequest(request);
+        verifyOrderExists(request.getOrderID());
+
+        Payment savedPayment = paymentRepository.save(
+                new Payment(request.getAmount().doubleValue(), request.getOrderID())
+        );
+        return toPaymentResponse(savedPayment);
+    }
+
+    public PaymentResponse getPayment(Integer requesterID, Integer paymentID) {
+        Payment payment = paymentRepository.findById(paymentID).orElseThrow();
+        verifyCanViewPaymentRecord(requesterID, payment);
+        return toPaymentResponse(payment);
+    }
+
+    public List<PaymentResponse> getPayments(Integer managementUserID) {
+        paymentAccessService.requireManagementUser(managementUserID);
+        return paymentRepository.findAll().stream()
+                .map(this::toPaymentResponse)
+                .toList();
+    }
+
+    public List<PaymentResponse> getPaymentsByOrder(Integer requesterID, Integer orderID) {
+        verifyOrderExists(orderID);
+        verifyCanViewOrderPaymentRecords(requesterID, billingService.getBillingDetails(orderID));
+        return paymentRepository.findByOrderID(orderID).stream()
+                .map(this::toPaymentResponse)
+                .toList();
+    }
+
+    public PaymentResponse updatePayment(Integer managementUserID, Integer paymentID, PaymentCrudRequest request) {
+        paymentAccessService.requireManagementUser(managementUserID);
+        validatePaymentRequest(request);
+        verifyOrderExists(request.getOrderID());
+
+        Payment payment = paymentRepository.findById(paymentID).orElseThrow();
+        payment.setAmount(request.getAmount().doubleValue());
+        payment.setOrderID(request.getOrderID());
+        return toPaymentResponse(paymentRepository.save(payment));
+    }
+
+    public void deletePayment(Integer managementUserID, Integer paymentID) {
+        paymentAccessService.requireManagementUser(managementUserID);
+        Payment payment = paymentRepository.findById(paymentID).orElseThrow();
+        paymentRepository.delete(payment);
+    }
+
     public PaymentConfirmationResponse submitPayment(Integer orderID, Integer customerID, PaymentRequest request) {
         PaymentStatusResponse currentStatus = getPaymentStatus(orderID, customerID);
 
@@ -95,11 +145,17 @@ public class PaymentService {
                     BillingDetails billingDetails = billingService.getBillingDetails(payment.getOrderID());
                     return billingDetails.getUserID().equals(customerID);
                 })
-                .map(payment -> new PaymentHistoryResponse(
-                        payment.getPaymentID(),
-                        payment.getOrderID(),
-                        BigDecimal.valueOf(payment.getAmount())
-                ))
+                .map(payment -> {
+                    BillingDetails billingDetails = billingService.getBillingDetails(payment.getOrderID());
+                    PaymentStatusResponse status = buildPaymentStatus(payment.getOrderID(), billingDetails);
+                    return new PaymentHistoryResponse(
+                            payment.getPaymentID(),
+                            payment.getOrderID(),
+                            BigDecimal.valueOf(payment.getAmount()),
+                            status.getStatus(),
+                            status.getOrderStatus()
+                    );
+                })
                 .toList();
     }
 
@@ -107,20 +163,37 @@ public class PaymentService {
             Integer managementUserID,
             Integer orderID,
             Integer customerID,
-            PaymentStatus paymentStatus
+            PaymentStatus paymentStatus,
+            String search
     ) {
         paymentAccessService.requireManagementUser(managementUserID);
 
+        String normalizedSearch = search == null ? null : search.trim().toLowerCase();
         return paymentRepository.findAll().stream()
                 .map(this::toPaymentRecord)
                 .filter(record -> orderID == null || Objects.equals(record.getOrderID(), orderID))
                 .filter(record -> customerID == null || Objects.equals(record.getCustomerID(), customerID))
                 .filter(record -> paymentStatus == null || record.getPaymentStatus() == paymentStatus)
+                .filter(record -> normalizedSearch == null || normalizedSearch.isBlank() || matchesPaymentSearch(record, normalizedSearch))
                 .toList();
     }
 
     @Transactional
     public PaymentVerificationResponse verifyPayment(Integer managementUserID, Integer paymentID, PaymentVerificationRequest request) {
+        return verifyPaymentDecision(managementUserID, paymentID, Boolean.TRUE.equals(request.getApproved()));
+    }
+
+    @Transactional
+    public PaymentVerificationResponse approvePayment(Integer managementUserID, Integer paymentID) {
+        return verifyPaymentDecision(managementUserID, paymentID, true);
+    }
+
+    @Transactional
+    public PaymentVerificationResponse rejectPayment(Integer managementUserID, Integer paymentID) {
+        return verifyPaymentDecision(managementUserID, paymentID, false);
+    }
+
+    private PaymentVerificationResponse verifyPaymentDecision(Integer managementUserID, Integer paymentID, boolean approved) {
         paymentAccessService.requireManagementUser(managementUserID);
 
         Payment payment = paymentRepository.findById(paymentID).orElseThrow();
@@ -134,17 +207,22 @@ public class PaymentService {
         }
 
         PaymentOrderStatus previousOrderStatus = paymentManagementRepository.findOrderStatus(payment.getOrderID()).orElseThrow();
-        Status updatedStatus = statusService.getByLabel(Boolean.TRUE.equals(request.getApproved()) ? PAYMENT_VERIFIED : PAYMENT_FAILED);
+        Status updatedStatus = statusService.getByLabel(approved ? PAYMENT_VERIFIED : PAYMENT_FAILED);
+        LocalDate verificationDate = LocalDate.now();
+        LocalTime verificationTime = LocalTime.now();
 
         paymentManagementRepository.updateOrderStatus(payment.getOrderID(), updatedStatus.getStatusID());
-        recordVerificationLog(previousOrderStatus, updatedStatus, payment.getOrderID());
+        recordVerificationLog(previousOrderStatus, updatedStatus, payment.getOrderID(), verificationDate, verificationTime);
 
         return new PaymentVerificationResponse(
                 paymentID,
                 payment.getOrderID(),
                 previousOrderStatus.getStatusLabel(),
                 updatedStatus.getStatusLabel(),
-                Boolean.TRUE.equals(request.getApproved()) ? "Payment approved" : "Payment rejected"
+                managementUserID,
+                verificationDate,
+                verificationTime,
+                approved ? "Payment approved" : "Payment rejected"
         );
     }
 
@@ -152,6 +230,28 @@ public class PaymentService {
         return paymentRepository.findByOrderID(orderID).stream()
                 .map(payment -> BigDecimal.valueOf(payment.getAmount()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private void validatePaymentRequest(PaymentCrudRequest request) {
+        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Payment amount must be greater than zero");
+        }
+
+        if (request.getOrderID() == null) {
+            throw new IllegalArgumentException("Order ID is required");
+        }
+    }
+
+    private void verifyOrderExists(Integer orderID) {
+        paymentManagementRepository.findOrderStatus(orderID).orElseThrow();
+    }
+
+    private PaymentResponse toPaymentResponse(Payment payment) {
+        return new PaymentResponse(
+                payment.getPaymentID(),
+                BigDecimal.valueOf(payment.getAmount()),
+                payment.getOrderID()
+        );
     }
 
     private PaymentStatus calculateStatus(BigDecimal payableAmount, BigDecimal paidAmount) {
@@ -187,6 +287,8 @@ public class PaymentService {
 
         if (outstandingAmount.compareTo(BigDecimal.ZERO) < 0) {
             outstandingAmount = BigDecimal.ZERO;
+        } else if (outstandingAmount.compareTo(BigDecimal.ZERO) == 0) {
+            outstandingAmount = BigDecimal.ZERO;
         }
 
         return new PaymentStatusResponse(
@@ -194,7 +296,8 @@ public class PaymentService {
                 payableAmount,
                 paidAmount,
                 outstandingAmount,
-                calculateStatus(payableAmount, paidAmount, orderStatus)
+                calculateStatus(payableAmount, paidAmount, orderStatus),
+                orderStatus.getStatusLabel()
         );
     }
 
@@ -216,14 +319,56 @@ public class PaymentService {
         );
     }
 
-    private void recordVerificationLog(PaymentOrderStatus previousOrderStatus, Status updatedStatus, Integer orderID) {
+    private void recordVerificationLog(
+            PaymentOrderStatus previousOrderStatus,
+            Status updatedStatus,
+            Integer orderID,
+            LocalDate verificationDate,
+            LocalTime verificationTime
+    ) {
         Log log = new Log();
         log.setStatusBefore(statusService.getById(previousOrderStatus.getStatusID()));
         log.setStatusAfter(updatedStatus);
-        log.setLogDate(LocalDate.now());
-        log.setLogTime(LocalTime.now());
+        log.setLogDate(verificationDate);
+        log.setLogTime(verificationTime);
         log.setOrderID(orderID);
 
         logService.logChange(log);
+    }
+
+    private void verifyCanViewPaymentRecord(Integer requesterID, Payment payment) {
+        BillingDetails billingDetails = billingService.getBillingDetails(payment.getOrderID());
+        verifyCanViewOrderPaymentRecords(requesterID, billingDetails);
+    }
+
+    private void verifyCanViewOrderPaymentRecords(Integer requesterID, BillingDetails billingDetails) {
+        if (hasManagementAccess(requesterID)) {
+            return;
+        }
+
+        paymentAccessService.requireCustomer(requesterID);
+        paymentAccessService.verifyOrderBelongsToCustomer(billingDetails, requesterID);
+    }
+
+    private boolean hasManagementAccess(Integer userID) {
+        try {
+            paymentAccessService.requireManagementUser(userID);
+            return true;
+        } catch (AccessDeniedException ex) {
+            return false;
+        }
+    }
+
+    private boolean matchesPaymentSearch(PaymentRecordResponse record, String search) {
+        return contains(record.getPaymentID(), search)
+                || contains(record.getOrderID(), search)
+                || contains(record.getCustomerID(), search)
+                || contains(record.getAmount(), search)
+                || contains(record.getPaymentStatus(), search)
+                || contains(record.getOrderStatus(), search);
+    }
+
+    private boolean contains(Object value, String search) {
+        return value != null && value.toString().toLowerCase().contains(search);
     }
 }

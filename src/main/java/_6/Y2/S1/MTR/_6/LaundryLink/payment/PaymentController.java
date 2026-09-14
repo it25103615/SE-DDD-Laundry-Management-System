@@ -20,6 +20,105 @@ public class PaymentController {
         this.paymentAccessService = paymentAccessService;
     }
 
+    @PostMapping
+    public ResponseEntity<PaymentResponse> createPayment(
+            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
+            Principal principal,
+            @Valid @RequestBody PaymentCrudRequest request
+    ) {
+        try {
+            Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
+            return ResponseEntity.status(201).body(paymentService.createPayment(userID, request));
+        } catch (NoSuchElementException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/{paymentID}")
+    public ResponseEntity<PaymentResponse> getPayment(
+            @PathVariable Integer paymentID,
+            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
+            Principal principal
+    ) {
+        try {
+            Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
+            return ResponseEntity.ok(paymentService.getPayment(userID, paymentID));
+        } catch (NoSuchElementException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
+        }
+    }
+
+    @GetMapping
+    public ResponseEntity<List<PaymentResponse>> getPayments(
+            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
+            Principal principal
+    ) {
+        try {
+            Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
+            return ResponseEntity.ok(paymentService.getPayments(userID));
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
+        }
+    }
+
+    @GetMapping("/orders/{orderID}")
+    public ResponseEntity<List<PaymentResponse>> getPaymentsByOrder(
+            @PathVariable Integer orderID,
+            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
+            Principal principal
+    ) {
+        try {
+            Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
+            return ResponseEntity.ok(paymentService.getPaymentsByOrder(userID, orderID));
+        } catch (NoSuchElementException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
+        }
+    }
+
+    @PutMapping("/{paymentID}")
+    public ResponseEntity<PaymentResponse> updatePayment(
+            @PathVariable Integer paymentID,
+            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
+            Principal principal,
+            @Valid @RequestBody PaymentCrudRequest request
+    ) {
+        try {
+            Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
+            return ResponseEntity.ok(paymentService.updatePayment(userID, paymentID, request));
+        } catch (NoSuchElementException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @DeleteMapping("/{paymentID}")
+    public ResponseEntity<Void> deletePayment(
+            @PathVariable Integer paymentID,
+            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
+            Principal principal
+    ) {
+        try {
+            Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
+            paymentService.deletePayment(userID, paymentID);
+            return ResponseEntity.noContent().build();
+        } catch (NoSuchElementException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
+        }
+    }
+
     @GetMapping("/orders/{orderID}/amount")
     public ResponseEntity<PaymentAmountResponse> getAmountDue(
             @PathVariable Integer orderID,
@@ -108,11 +207,12 @@ public class PaymentController {
             @RequestParam(required = false) Integer orderID,
             @RequestParam(required = false) Integer customerID,
             @RequestParam(required = false) PaymentStatus status,
+            @RequestParam(required = false) String search,
             Principal principal
     ) {
         try {
             Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
-            return ResponseEntity.ok(paymentService.getPaymentRecords(userID, orderID, customerID, status));
+            return ResponseEntity.ok(paymentService.getPaymentRecords(userID, orderID, customerID, status, search));
         } catch (AccessDeniedException ex) {
             return ResponseEntity.status(403).build();
         }
@@ -128,6 +228,42 @@ public class PaymentController {
         try {
             Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
             return ResponseEntity.ok(paymentService.verifyPayment(userID, paymentID, request));
+        } catch (NoSuchElementException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(409).build();
+        }
+    }
+
+    @PostMapping("/management/{paymentID}/approve")
+    public ResponseEntity<PaymentVerificationResponse> approvePayment(
+            @PathVariable Integer paymentID,
+            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
+            Principal principal
+    ) {
+        try {
+            Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
+            return ResponseEntity.ok(paymentService.approvePayment(userID, paymentID));
+        } catch (NoSuchElementException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(409).build();
+        }
+    }
+
+    @PostMapping("/management/{paymentID}/reject")
+    public ResponseEntity<PaymentVerificationResponse> rejectPayment(
+            @PathVariable Integer paymentID,
+            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
+            Principal principal
+    ) {
+        try {
+            Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
+            return ResponseEntity.ok(paymentService.rejectPayment(userID, paymentID));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
         } catch (AccessDeniedException ex) {
