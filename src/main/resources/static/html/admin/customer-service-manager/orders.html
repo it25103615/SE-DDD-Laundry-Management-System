@@ -1,104 +1,77 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Customer Service Orders | LaundryLink</title>
-    <link rel="stylesheet" href="../../../css/global.css" />
-    <link rel="stylesheet" href="../../../css/dashboard.css" />
-    <script src="../../../js/global-pre.js"></script>
-    <script src="../../../js/global-post.js" defer></script>
-  </head>
-  <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="../owner/administration_overview.html"
-            ><h3>LaundryLink</h3></a
-          >
-        </li>
-        <li class="nav_right">
-          <a href="../owner/administration_overview.html">Dashboard</a
-          ><a href="orders.html">Orders</a
-          ><a href="../manager/assign_riders.html">Assign Riders</a
-          ><span class="profile_badge">AD</span>
-        </li>
-      </ul>
-    </nav>
-    <main>
-      <header class="page_header">
-        <div class="subtitle">OPERATIONS</div>
-        <h1>Orders</h1>
-        <p>Search, filter and inspect every customer order.</p>
-      </header>
-      <form class="grid grid_three">
-        <div class="field">
-          <label for="search">Search orders</label
-          ><input
-            class="input"
-            id="search"
-            name="search"
-            placeholder="Order or customer"
-          />
-        </div>
-        <div class="field">
-          <label for="status">Status</label
-          ><select class="input" id="status" name="status">
-            <option>All statuses</option>
-            <option>Confirmed</option>
-            <option>Cleaning</option>
-            <option>Ready</option>
-            <option>Delivered</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="date">Date</label
-          ><input class="input" id="date" name="date" type="date" />
-        </div>
-      </form>
-      <div class="table_wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>ORDER</th>
-              <th>CUSTOMER</th>
-              <th>PLACED</th>
-              <th>TOTAL</th>
-              <th>STATUS</th>
-              <th>RIDER</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>#1042</td>
-              <td>Priya Fernando</td>
-              <td>14 Aug</td>
-              <td>LKR 2,480</td>
-              <td><span class="status">Cleaning</span></td>
-              <td>Ravi K.</td>
-              <td>
-                <a class="link" href="../../customer/order_details.html"
-                  >View</a
-                >
-              </td>
-            </tr>
-            <tr>
-              <td>#1044</td>
-              <td>Anjali Silva</td>
-              <td>14 Aug</td>
-              <td>LKR 1,760</td>
-              <td>Drying</td>
-              <td>Unassigned</td>
-              <td>
-                <a class="link" href="../../customer/order_details.html"
-                  >View</a
-                >
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </main>
-  </body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Order lookup | LaundryLink</title>
+<link rel="stylesheet" href="../../../css/global.css">
+<link rel="stylesheet" href="../../../css/dashboard.css">
+<link rel="stylesheet" href="../../../css/support/support.css">
+<script src="../../../js/global-pre.js" defer>
+</script>
+<script src="../../../js/support/common.js" defer>
+</script>
+<script src="../../../js/support/orders.js" defer>
+</script>
+</head>
+<body data-page="orders">
+<nav class="dashboard_nav">
+<ul class="navigation">
+<li class="logo">
+<a href="/html/portal.html">
+<h3>LaundryLink</h3>
+</a>
+</li>
+<li class="nav_right">
+<a href="/html/admin/owner/administration_overview.html">Overview</a>
+<a href="/html/admin/customer-service-manager/complaints.html">Support cases</a>
+<a href="/html/admin/customer-service-manager/orders.html">Order lookup</a>
+<a href="/html/admin/owner/reports.html">Reports</a>
+<a href="/html/admin/manager/system_settings.html">Settings</a>
+</li>
+</ul>
+</nav>
+<main class="support-page">
+<header class="page_header">
+<div class="subtitle">ADMINISTRATION</div>
+<h1>Order lookup</h1>
+<p id="identity">Connecting…</p>
+</header>
+<div id="notice" class="notice" role="status" aria-live="polite" hidden>
+</div>
+<form id="order-search" class="toolbar">
+<div class="field">
+<label for="order-id">Order ID (leave empty for all)</label>
+<input class="input" id="order-id" type="number" min="1" step="1">
+</div>
+<button class="custom_button custom_button_bg" type="submit">Find orders</button>
+</form>
+<div class="table_wrap">
+<table>
+<thead>
+<tr>
+<th>Order</th>
+<th>Customer</th>
+<th>Status</th>
+<th>Order value</th>
+<th>History</th>
+</tr>
+</thead>
+<tbody id="orders">
+</tbody>
+</table>
+</div>
+<div class="actions">
+<button class="custom_button" id="previous">Previous</button>
+<span id="page-label">
+</span>
+<button class="custom_button" id="next">Next</button>
+</div>
+<section class="card section" id="order-history" hidden>
+<h2 id="history-title">Order history</h2>
+<div id="history">
+</div>
+</section>
+</main>
+</body>
 </html>

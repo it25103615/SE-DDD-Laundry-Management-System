@@ -34,3 +34,6 @@ Thumbs.db
 application-local.properties
 .env
 *.log
+
+# Local Microsoft JDBC Windows authentication binary
+mssql-jdbc_auth-*.dll

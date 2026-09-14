@@ -115,7 +115,7 @@ CREATE TABLE users(
     middleName VARCHAR(50),
     lastName VARCHAR(50),
     email VARCHAR(100) UNIQUE,
-    password VARCHAR(50),
+    password VARCHAR(100),
     phoneNumber CHAR(10),
     type VARCHAR(20),
 
@@ -419,7 +419,7 @@ IF OBJECT_ID('dbo.servicePricing', 'U') IS NOT NULL
 -- ============================================================
 -- =============== Populate Users Table - Start ================
 
-IF OBJECT_ID('dbo.users', 'U') IS NOT NULL
+IF 1 = 0 AND OBJECT_ID('dbo.users', 'U') IS NOT NULL
     INSERT INTO users(firstName, middleName, lastName, email, password, phoneNumber, type) VALUES
         ('Nimal', NULL, 'Perera', 'nimal.perera@example.com', 'pass1234', '0711234567', 'CUSTOMER'),
         ('Kamala', NULL, 'Silva', 'kamala.silva@example.com', 'pass1234', '0722345678', 'CUSTOMER'),
@@ -441,7 +441,7 @@ IF OBJECT_ID('dbo.users', 'U') IS NOT NULL
 -- ============================================================
 -- ============= Populate Addresses Table - Start ==============
 
-IF OBJECT_ID('dbo.addresses', 'U') IS NOT NULL
+IF 1 = 0 AND OBJECT_ID('dbo.addresses', 'U') IS NOT NULL
     INSERT INTO addresses(nickname, street, city, state, DeliveryInstructions, isDefault, userID) VALUES
         ('Home', '12 Galle Road', 'Colombo', 'Western', 'Leave with security guard', 1, 1),
         ('Office', '45 Duplication Road', 'Colombo', 'Western', 'Ask for reception', 0, 1),
@@ -457,7 +457,7 @@ IF OBJECT_ID('dbo.addresses', 'U') IS NOT NULL
 -- ============================================================
 -- =============== Populate Orders Table - Start ================
 
-IF OBJECT_ID('dbo.orders', 'U') IS NOT NULL
+IF 1 = 0 AND OBJECT_ID('dbo.orders', 'U') IS NOT NULL
     INSERT INTO orders(statusID, userID) VALUES
         (15, 1), -- Completed
         (9, 2),  -- Washing
@@ -473,7 +473,7 @@ IF OBJECT_ID('dbo.orders', 'U') IS NOT NULL
 -- ============================================================
 -- ============== Populate OrderLines Table - Start =============
 
-IF OBJECT_ID('dbo.orderLines', 'U') IS NOT NULL
+IF 1 = 0 AND OBJECT_ID('dbo.orderLines', 'U') IS NOT NULL
     INSERT INTO orderLines(orderID, itemID, serviceID, quantity, linePrice) VALUES
         (1, 1, 1, 5, 900.0),   -- 5x Everyday Clothing, Wash and Fold
         (1, 2, 2, 3, 450.0),   -- 3x Shirt/Blouse, Ironing
@@ -491,7 +491,7 @@ IF OBJECT_ID('dbo.orderLines', 'U') IS NOT NULL
 -- ============================================================
 -- =============== Populate Payments Table - Start ===============
 
-IF OBJECT_ID('dbo.payments', 'U') IS NOT NULL
+IF 1 = 0 AND OBJECT_ID('dbo.payments', 'U') IS NOT NULL
     INSERT INTO payments(amount, orderID) VALUES
         (1350.0, 1),
         (900.0, 2),
@@ -506,7 +506,7 @@ IF OBJECT_ID('dbo.payments', 'U') IS NOT NULL
 -- ============================================================
 -- ================= Populate Logs Table - Start =================
 
-IF OBJECT_ID('dbo.logs', 'U') IS NOT NULL
+IF 1 = 0 AND OBJECT_ID('dbo.logs', 'U') IS NOT NULL
     INSERT INTO logs(status_before, status_after, logDate, logTime, orderID) VALUES
         (1, 2, '2026-08-10', '09:00:00', 1),
         (2, 3, '2026-08-10', '09:15:00', 1),
@@ -529,7 +529,7 @@ IF OBJECT_ID('dbo.logs', 'U') IS NOT NULL
 -- ============================================================
 -- ================ Populate Feedback Table - Start ================
 
-IF OBJECT_ID('dbo.feedback', 'U') IS NOT NULL
+IF 1 = 0 AND OBJECT_ID('dbo.feedback', 'U') IS NOT NULL
     INSERT INTO feedback(feedback, userID, orderID) VALUES
         ('One of my shirts came back with a missing button.', 1, 1),
         ('Great service, very fast turnaround!', 2, 2),
@@ -543,7 +543,7 @@ IF OBJECT_ID('dbo.feedback', 'U') IS NOT NULL
 -- ============================================================
 -- ================== Populate Chat Table - Start ===================
 
-IF OBJECT_ID('dbo.chat', 'U') IS NOT NULL
+IF 1 = 0 AND OBJECT_ID('dbo.chat', 'U') IS NOT NULL
     INSERT INTO chat(sentAt, message, userID, feedbackID) VALUES
         ('2026-08-13 10:15:00', 'We are sorry about the missing button. A replacement shirt credit has been issued.', 9, 1),
         ('2026-08-13 10:20:00', 'Thank you for resolving this so quickly.', 1, 1),
@@ -556,7 +556,7 @@ IF OBJECT_ID('dbo.chat', 'U') IS NOT NULL
 -- ============================================================
 -- ================ Populate Delivery Table - Start ==================
 
-IF OBJECT_ID('dbo.delivery', 'U') IS NOT NULL
+IF 1 = 0 AND OBJECT_ID('dbo.delivery', 'U') IS NOT NULL
     INSERT INTO delivery(orderID, userID, pickup_riderID, delivery_riderID, riderNotes, pickup_scheduled, pickup_actual, delivery_time) VALUES
         (1, 1, 7, 8, 'Left at security desk on delivery', '2026-08-10 09:00:00', '2026-08-10 09:10:00', '2026-08-13 10:00:00'),
         (2, 2, 7, NULL, NULL, '2026-08-20 11:00:00', '2026-08-20 11:05:00', NULL),

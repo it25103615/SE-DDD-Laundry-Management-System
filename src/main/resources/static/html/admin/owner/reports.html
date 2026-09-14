@@ -1,93 +1,116 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Reports | LaundryLink</title>
-    <link rel="stylesheet" href="../../../css/global.css" />
-    <link rel="stylesheet" href="../../../css/dashboard.css" />
-    <script src="../../../js/global-pre.js"></script>
-    <script src="../../../js/global-post.js" defer></script>
-  </head>
-  <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="administration_overview.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="administration_overview.html">Dashboard</a
-          ><a href="payments_billing.html">Payments &amp; Billing</a
-          ><a href="reports.html">Reports</a
-          ><span class="profile_badge">AD</span>
-        </li>
-      </ul>
-    </nav>
-    <main>
-      <header class="page_header top_bar">
-        <div>
-          <div class="subtitle">PERFORMANCE</div>
-          <h1>Reports</h1>
-          <p>Review order, revenue and service performance.</p>
-        </div>
-        <button class="custom_button custom_button_bg">Export</button>
-      </header>
-      <form class="grid grid_two">
-        <div class="field">
-          <label for="range">Reporting period</label
-          ><select class="input" id="range">
-            <option>Last 30 days</option>
-            <option>This month</option>
-            <option>Previous month</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="service">Service</label
-          ><select class="input" id="service">
-            <option>All services</option>
-            <option>Wash &amp; Fold</option>
-            <option>Dry Cleaning</option>
-          </select>
-        </div>
-      </form>
-      <section class="grid grid_three">
-        <article class="card metric">
-          <span class="muted small">TOTAL ORDERS</span><strong>684</strong>
-        </article>
-        <article class="card metric">
-          <span class="muted small">REVENUE</span><strong>LKR 1.42M</strong>
-        </article>
-        <article class="card metric">
-          <span class="muted small">ON-TIME DELIVERY</span><strong>94%</strong>
-        </article>
-      </section>
-      <article class="card" style="margin-top: 20px">
-        <h2>Orders by service</h2>
-        <table>
-          <tbody>
-            <tr>
-              <td>Wash &amp; Fold</td>
-              <td>382 orders</td>
-              <td>56%</td>
-            </tr>
-            <tr>
-              <td>Dry Cleaning</td>
-              <td>171 orders</td>
-              <td>25%</td>
-            </tr>
-            <tr>
-              <td>Ironing</td>
-              <td>96 orders</td>
-              <td>14%</td>
-            </tr>
-            <tr>
-              <td>Shoe Cleaning</td>
-              <td>35 orders</td>
-              <td>5%</td>
-            </tr>
-          </tbody>
-        </table>
-      </article>
-    </main>
-  </body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Business reports | LaundryLink</title>
+<link rel="stylesheet" href="../../../css/global.css">
+<link rel="stylesheet" href="../../../css/dashboard.css">
+<link rel="stylesheet" href="../../../css/support/support.css">
+<script src="../../../js/global-pre.js" defer>
+</script>
+<script src="../../../js/support/common.js" defer>
+</script>
+<script src="../../../js/support/reports.js" defer>
+</script>
+</head>
+<body data-page="reports">
+<nav class="dashboard_nav">
+<ul class="navigation">
+<li class="logo">
+<a href="/html/portal.html">
+<h3>LaundryLink</h3>
+</a>
+</li>
+<li class="nav_right">
+<a href="/html/admin/owner/administration_overview.html">Overview</a>
+<a href="/html/admin/customer-service-manager/complaints.html">Support cases</a>
+<a href="/html/admin/customer-service-manager/orders.html">Order lookup</a>
+<a href="/html/admin/owner/reports.html">Reports</a>
+<a href="/html/admin/manager/system_settings.html">Settings</a>
+</li>
+</ul>
+</nav>
+<main class="support-page">
+<header class="page_header">
+<div class="subtitle">ADMINISTRATION</div>
+<h1>Business reports</h1>
+<p id="identity">Connecting…</p>
+</header>
+<div id="notice" class="notice" role="status" aria-live="polite" hidden>
+</div>
+<form id="report-filters" class="toolbar">
+<div class="field">
+<label for="from">First order activity — from</label>
+<input class="input" id="from" type="date">
+</div>
+<div class="field">
+<label for="to">Through</label>
+<input class="input" id="to" type="date">
+</div>
+<div class="field">
+<label for="service">Orders containing service</label>
+<select class="input" id="service">
+<option value="">All services</option>
+</select>
+</div>
+<button class="custom_button custom_button_bg" type="submit">Generate report</button>
+<button class="custom_button" id="export" type="button" disabled>Export CSV</button>
+</form>
+<p id="period" class="muted">
+</p>
+<section class="grid grid_three" id="metrics">
+</section>
+<p class="small muted">Dates select orders by their earliest recorded status log. Payments are all recorded payments for those orders, not payments received during the period. A service filter selects whole orders, including their other services. Undated orders appear only in all-time results.</p>
+<div class="split section">
+<article class="card">
+<h2>Operational report</h2>
+<div id="status-chart">
+</div>
+</article>
+<article class="card">
+<h2>Customer support — all time</h2>
+<div id="support-metrics">
+</div>
+<a class="link" href="/html/admin/customer-service-manager/complaints.html">Open support cases →</a>
+</article>
+</div>
+<article class="card section">
+<h2>Service performance</h2>
+<p class="small muted">Line values are recorded totals; an order can contain several services.</p>
+<div class="table_wrap">
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Orders</th>
+<th>Items</th>
+<th>Line value</th>
+</tr>
+</thead>
+<tbody id="services">
+</tbody>
+</table>
+</div>
+</article>
+<article class="card section">
+<h2>Customer report</h2>
+<p class="small muted">Top 100 customers in the selected cohort, sorted by recorded payments.</p>
+<div class="table_wrap">
+<table>
+<thead>
+<tr>
+<th>Customer</th>
+<th>Orders</th>
+<th>Order value</th>
+<th>Recorded payments</th>
+</tr>
+</thead>
+<tbody id="customers">
+</tbody>
+</table>
+</div>
+</article>
+</main>
+</body>
 </html>

@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="../../css/auth/auth.css" />
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
+    <script src="../../js/auth/register.js" defer></script>
   </head>
   <body class="auth_body">
     <nav class="navbar">
@@ -26,7 +27,8 @@
         <div class="subtitle">GET STARTED</div>
         <h1>Create your account</h1>
         <p class="muted">Book your first pickup in a couple of minutes.</p>
-        <form action="../customer/dashboard.html" method="get">
+        <div id="register-message" class="alert form_message" role="status" hidden></div>
+        <form id="register-form">
           <div class="grid grid_two">
             <div class="field">
               <label for="name">Full name</label
@@ -48,7 +50,9 @@
                 type="tel"
                 autocomplete="tel"
                 required
-                placeholder="+94 77 123 4567"
+                pattern="[0-9]{10}"
+                maxlength="10"
+                placeholder="0771234567"
               />
             </div>
           </div>
@@ -98,7 +102,7 @@
           <label class="check_row"
             ><input type="checkbox" required />I agree to the Terms and Privacy
             Policy.</label
-          ><button class="custom_button custom_button_bg" type="submit">
+          ><button id="register-button" class="custom_button custom_button_bg" type="submit">
             Create account
           </button>
         </form>
