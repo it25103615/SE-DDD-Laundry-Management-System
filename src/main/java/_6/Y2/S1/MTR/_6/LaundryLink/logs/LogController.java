@@ -1,5 +1,7 @@
 package _6.Y2.S1.MTR._6.LaundryLink.logs;
 
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -28,5 +30,13 @@ public class LogController {
     @GetMapping("/order/{orderID}")
     public List<Log> getLogsByOrder(@PathVariable Integer orderID) {
         return logService.getLogsByOrder(orderID);
+    }
+
+    @PostMapping
+    public ResponseEntity<Log> createLog(@RequestParam Integer orderID,
+                                         @RequestParam(required = false) Integer statusBeforeId,
+                                         @RequestParam Integer statusAfterId) {
+        Log created = logService.createLog(orderID, statusBeforeId, statusAfterId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 }
