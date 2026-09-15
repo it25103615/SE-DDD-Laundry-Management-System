@@ -38,6 +38,8 @@
                 name="name"
                 autocomplete="name"
                 required
+                minlength="2"
+                maxlength="100"
                 placeholder="John Smith"
               />
             </div>
@@ -51,9 +53,11 @@
                 autocomplete="tel"
                 required
                 pattern="[0-9]{10}"
+                inputmode="numeric"
                 maxlength="10"
                 placeholder="0771234567"
               />
+              <small class="validation_hint">Exactly 10 numbers, for example 0771234567</small>
             </div>
           </div>
           <div class="field">
@@ -63,6 +67,7 @@
               id="email"
               name="email"
               type="email"
+              maxlength="100"
               autocomplete="email"
               required
               placeholder="you@email.com"
@@ -76,18 +81,27 @@
               name="password"
               type="password"
               minlength="8"
+              maxlength="72"
+              pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9\s])\S{8,72}"
               autocomplete="new-password"
               required
-              placeholder="At least 8 characters"
+              placeholder="Example: Laundry#2026"
             />
           </div>
           <div class="password_strength">
             <div class="top_bar small">
-              <span>Password strength</span><span class="link">Good</span>
+              <span>Password strength</span><span class="link" id="strength-label">Not entered</span>
             </div>
-            <div class="progress" aria-label="Password strength: good">
-              <span style="width: 72%"></span>
+            <div class="progress" id="strength-meter" aria-label="Password strength">
+              <span style="width: 0%"></span>
             </div>
+            <small class="validation_hint">Use uppercase, lowercase, a number and a special character.</small>
+          </div>
+          <div class="field">
+            <label for="confirm-password">Confirm password</label>
+            <input class="input" id="confirm-password" name="confirm-password" type="password"
+              minlength="8" maxlength="72" autocomplete="new-password" required
+              placeholder="Enter the same password again" />
           </div>
           <div class="field">
             <label for="address">Delivery address (optional)</label
@@ -96,6 +110,7 @@
               id="address"
               name="address"
               autocomplete="street-address"
+              maxlength="100"
               placeholder="You can add this later too"
             />
           </div>

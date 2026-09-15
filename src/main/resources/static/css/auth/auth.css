@@ -81,6 +81,8 @@
   height: 9px;
   margin: 7px 0;
 }
+.validation_hint { display:block; margin-top:6px; color:var(--black-60); line-height:1.35; }
+.input:user-invalid { border-color:#b53a45; box-shadow:0 0 0 2px rgba(181,58,69,.12); }
 
 .form_message {
   display: none;

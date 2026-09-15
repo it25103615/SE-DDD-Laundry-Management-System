@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -37,5 +38,13 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CONFLICT)
     public Map<String, String> conflict(IllegalArgumentException exception) {
         return Map.of("message", exception.getMessage());
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, String> invalid(MethodArgumentNotValidException exception) {
+        String message = exception.getBindingResult().getAllErrors().stream()
+                .findFirst().map(error -> error.getDefaultMessage()).orElse("Check your registration details.");
+        return Map.of("message", message);
     }
 }
