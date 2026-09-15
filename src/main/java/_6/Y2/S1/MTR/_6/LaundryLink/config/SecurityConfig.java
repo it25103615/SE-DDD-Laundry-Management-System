@@ -20,6 +20,7 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/support/**").authenticated()
+                        .requestMatchers("/api/customer/dashboard").authenticated()
                         .anyRequest().permitAll()
                 )
                 .formLogin(form -> form
