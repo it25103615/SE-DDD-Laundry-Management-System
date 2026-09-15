@@ -49,4 +49,18 @@ public class BillingJdbcRepository implements BillingRepository {
                 orderID
         );
     }
+
+    @Override
+    public BigDecimal findAppliedDiscountAmount(Integer orderID) {
+        try {
+            BigDecimal discountAmount = jdbcTemplate.queryForObject(
+                    "SELECT discountAmount FROM orderPromotions WHERE orderID = ?",
+                    BigDecimal.class,
+                    orderID
+            );
+            return discountAmount == null ? BigDecimal.ZERO : discountAmount;
+        } catch (EmptyResultDataAccessException ex) {
+            return BigDecimal.ZERO;
+        }
+    }
 }
