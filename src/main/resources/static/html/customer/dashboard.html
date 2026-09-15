@@ -1,5 +1,48 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Customer Dashboard | LaundryLink</title><link rel="stylesheet" href="../../css/global.css"><link rel="stylesheet" href="../../css/dashboard.css"><script src="../../js/global-pre.js"></script><script src="../../js/global-post.js" defer></script></head>
-<body><nav class="dashboard_nav"><ul class="navigation"><li class="logo"><a href="dashboard.html"><h3>LaundryLink</h3></a></li><li class="nav_right"><a href="dashboard.html">Dashboard</a><a href="my_orders.html">My Orders</a><a href="payments.html">Payments</a><a href="feedback.html">Support</a><a href="profile.html">Profile</a></li></ul></nav>
-<main><header class="welcome_banner" style="margin-top:34px"><div class="subtitle">CUSTOMER DASHBOARD</div><h1>Welcome to LaundryLink</h1><p class="muted">Your account is ready. New orders and support requests will appear here.</p></header>
-<section class="grid grid_two" style="margin-top:24px"><article class="card"><h2>No orders yet</h2><p class="muted">Create your first laundry order to begin tracking its progress.</p><a class="custom_button custom_button_bg" href="new_order_services.html">Create an order</a></article><article class="card"><h2>Need help?</h2><p class="muted">Submit a complaint, question, or feedback to customer support.</p><a class="custom_button custom_button_bg" href="feedback.html">Open customer support</a></article></section></main></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Customer Dashboard | LaundryLink</title>
+  <link rel="stylesheet" href="../../css/global.css">
+  <link rel="stylesheet" href="../../css/dashboard.css">
+  <link rel="stylesheet" href="../../css/customer/dashboard-live.css">
+  <script src="../../js/global-pre.js" defer></script>
+  <script src="../../js/global-post.js" defer></script>
+  <script src="../../js/customer/dashboard-live.js" defer></script>
+</head>
+<body>
+  <nav class="dashboard_nav"><ul class="navigation"><li class="logo"><a href="dashboard.html"><h3>LaundryLink</h3></a></li>
+    <li class="nav_right"><a href="dashboard.html">Dashboard</a><a href="my_orders.html">My Orders</a><a href="payments.html">Payments</a><a href="feedback.html">Customer support</a><a href="profile.html" aria-label="Profile"><span class="profile_badge" id="profile-badge">C</span></a></li>
+  </ul></nav>
+  <main class="customer-home">
+    <header class="welcome_banner"><div class="subtitle">CUSTOMER DASHBOARD</div><div class="top_bar">
+      <div><h1 id="welcome">Welcome to LaundryLink 👋</h1><p class="muted">Your laundry and support requests, all in one place.</p></div>
+      <a class="custom_button custom_button_bg" href="new_order_services.html">+ New order</a>
+    </div></header>
+    <p id="dashboard-notice" class="dashboard-notice" role="status" hidden></p>
+    <section class="home-metrics" aria-label="Account summary">
+      <article class="card metric"><div class="icon_bubble">◉</div><span class="muted small">ACTIVE ORDERS</span><strong id="active-orders">—</strong><span class="small muted" id="order-summary">Loading orders</span></article>
+      <article class="card metric"><div class="icon_bubble">▣</div><span class="muted small">NEXT DELIVERY</span><strong>—</strong><span class="small muted">Available when an order is scheduled</span></article>
+      <article class="card metric reward_card"><div class="icon_bubble">♡</div><span class="small">SUPPORT REQUESTS</span><strong id="support-count">—</strong><span class="small">Currently open</span></article>
+      <article class="card metric"><div class="icon_bubble">⌁</div><span class="muted small">ORDERS PLACED</span><strong id="total-orders">—</strong><span class="small muted">On your account</span></article>
+    </section>
+    <section class="grid grid_two home-feature">
+      <article class="card"><div class="top_bar"><h2>Latest order</h2><a class="link" href="my_orders.html">See all orders →</a></div>
+        <div id="latest-order"><p class="muted">Loading your order information…</p></div>
+      </article>
+      <aside class="card"><div class="top_bar"><h2>Customer support</h2><span class="status status_info">HERE TO HELP</span></div>
+        <p>Missing an item, need help with payment, or want to share feedback?</p>
+        <p class="muted">Send a complaint, question, or feedback and follow the conversation with our support team.</p>
+        <a class="custom_button custom_button_bg" href="feedback.html">Open customer support</a>
+      </aside>
+    </section>
+    <section class="page_header"><div class="subtitle">QUICK ACTIONS</div><h2>What would you like to do?</h2></section>
+    <div class="quick_panel home-actions">
+      <a class="quick_action" href="new_order_services.html"><div class="icon_bubble">＋</div><strong>New order</strong></a>
+      <a class="quick_action" href="my_orders.html"><div class="icon_bubble">▤</div><strong>My orders</strong></a>
+      <a class="quick_action" href="payments.html"><div class="icon_bubble">¤</div><strong>Payments</strong></a>
+      <a class="quick_action" href="feedback.html"><div class="icon_bubble">♡</div><strong>Get support</strong></a>
+    </div>
+  </main>
+</body>
+</html>
