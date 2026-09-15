@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="../../css/dashboard.css" />
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
+
   </head>
   <body>
     <nav class="dashboard_nav">
@@ -36,6 +37,7 @@
       </ol>
       <form action="new_order_instructions.html" method="get">
         <div class="grid grid_two">
+          <div>
           <section class="card">
             <h2>Pickup time</h2>
             <div class="field">
@@ -64,6 +66,35 @@
               </select>
             </div>
           </section>
+          <section class="card" style="margin-top: 22px">
+            <h2>Delivery time</h2>
+            <div class="field">
+              <label for="delivery-date">Date</label
+              ><input
+                class="input"
+                id="delivery-date"
+                name="delivery_date"
+                type="date"
+                required
+              />
+            </div>
+            <div class="field">
+              <label for="delivery-time">Time window</label
+              ><select
+                class="input"
+                id="delivery-time"
+                name="delivery_time"
+                required
+              >
+                <option value="">Choose a time</option>
+                <option>8:00 AM – 11:00 AM</option>
+                <option>11:00 AM – 2:00 PM</option>
+                <option>2:00 PM – 5:00 PM</option>
+                <option>5:00 PM – 8:00 PM</option>
+              </select>
+            </div>
+          </section>
+          </div>
           <section class="card">
             <h2>Pickup address</h2>
             <label class="radio_row"
@@ -90,7 +121,69 @@
             Continue
           </button>
         </div>
+        <p id="schedule-error" role="alert" hidden></p>
       </form>
     </main>
+    <script>
+      (function () {
+        const key = "laundryLink.orderDraft";
+        const form = document.querySelector("main form");
+        const error = document.getElementById("schedule-error");
+        const fields = ["pickup-date", "pickup-time", "delivery-date", "delivery-time"].map(id => document.getElementById(id));
+        const [pickupDate, pickupTime, deliveryDate, deliveryTime] = fields;
+        const readDraft = () => {
+          try { return JSON.parse(sessionStorage.getItem(key)) || {}; }
+          catch (_) { return {}; }
+        };
+        const schedule = readDraft().schedule || {};
+        fields.forEach((field, index) => { field.value = schedule[["date", "time", "deliveryDate", "deliveryTime"][index]] || ""; });
+        form.querySelectorAll("input[name=address]").forEach(input => {
+          if (schedule.address) input.checked = input.value === schedule.address;
+        });
+        function save() {
+          const draft = readDraft();
+          sessionStorage.setItem(key, JSON.stringify({ ...draft, schedule: {
+            ...draft.schedule, date: pickupDate.value, time: pickupTime.value,
+            deliveryDate: deliveryDate.value, deliveryTime: deliveryTime.value,
+            address: form.querySelector("input[name=address]:checked")?.value
+          } }));
+        }
+        function validate(showMissing) {
+          const now = new Date();
+          const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+          pickupDate.min = deliveryDate.min = today;
+          fields.forEach(field => field.setCustomValidity(""));
+          const labels = ["pickup date", "pickup time window", "delivery date", "delivery time window"];
+          fields.forEach((field, index) => {
+            if (!field.value) field.setCustomValidity(`Please select a ${labels[index]}.`);
+          });
+          [pickupDate, deliveryDate].forEach(field => {
+            if (field.value && field.value < today) field.setCustomValidity("Please choose today or a future date.");
+          });
+          if (fields.every(field => field.value) && (deliveryDate.value < pickupDate.value
+              || (deliveryDate.value === pickupDate.value && deliveryTime.selectedIndex <= pickupTime.selectedIndex))) {
+            deliveryTime.setCustomValidity("Delivery must be after pickup. Choose a later date or time window.");
+          }
+          const invalid = fields.find(field => !field.validity.valid && (showMissing || field.value));
+          error.textContent = invalid ? invalid.validationMessage : "";
+          error.hidden = !invalid;
+          return !fields.some(field => !field.validity.valid);
+        }
+        form.noValidate = true;
+        form.addEventListener("input", () => { save(); validate(false); });
+        form.addEventListener("change", () => { save(); validate(false); });
+        window.addEventListener("pagehide", save);
+        form.addEventListener("submit", event => {
+          event.preventDefault();
+          if (!validate(true) || !form.checkValidity()) {
+            form.reportValidity();
+            return;
+          }
+          save();
+          window.location.href = "new_order_instructions.html";
+        });
+        validate(false);
+      })();
+    </script>
   </body>
 </html>
