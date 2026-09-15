@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import static org.springframework.http.HttpStatus.*;
 
-/** Identity adapter: production uses the authenticated email; demo identity is opt-in. */
+/** Resolves the signed-in database user and their support-workflow permissions. */
 @Service
 public class SupportAccess {
     private final JdbcTemplate db;
@@ -16,7 +16,9 @@ public class SupportAccess {
         this.db = db;
     }
     public record Actor(int id, String name, String role, boolean demo) {
-        public boolean staff() { return Set.of("ADMIN", "MANAGER", "OWNER", "CSM", "CUSTOMER_SERVICE_MANAGER").contains(role); }
+        public boolean staff() { return Set.of("ADMIN", "MANAGER", "OWNER", "CSM", "CUSTOMER_SERVICE_MANAGER", "STAFF", "RIDER").contains(role); }
+        public boolean coordinator() { return Set.of("ADMIN", "OWNER", "CSM", "CUSTOMER_SERVICE_MANAGER").contains(role); }
+        public boolean seesAllCases() { return coordinator(); }
         public boolean manager() { return Set.of("ADMIN", "MANAGER", "OWNER").contains(role); }
     }
     public Actor actor(Principal principal, Integer demoUser) {
@@ -32,5 +34,6 @@ public class SupportAccess {
         return actor;
     }
     public void staff(Actor actor) { if (!actor.staff()) throw new ResponseStatusException(FORBIDDEN, "Support staff access required."); }
+    public void coordinator(Actor actor) { if (!actor.coordinator()) throw new ResponseStatusException(FORBIDDEN, "Customer service manager access required."); }
     public void manager(Actor actor) { if (!actor.manager()) throw new ResponseStatusException(FORBIDDEN, "Manager or owner access required."); }
 }

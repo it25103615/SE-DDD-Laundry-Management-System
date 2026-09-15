@@ -1,7 +1,15 @@
 (() => {
  const {$,escape:e,api,notice,run,date}=Support;
  let context,current,editing=null,page=0;
- const staff=()=>['ADMIN','MANAGER','OWNER','CSM','CUSTOMER_SERVICE_MANAGER'].includes(context.actor.role);
+ const staff=()=>context.actor.role!=='CUSTOMER';
+ const coordinator=()=>['ADMIN','OWNER','CSM','CUSTOMER_SERVICE_MANAGER'].includes(context.actor.role);
+ const historyIcon=action=>({'Created':'＋','Edited':'✎','Case updated':'↻','Message added':'✉','Deleted':'×'}[action]||'•');
+ const historyTitle=action=>({'Created':'Case submitted','Edited':'Customer edited the case','Case updated':'Assignment or status changed','Message added':'Reply added','Deleted':'Case removed'}[action]||action);
+ const historyDetails=item=>{
+   if(item.action==='Message added') return 'A reply was added to the conversation.';
+   const legacy=String(item.details||'').match(/^(.+?) -> (.+?); (.+?); assignee (\d+)\.\s*(.*)$/);
+   return legacy?`Status changed from ${legacy[1]} to ${legacy[2]}\nPriority: ${legacy[3]}\nAssigned staff ID: #${legacy[4]}${legacy[5]?`\nNote: ${legacy[5]}`:''}`:item.details;
+ };
  function rating() { const enabled=$('type').value==='Feedback'; $('rating-field').hidden=!enabled; $('rating').required=enabled; if(!enabled) $('rating').value=''; }
  function resetEditor() { editing=null; $('case-form').reset(); $('editor-title').textContent='Send us a message'; $('save-case').textContent='Submit case'; $('cancel-edit').hidden=true; rating(); }
  async function load() {
@@ -15,14 +23,14 @@
    $('case-detail').hidden=false; $('detail-title').textContent='#'+current.id+' — '+current.subject;
    $('detail-meta').textContent=[current.type,current.status,current.priority+' priority',current.orderId?'Order #'+current.orderId:'General enquiry',current.rating?'Rating '+current.rating+'/5':null,'Submitted: '+date(current.createdAt)].filter(Boolean).join(' · ');
    $('detail-message').textContent=current.message;
-   $('customer-actions').hidden=current.status!=='New';
+   $('customer-actions').hidden=staff() || current.status!=='New';
    $('edit-case').hidden=staff();
-   $('handle-form').hidden=!staff();
+   $('handle-form').hidden=!coordinator();
    $('status').value=current.status; $('priority').value=current.priority; $('assignee').value=current.assigneeId || ''; $('note').value='';
    const next={New:['New','Assigned','In Review'],Assigned:['Assigned','In Review'],'In Review':['In Review','Resolved'],Resolved:['Resolved','Closed','Reopened'],Closed:['Closed','Reopened'],Reopened:['Reopened','Assigned','In Review']};
    [...$('status').options].forEach(o=>o.disabled=!next[current.status]?.includes(o.value));
    $('messages').innerHTML=current.messages.length?current.messages.map(m=>`<div class="history-entry"><strong>${e(m.author)}</strong><div class="small muted">${e(date(m.sentAt))}</div><div>${e(m.message)}</div></div>`).join(''):'<p class="muted">No messages yet.</p>';
-   $('history').innerHTML=current.history.length?current.history.map(h=>`<div class="history-entry"><strong>${e(h.action)}</strong><div class="small muted">${e(h.actor)} · ${e(date(h.createdAt))}</div><div>${e(h.details)}</div></div>`).join(''):'<p class="muted">Imported record; earlier actions are not available.</p>';
+   $('history').innerHTML=current.history.length?`<div class="case-timeline">${current.history.map(h=>`<article class="timeline-item"><div class="timeline-marker" aria-hidden="true">${historyIcon(h.action)}</div><div class="timeline-card"><div class="timeline-heading"><strong>${e(historyTitle(h.action))}</strong><time>${e(date(h.createdAt))}</time></div><div class="timeline-actor">By ${e(h.actor)}</div><div class="timeline-details">${e(historyDetails(h))}</div></div></article>`).join('')}</div>`:'<p class="muted">No case activity has been recorded yet.</p>';
    $('reply-form').hidden=current.status==='Closed'; $('reply').value='';
    if(focus) $('case-detail').focus();
  }
@@ -59,9 +67,10 @@
  },event.submitter);};
  run(async()=>{
    context=await Support.init();
-   $('case-editor').hidden=staff();$('queue-title').textContent=staff()?'All customer cases':'Your previous messages';
+   $('case-editor').hidden=staff();
+   $('queue-title').textContent=context.actor.role==='CUSTOMER'?'Your support requests':coordinator()?'Customer service queue':'Complaints assigned to you';
    $('order').innerHTML='<option value="">General enquiry</option>'+context.orders.map(o=>`<option value="${o.id}">Order #${o.id}</option>`).join('');
-   $('assignee').innerHTML='<option value="">Unassigned</option>'+context.staff.map(s=>`<option value="${s.id}">${e(s.name)}</option>`).join('');
+   $('assignee').innerHTML='<option value="">Unassigned — CSM queue</option>'+context.staff.map(s=>`<option value="${s.id}">${e(s.name)} — ${e(s.role)}</option>`).join('');
    rating();await load();
  });
 })();

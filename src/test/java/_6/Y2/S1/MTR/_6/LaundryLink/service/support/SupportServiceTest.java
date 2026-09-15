@@ -27,6 +27,9 @@ class SupportServiceTest {
     Map<String,Object> item(String status) {
         return new HashMap<>(Map.of("id",1,"customerId",1,"status",status,"version",0));
     }
+    Map<String,Object> assignedItem(String status, int assigneeId) {
+        var item=item(status); item.put("assigneeId",assigneeId); return item;
+    }
     void found(String status) { when(repo.query(anyString(),eq(1))).thenReturn(List.of(item(status))); }
     @ParameterizedTest
     @CsvSource({"New,Assigned,true","New,Resolved,false","Assigned,In Review,true","In Review,Resolved,true","Resolved,Closed,true","Closed,Reopened,true","Closed,In Review,false","Reopened,In Review,true","New,New,true"})
@@ -35,6 +38,20 @@ class SupportServiceTest {
         found("New");
         var e=assertThrows(ResponseStatusException.class,()->service.one(new Actor(2,"Other","CUSTOMER",false),1));
         assertEquals(404,e.getStatusCode().value());
+    }
+    @Test void managerOnlyReadsCasesAssignedToThatManager() {
+        var manager=new Actor(5,"Manager","MANAGER",false);
+        when(repo.query(anyString(),eq(1))).thenReturn(List.of(item("New")));
+        assertEquals(404,assertThrows(ResponseStatusException.class,()->service.one(manager,1)).getStatusCode().value());
+        when(repo.query(anyString(),eq(1))).thenReturn(List.of(assignedItem("Assigned",5)));
+        assertDoesNotThrow(()->service.one(manager,1));
+    }
+    @Test void laundryStaffOnlyReadsCasesAssignedToThatStaffMember() {
+        var staff=new Actor(6,"Laundry Staff","STAFF",false);
+        when(repo.query(anyString(),eq(1))).thenReturn(List.of(assignedItem("Assigned",5)));
+        assertEquals(404,assertThrows(ResponseStatusException.class,()->service.one(staff,1)).getStatusCode().value());
+        when(repo.query(anyString(),eq(1))).thenReturn(List.of(assignedItem("Assigned",6)));
+        assertDoesNotThrow(()->service.one(staff,1));
     }
     @Test void feedbackRequiresRating() {
         assertThrows(ResponseStatusException.class,()->service.create(customer,new CaseInput("Feedback","Title","Text",null,null,null)));

@@ -24,4 +24,13 @@ class SupportAccessTest {
         assertDoesNotThrow(()->access.staff(actor));
         assertThrows(ResponseStatusException.class,()->access.manager(actor));
     }
+    @Test void operationalStaffCanParticipateButCannotCoordinateCases() {
+        var access=new SupportAccess(null);
+        var staff=new SupportAccess.Actor(4,"Laundry Staff","STAFF",false);
+        var rider=new SupportAccess.Actor(5,"Delivery Staff","RIDER",false);
+        assertDoesNotThrow(()->access.staff(staff));
+        assertDoesNotThrow(()->access.staff(rider));
+        assertThrows(ResponseStatusException.class,()->access.coordinator(staff));
+        assertThrows(ResponseStatusException.class,()->access.coordinator(rider));
+    }
 }

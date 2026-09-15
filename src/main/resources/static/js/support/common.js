@@ -4,7 +4,11 @@ window.Support = (() => {
   const $ = id => document.getElementById(id);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money = value => new Intl.NumberFormat('en-LK',{style:'currency',currency:'LKR'}).format(Number(value || 0));
-  const date = value => value ? String(value).replace('T',' ').replace(/\.\d+$/,'') : 'Historical date unavailable';
+  const date = value => {
+    if (!value) return 'Time unavailable';
+    const parsed=new Date(value);
+    return Number.isNaN(parsed.getTime())?String(value):parsed.toLocaleString('en-LK',{dateStyle:'medium',timeStyle:'short'});
+  };
   function notice(message,kind='') { $('notice').textContent=message; $('notice').className='notice '+kind; $('notice').hidden=!message; }
   async function api(path,method='GET',body) {
     const headers={'Accept':'application/json'};

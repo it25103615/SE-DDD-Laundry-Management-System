@@ -29,7 +29,8 @@ public class SupportService {
         if (page < 0) throw new ResponseStatusException(BAD_REQUEST, "Invalid page.");
         String sql = SupportRepository.CASE_SELECT;
         List<Object> args = new ArrayList<>();
-        if (!actor.staff()) { sql += " AND f.userID=?"; args.add(actor.id()); }
+        if ("CUSTOMER".equals(actor.role())) { sql += " AND f.userID=?"; args.add(actor.id()); }
+        else if (!actor.seesAllCases()) { sql += " AND f.assigneeID=?"; args.add(actor.id()); }
         if (search != null && !search.isBlank()) {
             if (search.length() > 100) throw new ResponseStatusException(BAD_REQUEST, "Search must be at most 100 characters.");
             sql += " AND (f.subject LIKE ? OR f.feedback LIKE ? OR CONCAT(u.firstName, ' ', u.lastName) LIKE ?)";
@@ -46,7 +47,7 @@ public class SupportService {
         var rows = repo.query(SupportRepository.CASE_SELECT + " AND f.feedbackID=?", id);
         if (rows.isEmpty()) throw new ResponseStatusException(NOT_FOUND, "Case not found.");
         var item = rows.getFirst();
-        if (!actor.staff() && number(item, "customerId") != actor.id()) throw new ResponseStatusException(NOT_FOUND, "Case not found.");
+        if (!canView(actor, item)) throw new ResponseStatusException(NOT_FOUND, "Case not found or not assigned to you.");
         return item;
     }
     public Map<String, Object> detail(Actor actor, int id) {
@@ -94,6 +95,8 @@ public class SupportService {
     @Transactional
     public void delete(Actor actor, int id, int version) {
         var item = one(actor, id);
+        if (!"CUSTOMER".equals(actor.role()) || number(item, "customerId") != actor.id())
+            throw new ResponseStatusException(FORBIDDEN, "Only the customer who submitted this case can delete it.");
         if (!"New".equals(item.get("status"))) throw new ResponseStatusException(CONFLICT, "Only new cases can be deleted; handled cases retain their history.");
         changed(repo.update("UPDATE feedback SET deleted=1, version=version+1, updatedAt=SYSDATETIME() WHERE feedbackID=? AND version=? AND deleted=0 AND caseStatus='New'", id, version));
         repo.audit(id, actor.id(), "Deleted", "Case removed from active views; history retained");
@@ -101,17 +104,21 @@ public class SupportService {
     static boolean allowed(String before, String after) { return before.equals(after) || TRANSITIONS.getOrDefault(before, Set.of()).contains(after); }
     @Transactional
     public Map<String, Object> handle(Actor actor, int id, CaseUpdate input) {
-        access.staff(actor);
+        access.coordinator(actor);
         var item = one(actor, id);
         if (!allowed((String) item.get("status"), input.status())) throw new ResponseStatusException(CONFLICT, "Invalid case transition. Assign or review before resolving; resolve before closing.");
         if (!"New".equals(input.status()) && input.assigneeId() == null) throw new ResponseStatusException(BAD_REQUEST, "Assign a staff member before progressing the case.");
-        if (input.assigneeId() != null && repo.count("SELECT COUNT(*) FROM users WHERE userID=? AND UPPER(type) IN ('ADMIN','MANAGER','OWNER','CSM','CUSTOMER_SERVICE_MANAGER')", input.assigneeId()) != 1)
-            throw new ResponseStatusException(BAD_REQUEST, "Assignee must be support staff or a manager.");
+        if (input.assigneeId() != null && repo.count("SELECT COUNT(*) FROM users WHERE userID=? AND UPPER(type) IN ('ADMIN','MANAGER','OWNER','CSM','CUSTOMER_SERVICE_MANAGER','STAFF','RIDER')", input.assigneeId()) != 1)
+            throw new ResponseStatusException(BAD_REQUEST, "Assignee must be a customer-service, management, laundry, or delivery staff member.");
         changed(repo.update("""
             UPDATE feedback SET caseStatus=?, priority=?, assigneeID=?, version=version+1, updatedAt=SYSDATETIME()
             WHERE feedbackID=? AND version=? AND deleted=0
             """, input.status(), input.priority(), input.assigneeId(), id, input.version()));
-        repo.audit(id, actor.id(), "Case updated", item.get("status") + " -> " + input.status() + "; " + input.priority() + "; assignee " + input.assigneeId() + ". " + input.note().trim());
+        String assignee = input.assigneeId() == null ? "Unassigned" : repo.query(
+                "SELECT CONCAT(firstName, ' ', lastName) AS name FROM users WHERE userID=?", input.assigneeId())
+                .stream().findFirst().map(row -> String.valueOf(row.get("name"))).orElse("Staff member");
+        repo.audit(id, actor.id(), "Case updated", "Status: " + item.get("status") + " → " + input.status()
+                + "\nPriority: " + input.priority() + "\nAssigned to: " + assignee + "\nNote: " + input.note().trim());
         return detail(actor, id);
     }
     @Transactional
@@ -126,8 +133,14 @@ public class SupportService {
     }
     public Map<String, Object> options(Actor actor) {
         var orders = repo.query("SELECT orderID AS id FROM orders WHERE userID=? ORDER BY orderID DESC", actor.id());
-        var staff = actor.staff() ? repo.query("SELECT userID AS id, CONCAT(firstName, ' ', lastName) AS name FROM users WHERE UPPER(type) IN ('ADMIN','MANAGER','OWNER','CSM','CUSTOMER_SERVICE_MANAGER') ORDER BY firstName") : List.of();
+        var staff = actor.coordinator() ? repo.query("SELECT userID AS id, CONCAT(firstName, ' ', lastName) AS name, UPPER(type) AS role FROM users WHERE UPPER(type) IN ('ADMIN','MANAGER','OWNER','CSM','CUSTOMER_SERVICE_MANAGER','STAFF','RIDER') ORDER BY type, firstName") : List.of();
         return Map.of("actor", actor, "orders", orders, "staff", staff);
+    }
+    static boolean canView(Actor actor, Map<String, Object> item) {
+        if (actor.seesAllCases()) return true;
+        if ("CUSTOMER".equals(actor.role())) return number(item, "customerId") == actor.id();
+        Object assignee = item.get("assigneeId");
+        return actor.staff() && assignee instanceof Number && ((Number) assignee).intValue() == actor.id();
     }
     static int number(Map<String, Object> row, String key) { return ((Number) row.get(key)).intValue(); }
     static void changed(int count) { if (count != 1) throw new ResponseStatusException(CONFLICT, "This record changed. Refresh it before trying again."); }
