@@ -37,3 +37,6 @@ application-local.properties
 
 # Local Microsoft JDBC Windows authentication binary
 mssql-jdbc_auth-*.dll
+
+### graphify ###
+graphify-out/
