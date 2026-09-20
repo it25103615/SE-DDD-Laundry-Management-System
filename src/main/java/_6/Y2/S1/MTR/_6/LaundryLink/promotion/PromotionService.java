@@ -2,6 +2,7 @@ package _6.Y2.S1.MTR._6.LaundryLink.promotion;
 
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingDetails;
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +19,7 @@ public class PromotionService {
     private final BillingService billingService;
     private final Clock clock;
 
+    @Autowired
     public PromotionService(PromotionRepository promotionRepository, BillingService billingService) {
         this(promotionRepository, billingService, Clock.systemDefaultZone());
     }

@@ -175,6 +175,7 @@ class PaymentServiceTest {
         otherPayment.setPaymentID(2);
 
         when(paymentRepository.findAll()).thenReturn(new ArrayList<>(List.of(ownedPayment, otherPayment)));
+        when(paymentRepository.findByOrderID(1)).thenReturn(List.of(ownedPayment));
         when(billingService.getBillingDetails(1)).thenReturn(billingDetails(1, 7, BigDecimal.valueOf(900.0)));
         when(billingService.getBillingDetails(2)).thenReturn(billingDetails(2, 8, BigDecimal.valueOf(500.0)));
 

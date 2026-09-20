@@ -80,6 +80,12 @@ public class PaymentService {
 
     public List<PaymentResponse> getPaymentsByOrder(Integer requesterID, Integer orderID) {
         verifyOrderExists(orderID);
+        if (hasManagementAccess(requesterID)) {
+            return paymentRepository.findByOrderID(orderID).stream()
+                    .map(this::toPaymentResponse)
+                    .toList();
+        }
+
         verifyCanViewOrderPaymentRecords(requesterID, billingService.getBillingDetails(orderID));
         return paymentRepository.findByOrderID(orderID).stream()
                 .map(this::toPaymentResponse)
@@ -337,6 +343,10 @@ public class PaymentService {
     }
 
     private void verifyCanViewPaymentRecord(Integer requesterID, Payment payment) {
+        if (hasManagementAccess(requesterID)) {
+            return;
+        }
+
         BillingDetails billingDetails = billingService.getBillingDetails(payment.getOrderID());
         verifyCanViewOrderPaymentRecords(requesterID, billingDetails);
     }
