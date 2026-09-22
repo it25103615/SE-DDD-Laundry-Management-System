@@ -38,90 +38,7 @@
         <li>5 Review</li>
       </ol>
       <form action="new_order_schedule.html" method="get">
-        <div id="item-list">
-          <div class="card item-row">
-            <div class="grid grid_three">
-              <div class="field">
-                <label>Item</label
-                ><select class="input item-name" required>
-                  <option
-                    value="shirt"
-                    data-wash="180"
-                    data-dry="450"
-                    data-iron="150"
-                  >
-                    Shirt / blouse
-                  </option>
-                  <option
-                    value="trousers"
-                    data-wash="220"
-                    data-dry="550"
-                    data-iron="180"
-                  >
-                    Trousers / skirt
-                  </option>
-                  <option
-                    value="dress"
-                    data-wash="350"
-                    data-dry="850"
-                    data-iron="260"
-                  >
-                    Dress
-                  </option>
-                  <option
-                    value="bedsheet"
-                    data-wash="450"
-                    data-dry="0"
-                    data-iron="300"
-                  >
-                    Bed sheet
-                  </option>
-                  <option
-                    value="shoes"
-                    data-wash="0"
-                    data-dry="0"
-                    data-iron="0"
-                    data-shoe="750"
-                  >
-                    Everyday shoes
-                  </option>
-                  <option
-                    value="trainers"
-                    data-wash="0"
-                    data-dry="0"
-                    data-iron="0"
-                    data-shoe="900"
-                  >
-                    Trainers
-                  </option>
-                </select>
-              </div>
-              <div class="field">
-                <label>Service</label
-                ><select class="input item-service" required>
-                  <option value="wash">Wash &amp; Fold</option>
-                  <option value="dry">Dry Cleaning</option>
-                  <option value="iron">Ironing</option>
-                  <option value="shoe">Shoe Cleaning</option>
-                </select>
-              </div>
-              <div class="field">
-                <label>Quantity</label
-                ><input
-                  class="input item-qty"
-                  type="number"
-                  min="1"
-                  value="1"
-                  required
-                />
-              </div>
-            </div>
-            <div class="top_bar">
-              <button class="link remove-item" type="button">Remove</button
-              ><strong class="line-total">LKR 180</strong>
-            </div>
-          </div>
-        </div>
+        <div id="item-list" aria-live="polite"><p>Loading selected services and items…</p></div>
         <div class="actions">
           <button
             id="add-item"
@@ -152,62 +69,157 @@
       </form>
     </main>
     <script>
-      (function () {
-        var list = document.getElementById("item-list"),
-          add = document.getElementById("add-item");
-        function price(row) {
-          var item = row.querySelector(".item-name"),
-            service = row.querySelector(".item-service").value,
-            qty = Number(row.querySelector(".item-qty").value || 1),
-            option = item.options[item.selectedIndex],
-            unit = Number(option.dataset[service] || 0);
-          row.querySelector(".line-total").textContent = unit
-            ? "LKR " + (unit * qty).toLocaleString()
-            : "Not available";
-          return unit * qty;
+    // This page owns item initialization; do not also load the shared page controller.
+    (function () {
+      "use strict";
+  const API = "/api";
+  const DRAFT_KEY = "laundryLink.orderDraft";
+
+  const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
+  })[character]);
+  const money = (value) => `LKR ${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  function getDraft() {
+    try {
+      return JSON.parse(sessionStorage.getItem(DRAFT_KEY)) || { services: [], lines: [] };
+    } catch (_) {
+      return { services: [], lines: [] };
+    }
+  }
+
+  function saveDraft(draft) {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  }
+
+  function toast(title, detail) {
+    if (window.connectedToast) window.connectedToast(title, detail);
+    else window.alert(`${title}${detail ? `\n${detail}` : ""}`);
+  }
+
+  async function api(path, options) {
+    const response = await fetch(`${API}${path}`, options);
+    if (!response.ok) {
+      let message = "Please review the entered order information and try again.";
+      try {
+        const body = await response.json();
+        message = body.detail || body.message || message;
+      } catch (_) { }
+      throw new Error(message);
+    }
+    return response.status === 204 ? null : response.json();
+  }
+
+  async function catalog() {
+    const [items, services, pricing] = await Promise.all([
+      api("/items"), api("/services"), api("/service-pricing")
+    ]);
+    return { items, services, pricing };
+  }
+
+  function lineRow(line, data, selectedServices) {
+    const availableItems = data.items.filter((item) => data.pricing.some((price) =>
+      price.itemID === item.itemID && selectedServices.includes(price.serviceID)));
+    const itemID = line?.itemID || availableItems[0]?.itemID;
+    const availableServices = data.services.filter((service) => selectedServices.includes(service.serviceID)
+      && data.pricing.some((price) => price.itemID === itemID && price.serviceID === service.serviceID));
+    const serviceID = availableServices.some((service) => service.serviceID === line?.serviceID)
+      ? line.serviceID : availableServices[0]?.serviceID;
+    return `<div class="card item-row"><div class="grid grid_three"><div class="field"><label>Item</label><select class="input item-name" required>${availableItems.map((item) => `<option value="${item.itemID}" ${item.itemID === itemID ? "selected" : ""}>${escapeHtml(item.itemName)}</option>`).join("")}</select></div><div class="field"><label>Service</label><select class="input item-service" required>${availableServices.map((service) => `<option value="${service.serviceID}" ${service.serviceID === serviceID ? "selected" : ""}>${escapeHtml(service.serviceName)}</option>`).join("")}</select></div><div class="field"><label>Quantity</label><input class="input item-qty" type="number" min="1" value="${Number(line?.quantity || 1)}" required></div></div><div class="top_bar"><button class="link remove-item" type="button">Remove</button><strong class="line-total"></strong></div></div>`;
+  }
+
+  function bindLineRows(container, data, selectedServices, onChange) {
+    const priceFor = (itemID, serviceID) => data.pricing.find((price) => price.itemID === Number(itemID) && price.serviceID === Number(serviceID));
+    const refresh = (row) => {
+      const itemID = row.querySelector(".item-name").value;
+      const serviceSelect = row.querySelector(".item-service");
+      const prior = Number(serviceSelect.value);
+      const services = data.services.filter((service) => selectedServices.includes(service.serviceID)
+        && priceFor(itemID, service.serviceID));
+      serviceSelect.innerHTML = services.map((service) => `<option value="${service.serviceID}" ${service.serviceID === prior ? "selected" : ""}>${escapeHtml(service.serviceName)}</option>`).join("");
+      const price = priceFor(itemID, serviceSelect.value);
+      const quantity = Number(row.querySelector(".item-qty").value || 0);
+      row.querySelector(".line-total").textContent = price ? money(price.price * quantity) : "Not available";
+      onChange();
+    };
+    const bind = (row) => {
+      row.querySelector(".item-name").addEventListener("change", () => refresh(row));
+      row.querySelector(".item-service").addEventListener("change", () => refresh(row));
+      row.querySelector(".item-qty").addEventListener("input", () => refresh(row));
+      row.querySelector(".remove-item").addEventListener("click", () => {
+        if (container.children.length > 1) row.remove();
+        else toast("Keep at least one item", "An order needs one or more valid lines.");
+        onChange();
+      });
+      refresh(row);
+    };
+    Array.from(container.children).forEach(bind);
+    return { bind, priceFor };
+  }
+
+  async function initItems() {
+    const list = document.getElementById("item-list");
+    const form = list?.closest("form");
+    if (!list || !form) return;
+    try {
+      const data = await catalog();
+      const draft = getDraft();
+      const selectedServices = draft.services?.length ? draft.services : data.services.map((service) => service.serviceID);
+      const initialLines = (draft.lines || []).filter((line) => selectedServices.includes(line.serviceID));
+      for (const serviceID of selectedServices) {
+        if (initialLines.some((line) => line.serviceID === serviceID)) continue;
+        const price = data.pricing.find((entry) => entry.serviceID === serviceID
+          && data.items.some((item) => item.itemID === entry.itemID));
+        if (!price) {
+          const service = data.services.find((entry) => entry.serviceID === serviceID);
+          throw new Error(`${service?.serviceName || "A selected service"} has no currently priced items. Return to Services & Prices to update your selection.`);
         }
-        function update() {
-          var total = 0;
-          list.querySelectorAll(".item-row").forEach(function (row) {
-            total += price(row);
-          });
-          document.getElementById("estimated-total").textContent =
-            "LKR " + total.toLocaleString();
+        initialLines.push({ itemID: price.itemID, serviceID, quantity: 1 });
+      }
+      list.innerHTML = initialLines.map((line) => lineRow(line, data, selectedServices)).join("");
+      const updateTotal = () => {
+        const total = Array.from(list.querySelectorAll(".item-row")).reduce((sum, row) => {
+          const price = data.pricing.find((entry) => entry.itemID === Number(row.querySelector(".item-name").value) && entry.serviceID === Number(row.querySelector(".item-service").value));
+          return sum + (price ? price.price * Number(row.querySelector(".item-qty").value || 0) : 0);
+        }, 0);
+        document.getElementById("estimated-total").textContent = money(total);
+      };
+      const bindings = bindLineRows(list, data, selectedServices, updateTotal);
+      const originalAddButton = document.getElementById("add-item");
+      const addButton = originalAddButton.cloneNode(true);
+      originalAddButton.replaceWith(addButton);
+      addButton.addEventListener("click", () => {
+        list.insertAdjacentHTML("beforeend", lineRow({}, data, selectedServices));
+        bindings.bind(list.lastElementChild);
+        updateTotal();
+      });
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (!form.reportValidity()) return;
+        const lines = Array.from(list.querySelectorAll(".item-row")).map((row) => ({
+          itemID: Number(row.querySelector(".item-name").value),
+          serviceID: Number(row.querySelector(".item-service").value),
+          quantity: Number(row.querySelector(".item-qty").value)
+        }));
+        if (lines.some((line) => !bindings.priceFor(line.itemID, line.serviceID) || line.quantity <= 0)) {
+          toast("Invalid item selection", "Choose a currently priced item/service combination.");
+          return;
         }
-        function bind(row) {
-          row.querySelectorAll("select,input").forEach(function (x) {
-            x.addEventListener("change", update);
-            x.addEventListener("input", update);
-          });
-          row
-            .querySelector(".remove-item")
-            .addEventListener("click", function () {
-              if (list.children.length > 1) {
-                row.remove();
-                update();
-              } else if (window.connectedToast) {
-                connectedToast(
-                  "Keep at least one item",
-                  "An order needs one or more items.",
-                );
-              }
-            });
+        if (selectedServices.some((serviceID) => !lines.some((line) => line.serviceID === serviceID))) {
+          toast("Add items for every selected service", "Each selected service needs at least one item. To remove a service, return to Services & Prices.");
+          return;
         }
-        bind(list.firstElementChild);
-        add.addEventListener("click", function () {
-          var row = list.firstElementChild.cloneNode(true);
-          row.querySelector(".item-qty").value = 1;
-          list.appendChild(row);
-          bind(row);
-          update();
-          if (window.connectedToast)
-            connectedToast(
-              "Another item added",
-              "Choose the garment, service and quantity.",
-            );
-        });
-        update();
-      })();
+        saveDraft({ ...getDraft(), lines });
+        window.location.href = "new_order_schedule.html";
+      });
+      updateTotal();
+    } catch (error) {
+      list.innerHTML = `<div class="alert" style="background:#fff0f0;color:#9a2727;border-left-color:#e05252">Unable to load order items: ${escapeHtml(error.message)}</div>`;
+    }
+  }
+
+      initItems();
+    })();
     </script>
   </body>
 </html>

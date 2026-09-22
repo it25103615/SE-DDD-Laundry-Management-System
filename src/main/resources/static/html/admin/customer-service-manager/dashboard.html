@@ -1,164 +1,213 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Customer Service Manager Dashboard | LaundryLink</title>
-    <link rel="stylesheet" href="../../../css/global.css" />
-    <link rel="stylesheet" href="../../../css/dashboard.css" />
-    <script src="../../../js/global-pre.js"></script>
-    <script src="../../../js/global-post.js" defer></script>
-  </head>
-  <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="dashboard.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="dashboard.html">Support Home</a
-          ><a href="complaints.html">Cases</a><a href="orders.html">Orders</a
-          ><span class="profile_badge">SU</span>
-        </li>
-      </ul>
-    </nav>
-    <main>
-      <header
-        class="welcome_banner"
-        style="
-          margin-top: 34px;
-          background: linear-gradient(120deg, #075f8d, #12b8a6 58%, #38d7f2);
-        "
-      >
-        <div class="subtitle">CUSTOMER SERVICE MANAGER</div>
-        <div class="top_bar">
-          <div>
-            <h1>Let’s make things right</h1>
-            <p class="muted">
-              Four customers are waiting. Average response time is under six
-              minutes.
-            </p>
-          </div>
-          <span class="status status_success">● ONLINE</span>
-        </div>
-      </header>
-      <section
-        class="grid grid_three"
-        style="grid-template-columns: repeat(4, 1fr); margin-top: 20px"
-      >
-        <article class="card metric">
-          <div class="icon_bubble">◌</div>
-          <span class="muted small">OPEN CASES</span
-          ><strong data-counter="4">0</strong
-          ><span class="status status_warning">2 priority</span>
-        </article>
-        <article class="card metric">
-          <div class="icon_bubble">✓</div>
-          <span class="muted small">RESOLVED TODAY</span
-          ><strong data-counter="18">0</strong
-          ><span class="status status_success">+6 vs average</span>
-        </article>
-        <article class="card metric">
-          <div class="icon_bubble">◷</div>
-          <span class="muted small">AVG. RESPONSE</span><strong>5m</strong
-          ><span class="status status_success">Within target</span>
-        </article>
-        <article class="card metric">
-          <div class="icon_bubble">★</div>
-          <span class="muted small">CSAT SCORE</span
-          ><strong data-counter="96" data-suffix="%">0</strong>
-          <div class="progress"><span style="width: 96%"></span></div>
-        </article>
-      </section>
-      <section class="grid grid_two" style="margin-top: 22px">
-        <article class="card">
-          <div class="top_bar">
-            <h2>Priority queue</h2>
-            <a class="link" href="complaints.html">View all →</a>
-          </div>
-          <div class="activity_item">
-            <span class="activity_dot" style="background: var(--orange)"></span>
-            <div>
-              <strong>#C-118 · Delivery timing</strong>
-              <p class="muted small">Priya Fernando · Order #1042</p>
-            </div>
-            <span class="status status_warning">2 hrs</span>
-          </div>
-          <div class="activity_item">
-            <span class="activity_dot" style="background: #e05252"></span>
-            <div>
-              <strong>#C-116 · Damaged button</strong>
-              <p class="muted small">Dinesh Perera · Order #1039</p>
-            </div>
-            <span class="status status_error">1 day</span>
-          </div>
-          <div class="activity_item">
-            <span class="activity_dot"></span>
-            <div>
-              <strong>#C-115 · Payment question</strong>
-              <p class="muted small">Anjali Silva · Order #1038</p>
-            </div>
-            <span class="status status_info">New</span>
-          </div>
-        </article>
-        <article class="card">
-          <h2>Support performance</h2>
-          <p class="muted">Cases resolved this week</p>
-          <div class="chart">
-            <span style="--value: 48%"></span><span style="--value: 62%"></span
-            ><span style="--value: 70%"></span><span style="--value: 65%"></span
-            ><span style="--value: 88%"></span
-            ><span style="--value: 94%"></span>
-          </div>
-          <div class="top_bar small">
-            <span>Mon</span><strong class="link">94% resolved</strong
-            ><span>Sat</span>
-          </div>
-        </article>
-      </section>
-      <section class="page_header">
-        <div class="subtitle">QUICK TOOLS</div>
-        <h2>Resolve cases faster</h2>
-      </section>
-      <div class="quick_panel">
-        <a class="quick_action" href="orders.html"
-          ><div class="icon_bubble" style="margin: auto">⌕</div>
-          <strong>Find order</strong></a
-        ><a class="quick_action" href="complaints.html"
-          ><div
-            class="icon_bubble"
-            style="
-              margin: auto;
-              background: linear-gradient(135deg, var(--teal), var(--green));
-            "
-          >
-            ＋
-          </div>
-          <strong>New case</strong></a
-        ><a class="quick_action" href="../../public/services.html"
-          ><div
-            class="icon_bubble"
-            style="
-              margin: auto;
-              background: linear-gradient(135deg, var(--purple), #a17df3);
-            "
-          >
-            ▤
-          </div>
-          <strong>Knowledge base</strong></a
-        ><a class="quick_action" href="complaints.html"
-          ><div
-            class="icon_bubble"
-            style="
-              margin: auto;
-              background: linear-gradient(135deg, var(--orange), #ffbf69);
-            "
-          >
-            ↗
-          </div>
-          <strong>Escalations</strong></a
-        >
-      </div>
-    </main>
-  </body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Support overview | LaundryLink</title>
+<link rel="stylesheet" href="../../../css/global.css">
+<link rel="stylesheet" href="../../../css/dashboard.css">
+<link rel="stylesheet" href="../../../css/support/support.css">
+<script src="../../../js/global-pre.js" defer>
+</script>
+<script src="../../../js/support/common.js" defer>
+</script>
+<script src="../../../js/support/cases.js" defer>
+</script>
+</head>
+<body data-page="cases">
+<nav class="dashboard_nav">
+<ul class="navigation">
+<li class="logo">
+<a href="/html/portal.html">
+<h3>LaundryLink</h3>
+</a>
+</li>
+<li class="nav_right">
+<a href="/html/admin/owner/administration_overview.html">Overview</a>
+<a href="/html/admin/customer-service-manager/complaints.html">Support cases</a>
+<a href="/html/admin/customer-service-manager/orders.html">Order lookup</a>
+<a href="/html/admin/owner/reports.html">Reports</a>
+<a href="/html/admin/manager/system_settings.html">Settings</a>
+</li>
+</ul>
+</nav>
+<main class="support-page">
+<header class="page_header">
+<div class="subtitle">CUSTOMER CARE</div>
+<h1>Support overview</h1>
+<p id="identity">Connecting…</p>
+</header>
+<div id="notice" class="notice" role="status" aria-live="polite" hidden>
+</div>
+<section class="card section" id="case-editor" hidden>
+<h2 id="editor-title">Send us a message</h2>
+<form id="case-form">
+<div class="grid grid_two">
+<div class="field">
+<label for="type">Message type</label>
+<select id="type" class="input" required>
+<option>Complaint</option>
+<option>Feedback</option>
+<option>Question</option>
+</select>
+</div>
+<div class="field">
+<label for="order">Related order (optional)</label>
+<select id="order" class="input">
+<option value="">General enquiry</option>
+</select>
+</div>
+</div>
+<div class="field">
+<label for="subject">Subject</label>
+<input id="subject" class="input" maxlength="100" required>
+</div>
+<div class="field">
+<label for="message">Message (maximum 500 characters)</label>
+<textarea id="message" class="input" maxlength="500" required>
+</textarea>
+</div>
+<div class="field" id="rating-field" hidden>
+<label for="rating">Rating</label>
+<select id="rating" class="input">
+<option value="">Select rating</option>
+<option value="5">5 — Excellent</option>
+<option value="4">4 — Good</option>
+<option value="3">3 — Average</option>
+<option value="2">2 — Poor</option>
+<option value="1">1 — Very poor</option>
+</select>
+</div>
+<div class="actions">
+<button class="custom_button custom_button_bg" type="submit" id="save-case">Submit case</button>
+<button class="custom_button" type="button" id="cancel-edit" hidden>Cancel edit</button>
+</div>
+</form>
+</section>
+<section class="section">
+<h2 id="queue-title">Support cases</h2>
+<form id="filters" class="toolbar">
+<div class="field">
+<label for="search">Search</label>
+<input class="input" id="search" maxlength="100" placeholder="Subject or message">
+</div>
+<div class="field">
+<label for="filter-status">Status</label>
+<select class="input" id="filter-status">
+<option value="">All statuses</option>
+<option>New</option>
+<option>Assigned</option>
+<option>In Review</option>
+<option>Resolved</option>
+<option>Closed</option>
+<option>Reopened</option>
+</select>
+</div>
+<div class="field">
+<label for="filter-type">Type</label>
+<select class="input" id="filter-type">
+<option value="">All types</option>
+<option>Complaint</option>
+<option>Feedback</option>
+<option>Question</option>
+</select>
+</div>
+<button class="custom_button custom_button_bg" type="submit">Search</button>
+</form>
+<div class="table_wrap">
+<table>
+<thead>
+<tr>
+<th>Case</th>
+<th>Subject / customer</th>
+<th>Type</th>
+<th>Status</th>
+<th>Priority</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="cases">
+</tbody>
+</table>
+</div>
+<div class="actions">
+<button class="custom_button" id="previous">Previous</button>
+<span id="page-label">
+</span>
+<button class="custom_button" id="next">Next</button>
+</div>
+</section>
+<section id="case-detail" class="card detail section" hidden tabindex="-1">
+<div class="top_bar">
+<h2 id="detail-title">
+</h2>
+<button class="custom_button" id="close-detail">Close panel</button>
+</div>
+<p id="detail-meta" class="muted">
+</p>
+<p id="detail-message" style="white-space:pre-wrap">
+</p>
+<div class="actions" id="customer-actions">
+<button class="custom_button" id="edit-case">Edit</button>
+<button class="custom_button danger" id="delete-case">Delete case</button>
+</div>
+<form id="handle-form" class="section" hidden>
+<h3>Manage case</h3>
+<div class="grid grid_three">
+<div class="field">
+<label for="status">Status</label>
+<select class="input" id="status">
+<option>New</option>
+<option>Assigned</option>
+<option>In Review</option>
+<option>Resolved</option>
+<option>Closed</option>
+<option>Reopened</option>
+</select>
+</div>
+<div class="field">
+<label for="priority">Priority</label>
+<select class="input" id="priority">
+<option>Low</option>
+<option>Normal</option>
+<option>High</option>
+</select>
+</div>
+<div class="field">
+<label for="assignee">Assigned to</label>
+<select class="input" id="assignee">
+<option value="">Unassigned</option>
+</select>
+</div>
+</div>
+<div class="field">
+<label for="note">Action / resolution note (visible in case history)</label>
+<textarea class="input" id="note" maxlength="500" required>
+</textarea>
+</div>
+<button class="custom_button custom_button_bg" type="submit">Save case update</button>
+</form>
+<div class="split section">
+<section>
+<h3>Conversation</h3>
+<div id="messages">
+</div>
+<form id="reply-form">
+<div class="field">
+<label for="reply">Reply (maximum 250 characters)</label>
+<textarea class="input" id="reply" maxlength="250" required>
+</textarea>
+</div>
+<button class="custom_button custom_button_bg" type="submit">Send reply</button>
+</form>
+</section>
+<section>
+<h3>Case history</h3>
+<div id="history">
+</div>
+</section>
+</div>
+</section>
+</main>
+</body>
 </html>
