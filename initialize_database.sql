@@ -31,6 +31,8 @@ IF OBJECT_ID('dbo.chat', 'U') IS NOT NULL
     DROP TABLE dbo.chat;
 IF OBJECT_ID('dbo.feedback', 'U') IS NOT NULL
     DROP TABLE dbo.feedback;
+IF OBJECT_ID('dbo.orderPromotions', 'U') IS NOT NULL
+    DROP TABLE dbo.orderPromotions;
 IF OBJECT_ID('dbo.payments', 'U') IS NOT NULL
     DROP TABLE dbo.payments;
 IF OBJECT_ID('dbo.logs', 'U') IS NOT NULL
@@ -39,6 +41,8 @@ IF OBJECT_ID('dbo.orderLines', 'U') IS NOT NULL
     DROP TABLE dbo.orderLines
 IF OBJECT_ID('dbo.orders', 'U') IS NOT NULL
     DROP TABLE dbo.orders;
+IF OBJECT_ID('dbo.promotions', 'U') IS NOT NULL
+    DROP TABLE dbo.promotions;
 IF OBJECT_ID('dbo.addresses', 'U') IS NOT NULL
     DROP TABLE dbo.addresses;
 IF OBJECT_ID('dbo.status', 'U') IS NOT NULL
@@ -185,6 +189,53 @@ CREATE TABLE orderLines(
 GO
 
 -- ============= Initialize OrderLines Table - End ============
+-- ============================================================
+
+-- ============================================================
+-- ============ Initialize Promotions Table - Start ===========
+
+CREATE TABLE promotions(
+    promotionID INTEGER IDENTITY(1, 1) PRIMARY KEY,
+    promotionCode VARCHAR(30) NOT NULL UNIQUE,
+    promotionName VARCHAR(100) NOT NULL,
+    discountType VARCHAR(20) NOT NULL,
+    discountValue DECIMAL(10, 2) NOT NULL,
+    minimumOrderAmount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    validFrom DATE NOT NULL,
+    validTo DATE NOT NULL,
+    active BIT NOT NULL DEFAULT 1,
+
+    CONSTRAINT promotions_discountType_check CHECK (discountType IN ('PERCENTAGE', 'FIXED_AMOUNT')),
+    CONSTRAINT promotions_discountValue_check CHECK (
+        (discountType = 'PERCENTAGE' AND discountValue > 0 AND discountValue <= 100)
+        OR (discountType = 'FIXED_AMOUNT' AND discountValue > 0)
+    ),
+    CONSTRAINT promotions_minimumOrderAmount_check CHECK (minimumOrderAmount >= 0),
+    CONSTRAINT promotions_validDateRange_check CHECK (validTo >= validFrom)
+);
+GO
+
+-- ============= Initialize Promotions Table - End ============
+-- ============================================================
+
+-- ============================================================
+-- ========= Initialize OrderPromotions Table - Start =========
+
+CREATE TABLE orderPromotions(
+    orderID INTEGER PRIMARY KEY,
+    promotionID INTEGER NOT NULL,
+    discountAmount DECIMAL(10, 2) NOT NULL,
+    appliedAt DATETIME NOT NULL DEFAULT GETDATE(),
+
+    CONSTRAINT orderPromotions_orders_fk FOREIGN KEY(orderID)
+        REFERENCES orders(orderID),
+    CONSTRAINT orderPromotions_promotions_fk FOREIGN KEY(promotionID)
+        REFERENCES promotions(promotionID),
+    CONSTRAINT orderPromotions_discountAmount_check CHECK (discountAmount >= 0)
+);
+GO
+
+-- ========== Initialize OrderPromotions Table - End ==========
 -- ============================================================
 
 -- ============================================================
@@ -486,6 +537,19 @@ IF 1 = 0 AND OBJECT_ID('dbo.orderLines', 'U') IS NOT NULL
     GO
 
 -- =============== Populate OrderLines Table - End ===============
+-- ============================================================
+
+-- ============================================================
+-- ============== Populate Promotions Table - Start ==============
+
+IF OBJECT_ID('dbo.promotions', 'U') IS NOT NULL
+    INSERT INTO promotions(promotionCode, promotionName, discountType, discountValue, minimumOrderAmount, validFrom, validTo, active) VALUES
+        ('WELCOME10', 'Welcome ten percent discount', 'PERCENTAGE', 10.00, 500.00, '2026-01-01', '2026-12-31', 1),
+        ('EXPIRED50', 'Expired fixed discount', 'FIXED_AMOUNT', 50.00, 0.00, '2025-01-01', '2025-12-31', 1),
+        ('INACTIVE15', 'Inactive fifteen percent discount', 'PERCENTAGE', 15.00, 0.00, '2026-01-01', '2026-12-31', 0);
+    GO
+
+-- =============== Populate Promotions Table - End ===============
 -- ============================================================
 
 -- ============================================================

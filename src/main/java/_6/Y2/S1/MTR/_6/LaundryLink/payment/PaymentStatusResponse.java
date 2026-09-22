@@ -8,19 +8,22 @@ public class PaymentStatusResponse {
     private final BigDecimal paidAmount;
     private final BigDecimal outstandingAmount;
     private final PaymentStatus status;
+    private final String orderStatus;
 
     public PaymentStatusResponse(
             Integer orderID,
             BigDecimal payableAmount,
             BigDecimal paidAmount,
             BigDecimal outstandingAmount,
-            PaymentStatus status
+            PaymentStatus status,
+            String orderStatus
     ) {
         this.orderID = orderID;
         this.payableAmount = payableAmount;
         this.paidAmount = paidAmount;
         this.outstandingAmount = outstandingAmount;
         this.status = status;
+        this.orderStatus = orderStatus;
     }
 
     public Integer getOrderID() {
@@ -41,5 +44,9 @@ public class PaymentStatusResponse {
 
     public PaymentStatus getStatus() {
         return status;
+    }
+
+    public String getOrderStatus() {
+        return orderStatus;
     }
 }

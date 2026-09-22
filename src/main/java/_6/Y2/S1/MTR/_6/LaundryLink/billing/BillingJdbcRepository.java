@@ -1,5 +1,6 @@
 package _6.Y2.S1.MTR._6.LaundryLink.billing;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -48,5 +49,21 @@ public class BillingJdbcRepository implements BillingRepository {
                 ),
                 orderID
         );
+    }
+
+    @Override
+    public BigDecimal findAppliedDiscountAmount(Integer orderID) {
+        try {
+            BigDecimal discountAmount = jdbcTemplate.queryForObject(
+                    "SELECT discountAmount FROM orderPromotions WHERE orderID = ?",
+                    BigDecimal.class,
+                    orderID
+            );
+            return discountAmount == null ? BigDecimal.ZERO : discountAmount;
+        } catch (EmptyResultDataAccessException ex) {
+            return BigDecimal.ZERO;
+        } catch (DataAccessException ex) {
+            return BigDecimal.ZERO;
+        }
     }
 }

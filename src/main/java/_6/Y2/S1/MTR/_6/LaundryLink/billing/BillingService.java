@@ -26,7 +26,15 @@ public class BillingService {
                 .map(BillingLine::getLineTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal discountAmount = BigDecimal.ZERO;
+        BigDecimal discountAmount = billingRepository.findAppliedDiscountAmount(orderID);
+        if (discountAmount.compareTo(BigDecimal.ZERO) < 0) {
+            discountAmount = BigDecimal.ZERO;
+        }
+
+        if (discountAmount.compareTo(subtotal) > 0) {
+            discountAmount = subtotal;
+        }
+
         BigDecimal finalPayableAmount = subtotal.subtract(discountAmount);
 
         return new BillingDetails(orderID, userID, lines, subtotal, discountAmount, finalPayableAmount);
