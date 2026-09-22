@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My profile | LaundryLink</title>
+<link rel="stylesheet" href="../../css/global.css"><link rel="stylesheet" href="../../css/dashboard.css">
+<link rel="stylesheet" href="../../css/account/profile-live.css">
+<script src="../../js/global-pre.js" defer></script><script src="../../js/account/profile-live.js" defer></script>
+</head><body>
+<nav class="dashboard_nav"><ul class="navigation"><li class="logo"><a id="home-link" href="/html/portal.html"><h3>LaundryLink</h3></a></li><li class="nav_right"><a id="dashboard-link" href="/html/portal.html">Dashboard</a><span class="profile_badge" id="profile-badge">U</span></li></ul></nav>
+<main class="account-profile"><header class="page_header"><div class="subtitle">YOUR ACCOUNT</div><h1>My profile</h1><p>Your saved details appear here and update as soon as you save them.</p></header>
+<p id="profile-message" class="profile-message" role="status" hidden></p>
+<section class="card"><h2>Personal details</h2><p class="muted" id="profile-role">Loading account…</p>
+<form id="details-form"><div class="grid grid_two"><div class="field"><label for="name">Full name</label><input class="input" id="name" required minlength="2" maxlength="100"></div>
+<div class="field"><label for="phone">Phone number</label><input class="input" id="phone" required inputmode="numeric" pattern="[0-9]{10}" maxlength="10" placeholder="0771234567"></div></div>
+<div class="field"><label for="email">Email</label><input class="input" id="email" type="email" required maxlength="100"></div>
+<button class="custom_button custom_button_bg" type="submit">Save changes</button></form></section>
+<section class="card"><h2>Change password</h2><p class="muted">Enter your current password to protect your account.</p>
+<form id="password-form"><div class="field"><label for="current-password">Current password</label><div class="password-control"><input class="input" id="current-password" type="password" required autocomplete="current-password"><button type="button" class="password-toggle" data-toggle="current-password" aria-label="Show current password" aria-pressed="false">Show</button></div></div>
+<div class="grid grid_two"><div class="field"><label for="new-password">New password</label><div class="password-control"><input class="input" id="new-password" type="password" required minlength="8" maxlength="72" autocomplete="new-password"><button type="button" class="password-toggle" data-toggle="new-password" aria-label="Show new password" aria-pressed="false">Show</button></div></div>
+<div class="field"><label for="confirm-password">Confirm new password</label><div class="password-control"><input class="input" id="confirm-password" type="password" required minlength="8" maxlength="72" autocomplete="new-password"><button type="button" class="password-toggle" data-toggle="confirm-password" aria-label="Show confirmation password" aria-pressed="false">Show</button></div></div></div>
+<p class="muted small">Use 8–72 characters with uppercase, lowercase, a number, and a special character. No spaces. Example: <strong>Laundry#2026</strong>.</p><button class="custom_button custom_button_bg" type="submit">Update password</button></form></section>
+</main></body></html>

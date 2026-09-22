@@ -15,7 +15,7 @@ public final class SupportRequests {
         @NotBlank @Pattern(regexp = "New|Assigned|In Review|Resolved|Closed|Reopened") String status,
         @NotBlank @Pattern(regexp = "Low|Normal|High") String priority,
         @Positive Integer assigneeId,
-        @NotBlank @Size(max = 500) String note,
+        @Size(max = 500) String note,
         @NotNull @PositiveOrZero Integer version) {}
     public record MessageInput(@NotBlank @Size(max = 250) String message) {}
     public record SettingInput(
