@@ -13,6 +13,7 @@
 </script>
 <script src="../../../js/support/cases.js" defer>
 </script>
+<script src="../../../js/account/dashboard-identity.js" defer></script>
 </head>
 <body data-page="cases">
 <nav class="dashboard_nav">
@@ -28,6 +29,7 @@
 <a href="/html/admin/customer-service-manager/orders.html">Order lookup</a>
 <a href="/html/admin/owner/reports.html">Reports</a>
 <a href="/html/admin/manager/system_settings.html">Settings</a>
+<a href="/html/account/profile.html">My profile</a>
 </li>
 </ul>
 </nav>
@@ -181,8 +183,9 @@
 </div>
 </div>
 <div class="field">
-<label for="note">Action / resolution note (visible in case history)</label>
-<textarea class="input" id="note" maxlength="500" required>
+<label for="note">Assignment context or resolution note</label>
+<p class="muted small" id="note-hint">Optional when assigning a case.</p>
+<textarea class="input" id="note" maxlength="500">
 </textarea>
 </div>
 <button class="custom_button custom_button_bg" type="submit">Save case update</button>

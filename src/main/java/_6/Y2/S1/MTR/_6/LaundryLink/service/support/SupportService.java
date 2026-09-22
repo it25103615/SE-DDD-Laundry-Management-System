@@ -106,6 +106,9 @@ public class SupportService {
     public Map<String, Object> handle(Actor actor, int id, CaseUpdate input) {
         access.coordinator(actor);
         var item = one(actor, id);
+        String note = input.note() == null ? "" : input.note().trim();
+        if (Set.of("Resolved", "Closed").contains(input.status()) && note.isBlank())
+            throw new ResponseStatusException(BAD_REQUEST, "Add a resolution note before resolving or closing a case.");
         if (!allowed((String) item.get("status"), input.status())) throw new ResponseStatusException(CONFLICT, "Invalid case transition. Assign or review before resolving; resolve before closing.");
         if (!"New".equals(input.status()) && input.assigneeId() == null) throw new ResponseStatusException(BAD_REQUEST, "Assign a staff member before progressing the case.");
         if (input.assigneeId() != null && repo.count("SELECT COUNT(*) FROM users WHERE userID=? AND UPPER(type) IN ('ADMIN','MANAGER','OWNER','CSM','CUSTOMER_SERVICE_MANAGER','STAFF','RIDER')", input.assigneeId()) != 1)
@@ -118,7 +121,8 @@ public class SupportService {
                 "SELECT CONCAT(firstName, ' ', lastName) AS name FROM users WHERE userID=?", input.assigneeId())
                 .stream().findFirst().map(row -> String.valueOf(row.get("name"))).orElse("Staff member");
         repo.audit(id, actor.id(), "Case updated", "Status: " + item.get("status") + " → " + input.status()
-                + "\nPriority: " + input.priority() + "\nAssigned to: " + assignee + "\nNote: " + input.note().trim());
+                + "\nPriority: " + input.priority() + "\nAssigned to: " + assignee
+                + (note.isBlank() ? "" : "\nNote: " + note));
         return detail(actor, id);
     }
     @Transactional
