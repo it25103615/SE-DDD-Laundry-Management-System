@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="../../../css/dashboard.css" />
     <script src="../../../js/global-pre.js"></script>
     <script src="../../../js/global-post.js" defer></script>
+    <script src="../../../js/account/dashboard-identity.js" defer></script>
   </head>
   <body>
     <nav class="dashboard_nav">
@@ -21,7 +22,8 @@
           ><a href="../../staff/processing_board.html">Operations</a
           ><a href="staff_accounts.html">Team</a
           ><a href="../customer-service-manager/complaints.html">Assigned Complaints</a
-          ><span class="profile_badge">SM</span>
+          ><a href="../../account/profile.html">My profile</a>
+          ><span class="profile_badge" id="dashboard-badge">M</span>
         </li>
       </ul>
     </nav>
@@ -30,7 +32,7 @@
         <div class="subtitle">SHOP MANAGER</div>
         <div class="top_bar">
           <div>
-            <h1>Good morning, Samira</h1>
+            <h1 id="dashboard-greeting">Welcome back</h1>
             <p class="muted">
               Colombo Central is busy and performing ahead of target.
             </p>
