@@ -10,6 +10,13 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+// WHY: Thin HTTP layer for the rider frontend (dashboard.html,
+//      task_list.html) — every method is a direct pass-through to
+//      RiderService, with no business logic of its own.
+// HOW: GET endpoints return data; PUT endpoints perform one state change
+//      each and return 204 No Content on success (errors are thrown as
+//      ResponseStatusException by the service layer and handled by
+//      Spring's default exception handling).
 @RestController
 @RequestMapping("/api/rider")
 public class RiderController {

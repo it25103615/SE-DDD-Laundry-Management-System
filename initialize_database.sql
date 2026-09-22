@@ -567,3 +567,12 @@ IF OBJECT_ID('dbo.delivery', 'U') IS NOT NULL
 
 -- ================= Populate Delivery Table - End ===================
 -- ============================================================
+
+select *
+from delivery
+
+select *
+from orderLines
+
+select *
+from orders

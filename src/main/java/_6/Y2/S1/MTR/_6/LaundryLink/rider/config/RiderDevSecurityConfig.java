@@ -17,6 +17,9 @@ public class RiderDevSecurityConfig {
      * Remove this profile/config when the real authentication SecurityFilterChain
      * is integrated.
      */
+    // SECURITY WARNING: permitAll() on anyRequest() means this profile has
+// no auth at all — must not be active in any deployed/shared environment,
+// only during local development with the "rider-dev" profile explicitly set.
     @Bean
     SecurityFilterChain riderDevelopmentSecurity(HttpSecurity http) throws Exception {
         http

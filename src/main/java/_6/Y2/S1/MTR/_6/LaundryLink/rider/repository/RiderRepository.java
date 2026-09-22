@@ -10,6 +10,13 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
 
+// WHY: This module reads/writes tables (orders, delivery, users, logs) that
+//      other parts of LaundryLink also own — declaring @Entity classes here
+//      would risk clashing JPA mappings with another module's entities for
+//      the same physical tables.
+// HOW: Every method below uses EntityManager.createNativeQuery() with plain
+//      SQL and binds parameters by name. Reads return raw Object[] rows,
+//      which RiderService.mapRow() converts into RiderTaskDTO.
 @Repository
 public class RiderRepository {
 
@@ -21,6 +28,31 @@ public class RiderRepository {
      * These native queries read the existing database tables directly.
      */
 
+    // WHY: Looks up the rider's primary key (userID) using their login email address.
+    // HOW: Performs a direct lookup in the users table, enforcing type = 'RIDER'.
+   /* public java.util.Optional<Integer> findUserIdByEmail(String email) {
+        String sql = """
+                SELECT userID
+                FROM users
+                WHERE email = :email
+                  AND type = 'RIDER'
+                """;
+        List<?> result = entityManager.createNativeQuery(sql)
+                .setParameter("email", email)
+                .getResultList();
+
+        if (result.isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.of(((Number) result.get(0)).intValue());
+    }*/
+
+    // WHY: Powers GET /tasks — the unassigned pool a rider can accept from.
+// HOW: Unions pickup-eligible orders (statusID 3, no pickup rider) and
+//      delivery-eligible orders (statusID 12, no delivery rider) into one
+//      list, tagging each row's type via CASE. OUTER APPLY fills in the
+//      customer's default address and, for deliveries, the timestamp the
+//      order entered "Awaiting Delivery" (used only for sort order).
     public List<Object[]> findAvailableTasks() {
         String sql = """
                 SELECT
@@ -71,6 +103,11 @@ public class RiderRepository {
         return entityManager.createNativeQuery(sql).getResultList();
     }
 
+    // WHY: Powers GET /my-work — tasks this specific rider currently has active.
+// HOW: Same shape as findAvailableTasks(), but filtered to rows where this
+//      riderId is already assigned as the pickup or delivery rider, at the
+//      statuses that represent "in progress" (4, 5, 6 for pickup; 13 for
+//      delivery) rather than "unassigned."
     public List<Object[]> findMyWork(Integer riderId) {
         String sql = """
                 SELECT
@@ -128,7 +165,7 @@ public class RiderRepository {
                 .setParameter("riderId", riderId)
                 .getResultList();
     }
-
+    /*
     public long countAvailableTasks() {
         String sql = """
                 SELECT COUNT(*)
@@ -139,7 +176,9 @@ public class RiderRepository {
                 """;
         return ((Number) entityManager.createNativeQuery(sql).getSingleResult()).longValue();
     }
+    */
 
+    /*
     public long countCompletedTasks(Integer riderId) {
         String sql = """
                 SELECT COUNT(*)
@@ -152,7 +191,13 @@ public class RiderRepository {
                 .setParameter("riderId", riderId)
                 .getSingleResult()).longValue();
     }
-
+    */
+    // WHY: Looks up one assignment by its deliverID so the service layer can
+//      validate a task's current type/status/owning rider before acting
+//      on it (used by accept, cancel, and every status-change endpoint).
+// HOW: Derives a friendly "pickup"/"delivery" label from statusID via CASE,
+//      and returns both rider-ID columns so the caller can confirm
+//      ownership itself.
     public java.util.Optional<Object[]> findTaskById(Integer deliverId) {
         String sql = """
                 SELECT d.deliverID,
@@ -175,10 +220,17 @@ public class RiderRepository {
         return result.isEmpty() ? java.util.Optional.empty() : java.util.Optional.of((Object[]) result.get(0));
     }
 
+    // WHY: Moves a delivery from "Awaiting Delivery" (12) to "En Route To
+//      Delivery" (13) right after a rider accepts it.
+// HOW: Thin wrapper around the shared updateStatus() helper — kept as its
+//      own named method so RiderService's accept() flow reads clearly.
     public int updateDeliveryToEnRoute(Integer deliverId, Integer riderId) {
         return updateStatus(deliverId, riderId, "delivery_riderID", 12, 13);
     }
 
+    // WHY: Fetches basic profile info for GET /me (name, initials on the badge).
+// HOW: Plain lookup by userID — no rider-specific filtering, since the
+//      caller already knows this ID is a rider.
     public Object[] findRider(Integer riderId) {
         String sql = """
                 SELECT userID, firstName, lastName, type
@@ -191,6 +243,11 @@ public class RiderRepository {
         return result.isEmpty() ? null : (Object[]) result.get(0);
     }
 
+    // WHY: Claims an unassigned pickup for this rider.
+// HOW: The WHERE clause (statusID = 3 AND pickup_riderID IS NULL AND
+//      r.type = 'RIDER') doubles as an optimistic-concurrency check — if
+//      two riders tap Accept at once, only the first UPDATE matches a row
+//      and returns 1; the second returns 0 and the service layer rejects it.
     public int acceptPickup(Integer deliverId, Integer riderId) {
         String sql = """
                 UPDATE d
@@ -209,6 +266,9 @@ public class RiderRepository {
                 .executeUpdate();
     }
 
+    // WHY: Claims an unassigned delivery for this rider.
+// HOW: Same optimistic-concurrency pattern as acceptPickup(), scoped to
+//      statusID 12 / delivery_riderID instead of pickup.
     public int acceptDelivery(Integer deliverId, Integer riderId) {
         String sql = """
                 UPDATE d
@@ -227,10 +287,20 @@ public class RiderRepository {
                 .executeUpdate();
     }
 
+    // WHY: Advances a newly-accepted pickup from "Awaiting Pickup" (3) to
+//      "En Route To Pickup" (4).
+// HOW: Thin wrapper around updateStatus() — see acceptPickup(), which
+//      calls this immediately after a successful claim.
     public int movePickupToEnRoute(Integer deliverId, Integer riderId) {
         return updateStatus(deliverId, riderId, "pickup_riderID", 3, 4);
     }
 
+    // WHY: Records that the rider has physically collected the laundry from
+//      the customer, then advances the order toward the shop.
+// HOW: Two steps in sequence: (1) stamp pickup_actual with the current
+//      time, only if the order is still at statusID 4; (2) if that
+//      succeeded, move statusID 4 -> 6. If step 1 affects zero rows
+//      (task already moved on), step 2 is skipped and 0 is returned.
     public int pickupPickedUp(Integer deliverId, Integer riderId) {
         String sql = """
                 UPDATE d
@@ -249,10 +319,18 @@ public class RiderRepository {
         return updateStatus(deliverId, riderId, "pickup_riderID", 4, 6);
     }
 
+    // WHY: Records that the rider has dropped the laundry off at the shop —
+//      this is the actual "pickup completed" event for this order.
+// HOW: Thin wrapper around updateStatus(), advancing statusID 6 -> 7.
     public int pickupDeliveredToShop(Integer deliverId, Integer riderId) {
         return updateStatus(deliverId, riderId, "pickup_riderID", 6, 7);
     }
 
+    // WHY: Lets a rider report a failed pickup attempt with a reason, and
+//      frees the task back into the unassigned pool for another rider.
+// HOW: Saves the note and clears pickup_riderID (only if this rider still
+//      owns the task at statusID 4), then resets the order back to
+//      statusID 3 (Awaiting Pickup) so it reappears in the available pool.
     public int pickupFailed(Integer deliverId, Integer riderId, String note) {
         String sql = """
                 UPDATE d
@@ -273,6 +351,10 @@ public class RiderRepository {
         return setStatusByDeliveryId(deliverId, 3);
     }
 
+    // WHY: Records that the order has reached the customer — this is the
+//      actual "delivery completed" event.
+// HOW: Same two-step pattern as pickupPickedUp(): stamp delivery_time,
+//      then advance statusID 13 -> 15 only if the stamp succeeded.
     public int deliveryDelivered(Integer deliverId, Integer riderId) {
         String sql = """
                 UPDATE d
@@ -291,6 +373,10 @@ public class RiderRepository {
         return updateStatus(deliverId, riderId, "delivery_riderID", 13, 15);
     }
 
+    // WHY: Lets a rider report a failed delivery attempt with a reason, and
+//      frees the task back into the unassigned pool for another rider.
+// HOW: Mirrors pickupFailed() — saves the note, clears delivery_riderID,
+//      and resets the order back to statusID 12 (Awaiting Delivery).
     public int deliveryFailed(Integer deliverId, Integer riderId, String note) {
         String sql = """
                 UPDATE d
@@ -311,6 +397,10 @@ public class RiderRepository {
         return setStatusByDeliveryId(deliverId, 12);
     }
 
+    // WHY: Lets a rider back out of a pickup they've accepted but not yet
+//      started collecting (no note required, unlike a failed attempt).
+// HOW: Clears pickup_riderID (only if owned by this rider at statusID 4),
+//      then resets the order back to statusID 3.
     public int cancelPickup(Integer deliverId, Integer riderId) {
         String sql = """
                 UPDATE d
@@ -329,6 +419,10 @@ public class RiderRepository {
         return setStatusByDeliveryId(deliverId, 3);
     }
 
+    // WHY: Lets a rider back out of a delivery they've accepted but not yet
+//      completed.
+// HOW: Mirrors cancelPickup() — clears delivery_riderID at statusID 13,
+//      then resets the order back to statusID 12.
     public int cancelDelivery(Integer deliverId, Integer riderId) {
         String sql = """
                 UPDATE d
@@ -347,6 +441,14 @@ public class RiderRepository {
         return setStatusByDeliveryId(deliverId, 12);
     }
 
+    // WHY: Nearly every status transition in this file follows the same shape
+//      — "move this order's status forward by one step, but only if it's
+//      still at the status we expect" — so that logic lives here once.
+// HOW: UPDATE orders.statusID to nextStatus, joined through delivery on
+//      deliverId, guarded by both the owning rider column (parameterized
+//      via riderColumn, since it differs for pickup vs delivery) and the
+//      expected current statusID. A 0-row result means the task moved or
+//      was reassigned since the caller last checked it.
     private int updateStatus(Integer deliverId, Integer riderId, String riderColumn,
                              int expectedStatus, int nextStatus) {
         String sql = """
@@ -366,6 +468,12 @@ public class RiderRepository {
                 .executeUpdate();
     }
 
+    // WHY: Used by the "failed" and "cancel" flows, which reset an order's
+//      status without checking what it currently is (unlike updateStatus(),
+//      which enforces an expected starting status).
+// HOW: Plain UPDATE by deliverId, no status guard — safe here because the
+//      calling method has already confirmed ownership/status one step
+//      earlier in the same transaction.
     private int setStatusByDeliveryId(Integer deliverId, int statusId) {
         String sql = """
                 UPDATE o
