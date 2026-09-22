@@ -2,10 +2,10 @@ package _6.Y2.S1.MTR._6.LaundryLink.payment;
 
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingDetails;
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingService;
-import _6.Y2.S1.MTR._6.LaundryLink.logs.Log;
-import _6.Y2.S1.MTR._6.LaundryLink.logs.LogService;
-import _6.Y2.S1.MTR._6.LaundryLink.status.Status;
-import _6.Y2.S1.MTR._6.LaundryLink.status.StatusService;
+import _6.Y2.S1.MTR._6.LaundryLink.entity.shared.Log;
+import _6.Y2.S1.MTR._6.LaundryLink.entity.shared.Status;
+import _6.Y2.S1.MTR._6.LaundryLink.service.shared.LogService;
+import _6.Y2.S1.MTR._6.LaundryLink.service.shared.StatusService;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
