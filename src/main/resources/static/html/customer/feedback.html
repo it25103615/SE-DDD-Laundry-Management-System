@@ -1,94 +1,212 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Feedback &amp; Complaints | LaundryLink</title>
-    <link rel="stylesheet" href="../../css/global.css" />
-    <link rel="stylesheet" href="../../css/dashboard.css" />
-    <script src="../../js/global-pre.js"></script>
-    <script src="../../js/global-post.js" defer></script>
-  </head>
-  <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="dashboard.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="dashboard.html">Dashboard</a
-          ><a href="my_orders.html">My Orders</a
-          ><span class="profile_badge">PF</span>
-        </li>
-      </ul>
-    </nav>
-    <main>
-      <header class="page_header">
-        <div class="subtitle">YOUR ACCOUNT</div>
-        <h1>Feedback &amp; Complaints</h1>
-        <p>Tell us what went well or where we need to make things right.</p>
-      </header>
-      <div class="account_layout">
-        <nav class="side_navigation">
-          <a href="my_orders.html">My Orders</a
-          ><a href="payments.html">Payments</a
-          ><a href="addresses.html">Addresses</a
-          ><a href="profile.html">Profile</a
-          ><a class="active" href="feedback.html">Feedback &amp; Complaints</a>
-        </nav>
-        <section>
-          <form class="card">
-            <h2>Send us a message</h2>
-            <div class="grid grid_two">
-              <div class="field">
-                <label for="type">Message type</label
-                ><select class="input" id="type" name="type" required>
-                  <option value="">Choose one</option>
-                  <option>Feedback</option>
-                  <option>Complaint</option>
-                  <option>Question</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="order">Related order (optional)</label
-                ><select class="input" id="order" name="order">
-                  <option>None</option>
-                  <option>#1042</option>
-                  <option>#1018</option>
-                </select>
-              </div>
-            </div>
-            <div class="field">
-              <label for="subject">Subject</label
-              ><input class="input" id="subject" name="subject" required />
-            </div>
-            <div class="field">
-              <label for="message">Message</label
-              ><textarea
-                class="input"
-                id="message"
-                name="message"
-                required
-                maxlength="1000"
-              ></textarea>
-            </div>
-            <button class="custom_button custom_button_bg" type="submit">
-              Submit
-            </button>
-          </form>
-          <h2 style="margin-top: 40px">Previous messages</h2>
-          <article class="card">
-            <div class="top_bar">
-              <div>
-                <span class="status">RESOLVED</span>
-                <h3>Missing shirt button</h3>
-              </div>
-              <span class="muted small">Order #1018</span>
-            </div>
-            <p class="muted">Submitted 29 Jul 2026 · Resolved 30 Jul 2026</p>
-          </article>
-        </section>
-      </div>
-    </main>
-  </body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Feedback & complaints | LaundryLink</title>
+<link rel="stylesheet" href="../../css/global.css">
+<link rel="stylesheet" href="../../css/dashboard.css">
+<link rel="stylesheet" href="../../css/support/support.css">
+<script src="../../js/global-pre.js" defer>
+</script>
+<script src="../../js/support/common.js" defer>
+</script>
+<script src="../../js/support/cases.js" defer>
+</script>
+</head>
+<body data-page="customer">
+<nav class="dashboard_nav">
+<ul class="navigation">
+<li class="logo">
+<a href="/html/portal.html">
+<h3>LaundryLink</h3>
+</a>
+</li>
+<li class="nav_right">
+<a href="dashboard.html">Dashboard</a>
+<a href="my_orders.html">My orders</a>
+<a href="feedback.html">Feedback &amp; complaints</a>
+</li>
+</ul>
+</nav>
+<main class="support-page">
+<header class="page_header">
+<div class="subtitle">CUSTOMER CARE</div>
+<h1>Feedback & complaints</h1>
+<p id="identity">Connecting…</p>
+</header>
+<div id="notice" class="notice" role="status" aria-live="polite" hidden>
+</div>
+<section class="card section" id="case-editor" hidden>
+<h2 id="editor-title">Send us a message</h2>
+<form id="case-form">
+<div class="grid grid_two">
+<div class="field">
+<label for="type">Message type</label>
+<select id="type" class="input" required>
+<option>Complaint</option>
+<option>Feedback</option>
+<option>Question</option>
+</select>
+</div>
+<div class="field">
+<label for="order">Related order (optional)</label>
+<select id="order" class="input">
+<option value="">General enquiry</option>
+</select>
+</div>
+</div>
+<div class="field">
+<label for="subject">Subject</label>
+<input id="subject" class="input" maxlength="100" required>
+</div>
+<div class="field">
+<label for="message">Message (maximum 500 characters)</label>
+<textarea id="message" class="input" maxlength="500" required>
+</textarea>
+</div>
+<div class="field" id="rating-field" hidden>
+<label for="rating">Rating</label>
+<select id="rating" class="input">
+<option value="">Select rating</option>
+<option value="5">5 — Excellent</option>
+<option value="4">4 — Good</option>
+<option value="3">3 — Average</option>
+<option value="2">2 — Poor</option>
+<option value="1">1 — Very poor</option>
+</select>
+</div>
+<div class="actions">
+<button class="custom_button custom_button_bg" type="submit" id="save-case">Submit case</button>
+<button class="custom_button" type="button" id="cancel-edit" hidden>Cancel edit</button>
+</div>
+</form>
+</section>
+<section class="section">
+<h2 id="queue-title">Support cases</h2>
+<form id="filters" class="toolbar">
+<div class="field">
+<label for="search">Search</label>
+<input class="input" id="search" maxlength="100" placeholder="Subject or message">
+</div>
+<div class="field">
+<label for="filter-status">Status</label>
+<select class="input" id="filter-status">
+<option value="">All statuses</option>
+<option>New</option>
+<option>Assigned</option>
+<option>In Review</option>
+<option>Resolved</option>
+<option>Closed</option>
+<option>Reopened</option>
+</select>
+</div>
+<div class="field">
+<label for="filter-type">Type</label>
+<select class="input" id="filter-type">
+<option value="">All types</option>
+<option>Complaint</option>
+<option>Feedback</option>
+<option>Question</option>
+</select>
+</div>
+<button class="custom_button custom_button_bg" type="submit">Search</button>
+</form>
+<div class="table_wrap">
+<table>
+<thead>
+<tr>
+<th>Case</th>
+<th>Subject / customer</th>
+<th>Type</th>
+<th>Status</th>
+<th>Priority</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="cases">
+</tbody>
+</table>
+</div>
+<div class="actions">
+<button class="custom_button" id="previous">Previous</button>
+<span id="page-label">
+</span>
+<button class="custom_button" id="next">Next</button>
+</div>
+</section>
+<section id="case-detail" class="card detail section" hidden tabindex="-1">
+<div class="top_bar">
+<h2 id="detail-title">
+</h2>
+<button class="custom_button" id="close-detail">Close panel</button>
+</div>
+<p id="detail-meta" class="muted">
+</p>
+<p id="detail-message" style="white-space:pre-wrap">
+</p>
+<div class="actions" id="customer-actions">
+<button class="custom_button" id="edit-case">Edit</button>
+<button class="custom_button danger" id="delete-case">Delete case</button>
+</div>
+<form id="handle-form" class="section" hidden>
+<h3>Manage case</h3>
+<div class="grid grid_three">
+<div class="field">
+<label for="status">Status</label>
+<select class="input" id="status">
+<option>New</option>
+<option>Assigned</option>
+<option>In Review</option>
+<option>Resolved</option>
+<option>Closed</option>
+<option>Reopened</option>
+</select>
+</div>
+<div class="field">
+<label for="priority">Priority</label>
+<select class="input" id="priority">
+<option>Low</option>
+<option>Normal</option>
+<option>High</option>
+</select>
+</div>
+<div class="field">
+<label for="assignee">Assigned to</label>
+<select class="input" id="assignee">
+<option value="">Unassigned</option>
+</select>
+</div>
+</div>
+<div class="field">
+<label for="note">Assignment context or resolution note</label>
+<p class="muted small" id="note-hint">Optional when assigning a case.</p>
+<textarea class="input" id="note" maxlength="500">
+</textarea>
+</div>
+<button class="custom_button custom_button_bg" type="submit">Save case update</button>
+</form>
+<div class="split section">
+<section>
+<h3>Conversation</h3>
+<div id="messages">
+</div>
+<form id="reply-form">
+<div class="field">
+<label for="reply">Reply (maximum 250 characters)</label>
+<textarea class="input" id="reply" maxlength="250" required>
+</textarea>
+</div>
+<button class="custom_button custom_button_bg" type="submit">Send reply</button>
+</form>
+</section>
+<section>
+<h3>Case history</h3>
+<div id="history">
+</div>
+</section>
+</div>
+</section>
+</main>
+</body>
 </html>

@@ -1,0 +1,37 @@
+/* Support module uses existing LaundryLink typography and colours. */
+.support-page { max-width:1200px; margin:auto; padding-bottom:60px; }
+.support-page .toolbar { display:flex; flex-wrap:wrap; align-items:end; gap:14px; margin:20px 0; }
+.support-page .toolbar .field { flex:1; min-width:150px; }
+.support-page .actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
+.support-page button { cursor:pointer; }
+.support-page button:disabled { opacity:.5; cursor:wait; }
+.support-page .notice { padding:14px 18px; border:1px solid #a9c7df; border-radius:12px; background:#edf6ff; margin:16px 0; }
+.support-page .notice.error { color:#8b1a20; background:#fff0f0; border-color:#d99595; }
+.support-page .notice.success { color:#125735; background:#edf9f1; border-color:#9bcead; }
+.support-page .demo { background:#fff6db; border-color:#d8b757; color:#5c4807; }
+.support-page .demo select { margin:0 10px; }
+.support-page .split { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:24px; align-items:start; }
+.support-page textarea { min-height:110px; resize:vertical; }
+.support-page .section { margin-top:24px; }
+.support-page .detail { border-top:4px solid #1868af; }
+.support-page .history-entry { padding:12px 0; border-bottom:1px solid #dce6ef; white-space:pre-wrap; overflow-wrap:anywhere; }
+.support-page .case-timeline { position:relative; margin-top:12px; }
+.support-page .case-timeline::before { content:""; position:absolute; left:17px; top:18px; bottom:18px; width:2px; background:#c9ddeb; }
+.support-page .timeline-item { position:relative; display:grid; grid-template-columns:36px 1fr; gap:12px; padding-bottom:16px; }
+.support-page .timeline-marker { position:relative; z-index:1; width:34px; height:34px; display:grid; place-items:center; border-radius:50%; background:#1769aa; color:white; font-weight:700; box-shadow:0 0 0 4px #eef7fd; }
+.support-page .timeline-card { padding:13px 15px; border:1px solid #d7e4ee; border-radius:12px; background:#fff; box-shadow:0 3px 10px rgba(25,70,105,.06); }
+.support-page .timeline-heading { display:flex; justify-content:space-between; gap:12px; align-items:start; }
+.support-page .timeline-heading time,.support-page .timeline-actor { color:#647789; font-size:.84rem; }
+.support-page .timeline-actor { margin:3px 0 9px; }
+.support-page .timeline-details { white-space:pre-line; line-height:1.5; color:#263746; }
+.support-page .small { font-size:.86rem; }
+.support-page table { width:100%; }
+.support-page td { overflow-wrap:anywhere; max-width:300px; }
+.support-page .table_wrap { overflow-x:auto; }
+.support-page .danger { color:#a31e2c; border:1px solid #bd7880; background:white; }
+.support-page [hidden] { display:none !important; }
+.support-page .metric strong { font-size:clamp(1.3rem,3vw,2rem); overflow-wrap:anywhere; }
+.support-page .chart-row { display:grid; grid-template-columns:140px 1fr 35px; gap:10px; margin:12px 0; align-items:center; }
+.support-page .bar { background:#e5eef7; border-radius:6px; overflow:hidden; height:12px; }
+.support-page .bar span { display:block; height:100%; background:#1979ba; }
+@media(max-width:760px) { .support-page .split { grid-template-columns:1fr; } .support-page .grid_three { grid-template-columns:1fr; } .support-page .chart-row { grid-template-columns:100px 1fr 30px; } }

@@ -1,147 +1,118 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Owner Dashboard | LaundryLink</title>
-    <link rel="stylesheet" href="../../../css/global.css" />
-    <link rel="stylesheet" href="../../../css/dashboard.css" />
-    <script src="../../../js/global-pre.js"></script>
-    <script src="../../../js/global-post.js" defer></script>
-  </head>
-  <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="dashboard.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="dashboard.html">Executive View</a
-          ><a href="reports.html">Analytics</a
-          ><a href="payments_billing.html">Finance</a
-          ><a href="../manager/service_catalog.html">Services</a
-          ><span class="profile_badge">OW</span>
-        </li>
-      </ul>
-    </nav>
-    <main>
-      <header
-        class="welcome_banner"
-        style="
-          margin-top: 34px;
-          background: linear-gradient(120deg, #132f55, #075f8d 54%, #7768e8);
-        "
-      >
-        <div class="subtitle">EXECUTIVE OVERVIEW</div>
-        <div class="top_bar">
-          <div>
-            <h1>LaundryLink is growing</h1>
-            <p class="muted">August performance is 18.4% above last month.</p>
-          </div>
-          <select
-            class="input"
-            style="width: auto"
-            aria-label="Reporting period"
-          >
-            <option>August 2026</option>
-            <option>July 2026</option>
-          </select>
-        </div>
-      </header>
-      <section
-        class="grid grid_three"
-        style="grid-template-columns: repeat(4, 1fr); margin-top: 20px"
-      >
-        <article class="card metric">
-          <div class="icon_bubble">₨</div>
-          <span class="muted small">MONTHLY REVENUE</span><strong>1.42M</strong
-          ><span class="status status_success">↑ 18.4%</span>
-        </article>
-        <article class="card metric">
-          <div class="icon_bubble">◎</div>
-          <span class="muted small">TOTAL ORDERS</span
-          ><strong data-counter="684">0</strong
-          ><span class="status status_success">↑ 12.1%</span>
-        </article>
-        <article class="card metric">
-          <div class="icon_bubble">♙</div>
-          <span class="muted small">ACTIVE CUSTOMERS</span
-          ><strong data-counter="5240">0</strong
-          ><span class="status status_info">+286 new</span>
-        </article>
-        <article class="card metric">
-          <div class="icon_bubble">★</div>
-          <span class="muted small">CUSTOMER VALUE</span><strong>2,076</strong
-          ><span class="small muted">LKR average</span>
-        </article>
-      </section>
-      <section
-        class="grid grid_two"
-        style="grid-template-columns: 1.35fr 0.65fr; margin-top: 22px"
-      >
-        <article class="card">
-          <div class="top_bar">
-            <div>
-              <h2>Revenue trend</h2>
-              <p class="muted">Six-month growth trajectory</p>
-            </div>
-            <span class="status status_success">HEALTHY GROWTH</span>
-          </div>
-          <div class="chart" style="height: 220px">
-            <span style="--value: 42%"></span><span style="--value: 51%"></span
-            ><span style="--value: 58%"></span><span style="--value: 69%"></span
-            ><span style="--value: 78%"></span
-            ><span style="--value: 94%"></span>
-          </div>
-          <div class="top_bar small">
-            <span>March</span><strong class="link">+34.8% in 6 months</strong
-            ><span>August</span>
-          </div>
-        </article>
-        <aside class="card reward_card">
-          <h2>Business health</h2>
-          <div style="font-size: 76px; font-weight: 700">92</div>
-          <p>Excellent performance</p>
-          <div class="progress"><span style="width: 92%"></span></div>
-          <p class="small">
-            Revenue, retention and delivery performance are all above target.
-          </p>
-        </aside>
-      </section>
-      <section class="grid grid_three" style="margin-top: 22px">
-        <article class="card">
-          <h3>Best performing service</h3>
-          <div class="icon_bubble">1</div>
-          <h2>Wash &amp; Fold</h2>
-          <p class="muted">56% of revenue · 382 orders</p>
-        </article>
-        <article class="card">
-          <h3>Growth opportunity</h3>
-          <div
-            class="icon_bubble"
-            style="
-              background: linear-gradient(135deg, var(--purple), var(--orange));
-            "
-          >
-            ↗
-          </div>
-          <h2>Shoe Cleaning</h2>
-          <p class="muted">Demand increased 31% this month.</p>
-        </article>
-        <article class="card">
-          <h3>Customer insight</h3>
-          <div
-            class="icon_bubble"
-            style="
-              background: linear-gradient(135deg, var(--teal), var(--green));
-            "
-          >
-            ♡
-          </div>
-          <h2>78% repeat rate</h2>
-          <p class="muted">Retention is 6 points above target.</p>
-        </article>
-      </section>
-    </main>
-  </body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Business performance | LaundryLink</title>
+<link rel="stylesheet" href="../../../css/global.css">
+<link rel="stylesheet" href="../../../css/dashboard.css">
+<link rel="stylesheet" href="../../../css/support/support.css">
+<script src="../../../js/global-pre.js" defer>
+</script>
+<script src="../../../js/support/common.js" defer>
+</script>
+<script src="../../../js/support/reports.js" defer>
+</script>
+<script src="../../../js/account/dashboard-identity.js" defer></script>
+</head>
+<body data-page="overview">
+<nav class="dashboard_nav">
+<ul class="navigation">
+<li class="logo">
+<a href="/html/portal.html">
+<h3>LaundryLink</h3>
+</a>
+</li>
+<li class="nav_right">
+<a href="/html/admin/owner/administration_overview.html">Overview</a>
+<a href="/html/admin/customer-service-manager/complaints.html">Support cases</a>
+<a href="/html/admin/customer-service-manager/orders.html">Order lookup</a>
+<a href="/html/admin/owner/reports.html">Reports</a>
+<a href="/html/admin/manager/system_settings.html">Settings</a>
+<a href="/html/account/profile.html">My profile</a>
+</li>
+</ul>
+</nav>
+<main class="support-page">
+<header class="page_header">
+<div class="subtitle">ADMINISTRATION</div>
+<h1>Business performance</h1>
+<p id="identity">Connecting…</p>
+</header>
+<div id="notice" class="notice" role="status" aria-live="polite" hidden>
+</div>
+<form id="report-filters" class="toolbar">
+<div class="field">
+<label for="from">First order activity — from</label>
+<input class="input" id="from" type="date">
+</div>
+<div class="field">
+<label for="to">Through</label>
+<input class="input" id="to" type="date">
+</div>
+<div class="field">
+<label for="service">Orders containing service</label>
+<select class="input" id="service">
+<option value="">All services</option>
+</select>
+</div>
+<button class="custom_button custom_button_bg" type="submit">Generate report</button>
+<button class="custom_button" id="export" type="button" disabled>Export CSV</button>
+</form>
+<p id="period" class="muted">
+</p>
+<section class="grid grid_three" id="metrics">
+</section>
+<p class="small muted">Dates select orders by their earliest recorded status log. Payments are all recorded payments for those orders, not payments received during the period. A service filter selects whole orders, including their other services. Undated orders appear only in all-time results.</p>
+<div class="split section">
+<article class="card">
+<h2>Operational report</h2>
+<div id="status-chart">
+</div>
+</article>
+<article class="card">
+<h2>Customer support — all time</h2>
+<div id="support-metrics">
+</div>
+<a class="link" href="/html/admin/customer-service-manager/complaints.html">Open support cases →</a>
+</article>
+</div>
+<article class="card section">
+<h2>Service performance</h2>
+<p class="small muted">Line values are recorded totals; an order can contain several services.</p>
+<div class="table_wrap">
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Orders</th>
+<th>Items</th>
+<th>Line value</th>
+</tr>
+</thead>
+<tbody id="services">
+</tbody>
+</table>
+</div>
+</article>
+<article class="card section">
+<h2>Customer report</h2>
+<p class="small muted">Top 100 customers in the selected cohort, sorted by recorded payments.</p>
+<div class="table_wrap">
+<table>
+<thead>
+<tr>
+<th>Customer</th>
+<th>Orders</th>
+<th>Order value</th>
+<th>Recorded payments</th>
+</tr>
+</thead>
+<tbody id="customers">
+</tbody>
+</table>
+</div>
+</article>
+</main>
+</body>
 </html>

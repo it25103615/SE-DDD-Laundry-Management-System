@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="../../css/dashboard.css" />
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
+    <script src="../../js/account/dashboard-identity.js" defer></script>
     <style></style>
   </head>
   <body>
@@ -21,14 +22,16 @@
           ><a href="processing_board.html">Processing Board</a
           ><a href="receive_items.html">Receive Items</a
           ><a href="issue_reports.html">Issue Reports</a
-          ><span class="profile_badge">NS</span>
+          ><a href="../admin/customer-service-manager/complaints.html">Assigned Complaints</a
+          ><a href="../account/profile.html">My profile</a>
+          ><span class="profile_badge" id="dashboard-badge">S</span>
         </li>
       </ul>
     </nav>
     <main>
       <header class="page_header">
         <div class="subtitle">STAFF DASHBOARD</div>
-        <h1>Good morning, Nimal</h1>
+        <h1 id="dashboard-greeting">Welcome back</h1>
         <p>Here is what needs attention at the facility today.</p>
       </header>
       <section class="grid grid_three">
