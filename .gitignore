@@ -40,3 +40,5 @@ mssql-jdbc_auth-*.dll
 
 ### graphify ###
 graphify-out/
+
+temp.txt
