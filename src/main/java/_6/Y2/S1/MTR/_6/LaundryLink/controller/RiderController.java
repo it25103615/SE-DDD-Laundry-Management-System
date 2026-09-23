@@ -1,8 +1,8 @@
-package _6.Y2.S1.MTR._6.LaundryLink.rider.controller;
+package _6.Y2.S1.MTR._6.LaundryLink.controller;
 
-import _6.Y2.S1.MTR._6.LaundryLink.rider.dto.FailureRequest;
-import _6.Y2.S1.MTR._6.LaundryLink.rider.dto.RiderTaskDTO;
-import _6.Y2.S1.MTR._6.LaundryLink.rider.service.RiderService;
+import _6.Y2.S1.MTR._6.LaundryLink.dto.FailureRequest;
+import _6.Y2.S1.MTR._6.LaundryLink.dto.RiderTaskDTO;
+import _6.Y2.S1.MTR._6.LaundryLink.service.RiderService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

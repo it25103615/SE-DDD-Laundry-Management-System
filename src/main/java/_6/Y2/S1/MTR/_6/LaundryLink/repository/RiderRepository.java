@@ -1,13 +1,9 @@
-package _6.Y2.S1.MTR._6.LaundryLink.rider.repository;
+package _6.Y2.S1.MTR._6.LaundryLink.repository;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
 import java.util.List;
 
 // WHY: This module reads/writes tables (orders, delivery, users, logs) that

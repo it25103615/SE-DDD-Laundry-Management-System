@@ -1,5 +1,7 @@
-package _6.Y2.S1.MTR._6.LaundryLink.logs;
+package _6.Y2.S1.MTR._6.LaundryLink.service;
 
+import _6.Y2.S1.MTR._6.LaundryLink.logs.Log;
+import _6.Y2.S1.MTR._6.LaundryLink.repository.LogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

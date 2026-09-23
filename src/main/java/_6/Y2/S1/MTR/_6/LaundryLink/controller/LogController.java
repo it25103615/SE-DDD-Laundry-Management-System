@@ -1,5 +1,7 @@
-package _6.Y2.S1.MTR._6.LaundryLink.logs;
+package _6.Y2.S1.MTR._6.LaundryLink.controller;
 
+import _6.Y2.S1.MTR._6.LaundryLink.logs.Log;
+import _6.Y2.S1.MTR._6.LaundryLink.service.LogService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;

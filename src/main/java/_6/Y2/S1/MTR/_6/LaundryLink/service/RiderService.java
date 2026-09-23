@@ -1,15 +1,13 @@
-package _6.Y2.S1.MTR._6.LaundryLink.rider.service;
+package _6.Y2.S1.MTR._6.LaundryLink.service;
 
-import _6.Y2.S1.MTR._6.LaundryLink.rider.dto.FailureRequest;
-import _6.Y2.S1.MTR._6.LaundryLink.rider.dto.RiderTaskDTO;
-import _6.Y2.S1.MTR._6.LaundryLink.rider.repository.RiderRepository;
+import _6.Y2.S1.MTR._6.LaundryLink.dto.FailureRequest;
+import _6.Y2.S1.MTR._6.LaundryLink.dto.RiderTaskDTO;
+import _6.Y2.S1.MTR._6.LaundryLink.repository.RiderRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;

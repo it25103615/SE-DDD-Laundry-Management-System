@@ -1,4 +1,4 @@
-package _6.Y2.S1.MTR._6.LaundryLink.rider.dto;
+package _6.Y2.S1.MTR._6.LaundryLink.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

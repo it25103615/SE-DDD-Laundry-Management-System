@@ -1,4 +1,4 @@
-package _6.Y2.S1.MTR._6.LaundryLink.Sercurity;
+package _6.Y2.S1.MTR._6.LaundryLink.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
