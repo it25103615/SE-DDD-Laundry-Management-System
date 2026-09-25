@@ -19,11 +19,18 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/html/admin/owner/**").hasAnyRole("OWNER", "ADMIN")
+                        .requestMatchers("/html/admin/manager/**").hasAnyRole("MANAGER", "OWNER", "ADMIN")
+                        .requestMatchers("/html/admin/customer-service-manager/**").hasAnyRole("CSM", "CUSTOMER_SERVICE_MANAGER", "MANAGER", "OWNER", "ADMIN")
                         .requestMatchers("/api/support/**").authenticated()
+                        .requestMatchers("/api/notifications/**").authenticated()
                         .requestMatchers("/api/customer/dashboard").authenticated()
                         .requestMatchers("/api/account/**").authenticated()
                         .anyRequest().permitAll()
                 )
+                .exceptionHandling(exceptions -> exceptions
+                        .accessDeniedHandler((request, response, exception) ->
+                                response.sendRedirect("/html/portal.html?accessDenied=true")))
                 .formLogin(form -> form
                         .loginPage("/html/auth/login.html")
                         .loginProcessingUrl("/login")
@@ -53,8 +60,8 @@ public class SecurityConfig {
     @Bean
     public UserDetailsService userDetailsService(DataSource dataSource) {
         JdbcUserDetailsManager users = new JdbcUserDetailsManager(dataSource);
-        users.setUsersByUsernameQuery("SELECT email, password, CAST(1 AS BIT) FROM users WHERE email = ?");
-        users.setAuthoritiesByUsernameQuery("SELECT email, CONCAT('ROLE_', UPPER(type)) FROM users WHERE email = ?");
+        users.setUsersByUsernameQuery("SELECT email, password, active FROM users WHERE email = ?");
+        users.setAuthoritiesByUsernameQuery("SELECT email, CONCAT('ROLE_', UPPER(type)) FROM users WHERE email = ? AND active=1");
         return users;
     }
 

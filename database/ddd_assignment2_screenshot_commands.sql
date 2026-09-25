@@ -63,8 +63,8 @@ GO
 SELECT * FROM dbo.support_activity ORDER BY activityID;
 GO
 
-/* SECTION 15 - SYSTEM SETTINGS */
-SELECT * FROM dbo.system_settings ORDER BY settingID;
+/* SECTION 15 - NOTIFICATIONS */
+SELECT * FROM dbo.notifications ORDER BY notificationID;
 GO
 
 /* SECTION - QUERY 1: SIMPLE SELECT */

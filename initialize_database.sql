@@ -29,8 +29,8 @@ IF OBJECT_ID('dbo.sp_UpdateOrderStatus', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_UpdateOrderStatus;
 IF OBJECT_ID('dbo.support_activity', 'U') IS NOT NULL
     DROP TABLE dbo.support_activity;
-IF OBJECT_ID('dbo.system_settings', 'U') IS NOT NULL
-    DROP TABLE dbo.system_settings;
+IF OBJECT_ID('dbo.notifications', 'U') IS NOT NULL
+    DROP TABLE dbo.notifications;
 IF OBJECT_ID('dbo.delivery', 'U') IS NOT NULL
     DROP TABLE dbo.delivery;
 IF OBJECT_ID('dbo.chat', 'U') IS NOT NULL
@@ -95,7 +95,11 @@ GO
 
 CREATE TABLE services(
     serviceID INTEGER IDENTITY(1, 1) PRIMARY KEY,
-    serviceName VARCHAR(30)
+    serviceName VARCHAR(30) NOT NULL,
+    description NVARCHAR(250) NOT NULL DEFAULT 'Laundry service',
+    turnaroundHours INT NOT NULL DEFAULT 48 CHECK(turnaroundHours BETWEEN 1 AND 720),
+    active BIT NOT NULL DEFAULT 1,
+    version INT NOT NULL DEFAULT 0
 );
 GO
 
@@ -131,6 +135,10 @@ CREATE TABLE users(
     password VARCHAR(100) NULL,
     phoneNumber CHAR(10),
     type VARCHAR(30) NOT NULL,
+    active BIT NOT NULL DEFAULT 1,
+    createdAt DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    updatedAt DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    version INT NOT NULL DEFAULT 0,
 
     CONSTRAINT users_phoneNumber_format CHECK (phoneNumber LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'),
     CONSTRAINT ck_users_type CHECK(type IN ('CUSTOMER','RIDER','STAFF','MANAGER','OWNER','ADMIN','CSM','CUSTOMER_SERVICE_MANAGER'))
@@ -257,6 +265,8 @@ CREATE TABLE payments(
     paymentID INTEGER IDENTITY(1, 1) PRIMARY KEY,
     amount DECIMAL(10,2) NOT NULL,
     orderID INTEGER NOT NULL,
+    paymentStatus VARCHAR(20) NOT NULL DEFAULT 'PAID',
+    processedAt DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
 
     CONSTRAINT payments_orders_fk FOREIGN KEY(orderID)
         REFERENCES orders(orderID),
@@ -412,15 +422,71 @@ CREATE TABLE support_activity(
 );
 GO
 
-CREATE TABLE system_settings(
-    settingID INT IDENTITY PRIMARY KEY,
-    settingKey VARCHAR(60) NOT NULL UNIQUE,
-    settingValue NVARCHAR(250) NOT NULL,
-    description NVARCHAR(250) NOT NULL,
-    updatedBy INT NOT NULL REFERENCES users(userID),
-    updatedAt DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
-    version INT NOT NULL DEFAULT 0
+CREATE TABLE notifications(
+    notificationID BIGINT IDENTITY PRIMARY KEY,
+    recipientID INT NOT NULL REFERENCES users(userID),
+    category VARCHAR(30) NOT NULL,
+    title NVARCHAR(100) NOT NULL,
+    message NVARCHAR(300) NOT NULL,
+    link VARCHAR(300) NOT NULL,
+    relatedType VARCHAR(30) NULL,
+    relatedID INT NULL,
+    isRead BIT NOT NULL DEFAULT 0,
+    createdAt DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    readAt DATETIME2 NULL
 );
+CREATE INDEX ix_notifications_recipient ON notifications(recipientID,isRead,createdAt DESC);
+GO
+
+CREATE OR ALTER TRIGGER dbo.trg_order_notifications
+ON dbo.orders AFTER INSERT, UPDATE AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT dbo.notifications(recipientID,category,title,message,link,relatedType,relatedID)
+    SELECT i.userID,'ORDER','Order placed',CONCAT('Order #',i.orderID,' was placed successfully.'),
+           CONCAT('/html/customer/order_details.html?orderId=',i.orderID),'ORDER',i.orderID
+    FROM inserted i LEFT JOIN deleted d ON d.orderID=i.orderID WHERE d.orderID IS NULL;
+    INSERT dbo.notifications(recipientID,category,title,message,link,relatedType,relatedID)
+    SELECT i.userID,'ORDER','Order status updated',CONCAT('Order #',i.orderID,' is now ',COALESCE(s.statusLabel,'updated'),'.'),
+           CONCAT('/html/customer/order_details.html?orderId=',i.orderID),'ORDER',i.orderID
+    FROM inserted i JOIN deleted d ON d.orderID=i.orderID LEFT JOIN status s ON s.statusID=i.statusID
+    WHERE COALESCE(i.statusID,-1)<>COALESCE(d.statusID,-1);
+END;
+GO
+
+CREATE OR ALTER TRIGGER dbo.trg_payment_notifications
+ON dbo.payments AFTER INSERT, UPDATE AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT dbo.notifications(recipientID,category,title,message,link,relatedType,relatedID)
+    SELECT o.userID,'PAYMENT','Payment accepted',CONCAT('Payment for order #',i.orderID,' was ',LOWER(i.paymentStatus),'.'),
+           CONCAT('/html/customer/receipt.html?orderId=',i.orderID),'PAYMENT',i.paymentID
+    FROM inserted i JOIN orders o ON o.orderID=i.orderID LEFT JOIN deleted d ON d.paymentID=i.paymentID
+    WHERE i.paymentStatus IN('PAID','VERIFIED') AND (d.paymentID IS NULL OR COALESCE(d.paymentStatus,'')<>i.paymentStatus);
+END;
+GO
+
+CREATE OR ALTER TRIGGER dbo.trg_delivery_assignment_notifications
+ON dbo.delivery AFTER INSERT, UPDATE AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT dbo.notifications(recipientID,category,title,message,link,relatedType,relatedID)
+    SELECT i.pickup_riderID,'ASSIGNMENT','Pickup assigned',CONCAT('You were assigned pickup task #',i.deliverID,' for order #',i.orderID,'.'),
+           CONCAT('/html/rider/task_list.html?taskId=',i.deliverID),'DELIVERY',i.deliverID
+    FROM inserted i LEFT JOIN deleted d ON d.deliverID=i.deliverID
+    WHERE i.pickup_riderID IS NOT NULL AND COALESCE(d.pickup_riderID,-1)<>i.pickup_riderID;
+    INSERT dbo.notifications(recipientID,category,title,message,link,relatedType,relatedID)
+    SELECT i.delivery_riderID,'ASSIGNMENT','Delivery assigned',CONCAT('You were assigned delivery task #',i.deliverID,' for order #',i.orderID,'.'),
+           CONCAT('/html/rider/task_list.html?taskId=',i.deliverID),'DELIVERY',i.deliverID
+    FROM inserted i LEFT JOIN deleted d ON d.deliverID=i.deliverID
+    WHERE i.delivery_riderID IS NOT NULL AND COALESCE(d.delivery_riderID,-1)<>i.delivery_riderID;
+    INSERT dbo.notifications(recipientID,category,title,message,link,relatedType,relatedID)
+    SELECT o.userID,'DELIVERY','Rider assigned',CONCAT('A rider was assigned for order #',i.orderID,'.'),
+           CONCAT('/html/customer/order_details.html?orderId=',i.orderID),'ORDER',i.orderID
+    FROM inserted i JOIN orders o ON o.orderID=i.orderID LEFT JOIN deleted d ON d.deliverID=i.deliverID
+    WHERE (i.pickup_riderID IS NOT NULL AND COALESCE(d.pickup_riderID,-1)<>i.pickup_riderID)
+       OR (i.delivery_riderID IS NOT NULL AND COALESCE(d.delivery_riderID,-1)<>i.delivery_riderID);
+END;
 GO
 
 CREATE OR ALTER PROCEDURE dbo.sp_UpdateOrderStatus
