@@ -2,6 +2,7 @@ package _6.Y2.S1.MTR._6.LaundryLink.service.support;
 
 import _6.Y2.S1.MTR._6.LaundryLink.repository.support.SupportRepository;
 import _6.Y2.S1.MTR._6.LaundryLink.security.support.SupportAccess;
+import _6.Y2.S1.MTR._6.LaundryLink.service.shared.NotificationService;
 
 import java.util.*;
 import jakarta.validation.Validation;
@@ -22,7 +23,7 @@ class SupportServiceTest {
     final Actor admin=new Actor(9,"Admin","ADMIN",false);
     @BeforeEach void setup() {
         repo=mock(SupportRepository.class);
-        service=new SupportService(repo,new SupportAccess(null));
+        service=new SupportService(repo,new SupportAccess(null),mock(NotificationService.class));
     }
     Map<String,Object> item(String status) {
         return new HashMap<>(Map.of("id",1,"customerId",1,"status",status,"version",0));
@@ -93,7 +94,6 @@ class SupportServiceTest {
             var validator=factory.getValidator();
             assertFalse(validator.validate(new CaseInput("Other"," ","x".repeat(501),-1,6,null)).isEmpty());
             assertFalse(validator.validate(new CaseUpdate("Unknown","Urgent",0,"",-1)).isEmpty());
-            assertFalse(validator.validate(new SettingInput("BAD KEY"," ","",-1)).isEmpty());
             assertTrue(validator.validate(new CaseInput("Feedback","Service","Very helpful",1,5,null)).isEmpty());
         }
     }

@@ -9,7 +9,11 @@ STATUS(statusID PK, statusLabel)
 
 ITEMS(itemID PK, itemName)
 
-SERVICES(serviceID PK, serviceName)
+SERVICES(
+    serviceID PK, serviceName NN,
+    description NN, turnaroundHours NN CHECK 1..720,
+    active NN DEFAULT 1, version NN DEFAULT 0
+)
 
 SERVICE_PRICING(
     itemID PK/FK → ITEMS(itemID),
@@ -23,7 +27,10 @@ USERS(
     email UK,
     password,
     phoneNumber CHECK ten digits,
-    type VARCHAR(30) NN CHECK valid application role
+    type VARCHAR(30) NN CHECK valid application role,
+    active NN DEFAULT 1,
+    createdAt NN, updatedAt NN,
+    version NN DEFAULT 0
 )
 
 ADDRESSES(
@@ -52,7 +59,9 @@ ORDER_LINES(
 PAYMENTS(
     paymentID PK,
     amount NN CHECK amount >= 0,
-    orderID NN FK → ORDERS(orderID)
+    orderID NN FK → ORDERS(orderID),
+    paymentStatus NN DEFAULT 'PAID',
+    processedAt
 )
 
 LOGS(
@@ -105,15 +114,16 @@ SUPPORT_ACTIVITY(
     createdAt NN DEFAULT current date/time
 )
 
-SYSTEM_SETTINGS(
-    settingID PK,
-    settingKey NN UK,
-    settingValue NN,
-    description NN,
-    updatedBy NN FK → USERS(userID),
-    updatedAt NN DEFAULT current date/time,
-    version NN DEFAULT 0
+NOTIFICATIONS(
+    notificationID PK,
+    recipientID NN FK → USERS(userID),
+    category NN, title NN, message NN, link,
+    relatedType, relatedID,
+    isRead NN DEFAULT 0,
+    createdAt NN DEFAULT current date/time,
+    readAt
 )
+
 ```
 
 All generated numeric keys use SQL Server `IDENTITY`, except `statusID`, whose values are a controlled workflow catalogue. `servicePricing` uses the natural composite key `(itemID, serviceID)` because one price belongs to one exact item/service combination.
@@ -126,6 +136,7 @@ All generated numeric keys use SQL Server `IDENTITY`, except `statusID`, whose v
 - Items and services form a many-to-many relationship resolved by `servicePricing`.
 - Orders use priced item/service combinations through `orderLines`.
 - One feedback case may contain many chat messages and support activity records.
+- One user may receive many notifications, each with its own read state and optional destination link.
 - Pickup and delivery riders are user records restricted to the `RIDER` subtype by a trigger.
 
 The schema does not claim strict one-to-one cardinality for payment or delivery because `orderID` is not unique in those tables. It also does not enforce one default address per user. Adding those restrictions without agreed business rules could reject legitimate existing records.
@@ -148,26 +159,28 @@ These are explicit Part 02 refinements; they were not all present in the origina
 2. Changed currency fields from approximate `FLOAT` to exact `DECIMAL(10,2)`.
 3. Added positive-quantity and non-negative-money checks.
 4. Added a role discriminator check without changing the single-table ISA strategy.
-5. Added the support-case columns and the two support tables to the fresh-install DDL, matching the backend already in this project.
-6. Replaced the rider trigger body with a multi-row-safe, null-safe implementation using `THROW`.
-7. Added `sp_UpdateOrderStatus`, which updates an order and inserts its status log atomically.
+5. Added the support-case columns and support audit table to the fresh-install DDL, matching the backend already in this project.
+6. Added account active/audit/version fields and service description/turnaround/active/version fields for operational administration.
+7. Replaced the rider trigger body with a multi-row-safe, null-safe implementation using `THROW`.
+8. Added `sp_UpdateOrderStatus`, which updates an order and inserts its status log atomically.
+9. Added persistent user notifications and payment processing fields. Database triggers publish order, payment and rider-assignment notifications even when the owning module writes directly to its table.
 
-Migration `003_ddd_assignment2_refinement.sql` is additive. Before altering anything it checks for unknown roles, orphaned pricing rows, invalid quantities, null/negative prices, negative payments, and money values that cannot be represented by `DECIMAL(10,2)`. Any problem rolls back the transaction.
+Migration `003_ddd_assignment2_refinement.sql` checks for unknown roles, orphaned pricing rows, invalid quantities, null/negative prices, negative payments, and money values that cannot be represented by `DECIMAL(10,2)`. Any problem rolls back the transaction. It also removes the unused `system_settings` table.
 
 ## 5. DDL and migration strategy
 
-- **Fresh installation:** run `initialize_database.sql` only. It directly creates all 15 final tables, constraints, the procedure, the trigger, and essential reference catalogues. Migrations 001, 002 and 003 are not required afterward.
+- **Fresh installation:** run `initialize_database.sql` only. It directly creates all 15 final tables, constraints, the procedure, triggers, and essential reference catalogues. Migrations 001, 002 and 003 are not required afterward.
 - **Existing development database:** do not rerun `initialize_database.sql`. For the current database, where migrations 001 and 002 are already applied, run only `database/migrations/003_ddd_assignment2_refinement.sql` after taking a verified backup.
 - `001_support_admin.sql` and `002_account_password_hash.sql` are retained as historical schema-evolution records. Their final support-table, feedback-column, and password-column results are already incorporated directly into the master initializer.
-- `003_ddd_assignment2_refinement.sql` remains the safe additive upgrade path for an existing database and creates/updates the procedure and trigger.
+- `003_ddd_assignment2_refinement.sql` remains the upgrade path for an existing database; it removes the unused settings table and creates or updates the procedure, notification storage and triggers.
 
 The project does not use Flyway or Liquibase. Migration execution is manual or through `scripts/Initialize-SupportDatabase.ps1`. Therefore the operator must retain evidence of which scripts were executed.
 
 ## 6. Sample data
 
-`database/ddd_assignment2_sample_data.sql` inserts realistic customers, riders, staff, manager and owner records; addresses; orders and lines; payments; logs; cases; messages; deliveries; activities; and settings. It uses natural-key checks and never deletes existing records. A final count query proves whether every one of the 15 tables has at least five rows.
+`database/ddd_assignment2_sample_data.sql` inserts realistic customers, riders, staff, manager and owner records; addresses; orders and lines; payments; logs; cases; messages; deliveries; and activities. Notifications are produced by the table triggers as those records are created. The script uses natural-key checks and never deletes existing records, and its final count query includes all 15 tables.
 
-Sample passwords are `NULL`, as allowed by the legacy-compatible schema, so these assignment identities are data examples rather than login accounts. Real accounts must be registered through the application so BCrypt hashes are created.
+The assignment identities are usable demo accounts with the shared demo password `LaundryLink1!`, stored only as a BCrypt hash. Six additional role-specific demo identities use the easy-to-demonstrate `name@role.com` / `Name1234` convention. The sample script upgrades existing seeded rows when their password is still `NULL`. In normal use, customers register themselves, while an authenticated Owner or Manager creates Staff, Rider, CSM, or Manager accounts through the management-login screen. That screen never permits creation of another Owner; the seeded Owner is the bootstrap account.
 
 ## 7. Required queries
 
@@ -188,22 +201,24 @@ The executable queries are in `database/ddd_assignment2_queries.sql`.
 
 `dbo.trg_delivery_rider_check` runs after inserts and updates to `delivery`. It examines the full `inserted` pseudo-table, so multi-row statements are supported. Null rider assignments remain valid, while any non-null pickup or delivery rider must reference a `users` row with type `RIDER`.
 
+`trg_order_notifications`, `trg_payment_notifications`, and `trg_delivery_assignment_notifications` create inbox records for customer order changes, accepted payments, and rider assignments. Because SQL Server does not allow a direct `OUTPUT` result set from a table with enabled triggers, new inserts that need the generated identity should use `SCOPE_IDENTITY()` or `OUTPUT ... INTO`.
+
 ## 10. Assumptions and remaining differences
 
 - The current application, not the conceptual EER, requires `ADMIN`, `CSM`, and `CUSTOMER_SERVICE_MANAGER` aliases.
-- Support cases, audit history and system settings are retained because they are active SE-project tables even if absent from the first EER.
+- Support cases and audit history are retained because they are active SE-project tables even if absent from the first EER.
 - There are no separate subtype tables; this is an intentional ISA mapping, not a missing relation.
 - `delivery.userID` duplicates the customer available through `orders.userID`; it is retained for compatibility.
 - `feedback` represents complaints, questions and ratings in one relation because the current support module uses this structure.
 - The physical database is broader than the Java ORM: only Status and Log currently have JPA entities; most access uses JDBC/native SQL.
-- Order, payment and delivery date/detail attributes remain limited because adding them would redesign application workflows beyond this assignment refinement.
+- Order and delivery date/detail attributes remain limited because adding them would redesign application workflows beyond this assignment refinement. Payments now record processing status and time so accepted-payment notifications have an explicit trigger condition.
 
 ## 11. Execution verification status — 22 September 2026
 
 ### Verified by execution
 
 - A read-only connection to `Agksheya-PC\SQLEXPRESS` / `laundryLinkDB` succeeded under the normal Windows identity.
-- All 15 expected tables existed. Existing roles were supported, and preflight queries found no pricing orphans, null/negative prices, invalid quantities, negative payments, or incompatible currency precision.
+- The current schema expects 15 tables: the former unused settings table was removed and the active notifications table was added.
 - A checksum full backup was created and passed `RESTORE VERIFYONLY`: `laundryLinkDB_before_DDD_Assignment2_20260922_123219.bak`.
 - Migration 003 completed successfully in all four batches.
 - Physical metadata verification confirmed `DECIMAL(10,2)` money columns, `users.type VARCHAR(30)`, enabled/trusted pricing foreign keys, enabled/trusted validation checks, and enabled procedure/trigger objects.
@@ -213,7 +228,7 @@ The executable queries are in `database/ddd_assignment2_queries.sql`.
 ### Verified by static inspection
 
 - Migration 003 contains transactional preflight checks, both missing `servicePricing` foreign keys, exact-money conversions, quantity/money checks, role validation, the stored procedure, and the revised trigger.
-- The sample script contains non-deleting, transaction-protected data for all 15 relations and a final row-count query.
+- The sample script contains non-deleting, transaction-protected data and a final row-count query covering all 15 relations.
 - The five required query forms and the rollback-safe procedure/trigger demonstrations are present.
 - The fresh-install initializer represents the refined schema, but it was not executed because it is destructive.
 

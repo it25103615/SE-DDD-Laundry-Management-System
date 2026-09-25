@@ -16,11 +16,13 @@ This is a feature-based progress slice, not a certified completion percentage. T
 |---|---|
 | Complaint and feedback create/read/update/delete | Customer form, own-case list, edit and delete while New; database-backed endpoints |
 | Ratings | Feedback requires a rating from 1 to 5; complaints/questions cannot carry ratings |
-| Case management | Search, type/status filters, pagination, assignment, priority and controlled status progression |
-| Case history and communications | Timestamped actor history and replies saved in existing chat table |
-| System administration | Settings create/read/update/delete with manager authorization and audit entries |
+| Case management | Interactive live summary cards, search, type/status/priority/assignee filters, responsive case queue, slide-over detail workspace, pagination, assignment, priority and controlled status progression |
+| Case history and communications | Differentiated customer/support message bubbles, sending states, smooth scrolling, timestamps and a polished actor/activity timeline saved through the existing chat and audit tables |
+| User notifications | Shared bell/dropdown with unread count, mark-one/mark-all read behavior and links to the related screen; persistent events cover orders, accepted payments, rider assignments, support assignment/replies, and account/administration changes |
+| Operational administration | Database-backed service catalogue, item pricing, staff/rider/CSM accounts, deactivation, role assignment and administrative audit history |
 | Operational / financial / customer reports | Date/service filters, status breakdown, line values, recorded payment totals, top 100 customer summary, CSV export |
 | Business indicators | Database-backed order/customer/value/delivery totals and all-time support/rating summary |
+| Operational alerts | High-priority and unassigned cases, overdue pickups and orders without timeline activity |
 | Support order lookup | Paginated orders and shared status-log history |
 
 ## Start locally
@@ -30,8 +32,8 @@ This is a feature-based progress slice, not a certified completion percentage. T
 3. For a missing database, `scripts/Initialize-SupportDatabase.ps1` creates the schema and reference catalog, then applies the application migrations. It uses your Windows SQL Express login.
 4. Configure your SQL Server connection in ignored `src/main/resources/application-local.properties` (URL, username and password). The shared default expects localhost:1433; TCP must be enabled for JDBC.
 5. Run `powershell -File scripts/Start-Support.ps1`. Open http://localhost:8080/html/customer/feedback.html.
-6. Create a fresh customer account through `/html/auth/register.html`, then log in through `/html/auth/login.html`. The database contains no seeded user accounts.
-7. Spring Security creates the session and SupportAccess resolves the authenticated email and database role. The sample passwords are plain text and must be migrated to BCrypt by the account module before deployment.
+6. Either create a customer through `/html/auth/register.html`, use an `@assignment.laundrylink.lk` identity with password `LaundryLink1!`, or use the simple stakeholder accounts: `anna@customer.com` / `Anna1234`, `ravi@rider.com` / `Ravi1234`, `sam@staff.com` / `Sam1234`, `cathy@csm.com` / `Cathy1234`, `maya@manager.com` / `Maya1234`, and `oliver@owner.com` / `Oliver1234`. The sample script stores only BCrypt hashes.
+7. Spring Security creates the session and SupportAccess resolves the authenticated email and database role. Owners and Managers can create Staff, Rider, CSM, or Manager logins from **Manage logins**; the allowed-role validation excludes Owner.
 
 ## Two-to-three-minute individual demonstration
 
@@ -41,13 +43,12 @@ This is a feature-based progress slice, not a certified completion percentage. T
 4. Submit Feedback with rating 5. Show that a missing rating or blank message is rejected.
 5. Switch to Admin/support. Search for the first complaint, assign Anusha, move to In Review with a note, reply, then resolve with a resolution note. Explain why skipping directly from New to Resolved is rejected.
 6. Switch back to Nimal: read the reply and case history. Switch to Kamala: Nimal's cases are not listed.
-7. Manager: open Settings. Create `shop.contact_phone`, edit its value, delete it, and show all three audit records. These are operational information records, not live pricing/security rules.
-8. Open Reports. Use all-time data, then August 2026 dates to match the original seed. Show filtered totals, order status breakdown and CSV export.
+7. Open Reports. Use all-time data, then August 2026 dates to match the original seed. Show filtered totals, order status breakdown and CSV export.
 
 ## Important metric definitions
 
 - Order value is SUM(orderLines.linePrice). The existing schema stores a total per line, so do not multiply by quantity again.
-- Recorded payments are SUM(payments.amount). This table has no date or transaction-status field; this is not a statement of verified revenue received within a period.
+- Recorded payments are SUM(payments.amount). `paymentStatus` and `processedAt` now identify processing state and acceptance time, but existing reports still describe recorded totals rather than settled accounting revenue.
 - Date filters use the earliest status log for each order. Orders without dates appear only in all-time reports.
 - A service filter selects orders containing that service; payment and service totals cover those entire orders.
 - Delivered/completed means status 14 or 15. An on-time percentage cannot be calculated because delivery deadlines are not stored.
@@ -57,29 +58,29 @@ This is a feature-based progress slice, not a certified completion percentage. T
 
 Java classes are grouped by layer and module. See [Project-Structure.md](Project-Structure.md) for the six-member ownership map and exact source locations.
 
-Browser form → SupportController (HTTP and bean validation) → SupportService / SettingsService / ReportService (business rules) → SupportRepository (parameterized SQL) → SQL Server.
+Browser form → SupportController (HTTP and bean validation) → SupportService / AdministrationService / ReportService (business rules) → SupportRepository (parameterized SQL) → SQL Server.
 
 SupportAccess obtains the current actor and checks role/ownership. Customer requests never accept a customer ID in their body. The order must belong to that actor. Write methods are transactional, so a failed audit write rolls back the corresponding change. Version checks prevent stale browser forms from overwriting newer changes. The repository pattern separates database access from business rules; constructor injection keeps services testable.
 
 Case lifecycle: New → Assigned → In Review → Resolved → Closed; Resolved/Closed may be Reopened, then assigned/reviewed again. Every staff update requires a note. New cases can be edited/deleted; handled cases retain their history. Replies to closed cases are rejected until reopening.
 
-## Remaining work for final delivery
+## Cross-module dependencies for final group delivery
 
 - Integrate real authentication/CSRF/session behavior with the account module. The shared project currently permits requests globally; demo identities are for local evaluation only.
-- Implement event-driven order/payment/pickup/delivery notifications. Case conversations already persist, but automated notifications and email delivery are not implemented.
-- Agree which settings other modules will consume; the CRUD screen currently maintains operational information.
+- Order, payment and pickup/delivery notifications are emitted by database triggers, so they work for direct writes from the owning modules. Feature services publish support, account and administration notifications explicitly.
 - Add authoritative order/payment dates and delivery deadlines upstream before adding calendar revenue and on-time KPIs.
 - Complete team integration, the design document (sprint summaries, use cases, class/activity diagrams and ethics), and a full group rehearsal.
 - Review and understand each change before presenting it; the specification explicitly evaluates individual understanding.
 
 ## Verification
 
-Verified on 14 September 2026:
+Verified on 23 September 2026:
 
-- Java 26 compile and 33 module tests passed (0 failures, 0 errors): access checks, HTTP input validation, lifecycle transitions, create/edit/delete/reply business behavior and stale-version protection.
-- All six support JavaScript files passed Node syntax checks; eight module HTML pages passed local-link and duplicate-ID checks.
-- Reports page layout inspected in the browser. This was a static preview, not a live API/persistence demonstration.
-- laundryLinkDB was created in local SQL Express on 14 September 2026 with user approval. Verified 12 users, 6 orders, 4 feedback records, both support tables and all 10 added feedback columns. Local TCP is now enabled on 127.0.0.1 and ::1 port 1433. JDBC Windows authentication successfully connected, and the full suite of 34 tests (including Spring Boot context startup with SQL Server) passed. The complete browser CRUD walkthrough remains to be verified.
+- Java 26 compilation and the full 50-test suite pass with no failures or errors. Tests cover access checks, HTTP validation, case lifecycle and concurrency rules, administration role restrictions, password hashing, service uniqueness, account deactivation rules, notifications, database triggers, and application startup.
+- The live-schema integration test reads the service catalogue, operational accounts, role model, reports and operational alerts from SQL Server.
+- All support JavaScript files pass Node syntax checks.
+- Migration 003 is applied to the local SQL Express database. Administration and payment columns are present, the notification table and its three event triggers are active, and the removed `system_settings` table is absent.
+- The assignment sample identities are login-ready with the documented demo password. Production accounts should use individual passwords created through registration or the management-login screen.
 
 See `support-structure-tests.log` for the latest run. The full-application context test now passes against SQL Server; see `database-startup-tests.log`. The remaining module tests use mocks and do not prove every SQL query or CRUD workflow. Run the integration checklist above against SQL Server after setup before describing the slice as demonstration-ready.
 

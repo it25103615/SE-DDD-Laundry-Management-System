@@ -45,7 +45,7 @@ SELECT TOP (5) * FROM dbo.feedback;
 SELECT TOP (5) * FROM dbo.chat;
 SELECT TOP (5) * FROM dbo.delivery;
 SELECT TOP (5) * FROM dbo.support_activity;
-SELECT TOP (5) * FROM dbo.system_settings;
+SELECT TOP (5) * FROM dbo.notifications;
 ```
 
 ## D. Required SQL queries

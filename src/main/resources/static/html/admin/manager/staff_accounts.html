@@ -1,81 +1,30 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Staff Accounts | LaundryLink</title>
-    <link rel="stylesheet" href="../../../css/global.css" />
-    <link rel="stylesheet" href="../../../css/dashboard.css" />
-    <script src="../../../js/global-pre.js"></script>
-    <script src="../../../js/global-post.js" defer></script>
-  </head>
-  <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="../owner/administration_overview.html"
-            ><h3>LaundryLink</h3></a
-          >
-        </li>
-        <li class="nav_right">
-          <a href="../owner/administration_overview.html">Dashboard</a
-          ><a href="staff_accounts.html">Staff Accounts</a
-          ><a href="../owner/roles_permissions.html">Roles &amp; Permissions</a
-          ><span class="profile_badge">AD</span>
-        </li>
-      </ul>
-    </nav>
-    <main>
-      <header class="page_header top_bar">
-        <div>
-          <div class="subtitle">ADMINISTRATION</div>
-          <h1>Staff Accounts</h1>
-          <p>Create and manage staff, rider and administrator access.</p>
-        </div>
-        <button class="custom_button custom_button_bg">
-          + Add staff account
-        </button>
-      </header>
-      <div class="table_wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>NAME</th>
-              <th>ROLE</th>
-              <th>CONTACT</th>
-              <th>STATUS</th>
-              <th>LAST ACTIVE</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Nimal Silva</td>
-              <td>Facility Staff</td>
-              <td>nimal@laundrylink.lk</td>
-              <td><span class="status">ACTIVE</span></td>
-              <td>Today</td>
-              <td>
-                <a class="link" href="../owner/roles_permissions.html"
-                  >Edit access</a
-                >
-              </td>
-            </tr>
-            <tr>
-              <td>Ravi Kumar</td>
-              <td>Rider</td>
-              <td>ravi@laundrylink.lk</td>
-              <td><span class="status">ACTIVE</span></td>
-              <td>Today</td>
-              <td>
-                <a class="link" href="../owner/roles_permissions.html"
-                  >Edit access</a
-                >
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </main>
-  </body>
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Staff accounts | LaundryLink</title>
+<link rel="stylesheet" href="../../../css/global.css"><link rel="stylesheet" href="../../../css/dashboard.css"><link rel="stylesheet" href="../../../css/support/support.css">
+<script src="../../../js/global-pre.js" defer></script><script src="../../../js/support/common.js" defer></script>
+</head>
+<body data-page="staff-accounts">
+<nav class="dashboard_nav"><ul class="navigation"><li class="logo"><a href="dashboard.html"><h3>LaundryLink</h3></a></li><li class="nav_right"><a href="dashboard.html">Dashboard</a><a href="service_catalog.html">Service catalogue</a><a href="staff_accounts.html">Staff accounts</a></li></ul></nav>
+<main class="support-page">
+<header class="page_header"><div class="subtitle">ADMINISTRATION</div><h1>Management-side logins</h1><p>Owners and Managers can create Staff, Rider, CSM, or Manager accounts. Owner accounts cannot be created here.</p><p id="identity">Connecting…</p></header>
+<div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+<div class="split">
+<section class="card"><h2 id="staff-form-title">Add account</h2><form id="staff-form">
+<div class="field"><label for="first-name">First name</label><input class="input" id="first-name" required maxlength="50"></div>
+<div class="field"><label for="last-name">Last name</label><input class="input" id="last-name" required maxlength="50"></div>
+<div class="field"><label for="staff-email">Email</label><input class="input" id="staff-email" type="email" required maxlength="100"></div>
+<div class="field"><label for="staff-phone">Phone number</label><input class="input" id="staff-phone" required inputmode="numeric" pattern="[0-9]{10}" maxlength="10"></div>
+<div class="field"><label for="staff-role">Role</label><select class="input" id="staff-role" required><option value="STAFF">Laundry Staff</option><option value="RIDER">Delivery Rider</option><option value="CSM">Customer Service Manager</option><option value="MANAGER">Shop Manager</option></select></div>
+<div class="field"><label for="staff-password">Temporary/new password</label><input class="input" id="staff-password" type="password" minlength="8" maxlength="72"><p class="small muted">Required for a new account. Leave blank while editing to keep the current password.</p></div>
+<label><input id="staff-active" type="checkbox" checked> Account active</label>
+<div class="actions"><button class="custom_button custom_button_bg" type="submit">Save account</button><button class="custom_button" id="cancel-staff" type="button">Clear</button></div>
+</form></section>
+<section class="card"><h2>Administrative activity</h2><div id="admin-activity"><p class="muted">Loading activity…</p></div></section>
+</div>
+<section class="card section"><div class="top_bar"><h2>Staff, rider, CSM and manager accounts</h2><form id="staff-search"><label class="sr-only" for="search-staff">Search accounts</label><input class="input" id="search-staff" maxlength="100" placeholder="Search name or email"><button class="custom_button" type="submit">Search</button></form></div><div class="table_wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Contact</th><th>Status</th><th>Updated</th><th>Action</th></tr></thead><tbody id="staff-rows"></tbody></table></div></section>
+</main>
+</body>
 </html>
