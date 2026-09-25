@@ -10,6 +10,11 @@
    const legacy=String(item.details||'').match(/^(.+?) -> (.+?); (.+?); assignee (\d+)\.\s*(.*)$/);
    return legacy?`Status changed from ${legacy[1]} to ${legacy[2]}\nPriority: ${legacy[3]}\nAssigned staff ID: #${legacy[4]}${legacy[5]?`\nNote: ${legacy[5]}`:''}`:item.details;
  };
+ function updateNoteHint() {
+   const resolution=['Resolved','Closed'].includes($('status').value);
+   $('note').required=resolution;
+   $('note-hint').textContent=resolution?'Required: explain the resolution before closing this case.':'Optional: add context for the assignee. They can investigate and reply in the conversation.';
+ }
  function rating() { const enabled=$('type').value==='Feedback'; $('rating-field').hidden=!enabled; $('rating').required=enabled; if(!enabled) $('rating').value=''; }
  function resetEditor() { editing=null; $('case-form').reset(); $('editor-title').textContent='Send us a message'; $('save-case').textContent='Submit case'; $('cancel-edit').hidden=true; rating(); }
  async function load() {
@@ -29,12 +34,14 @@
    $('status').value=current.status; $('priority').value=current.priority; $('assignee').value=current.assigneeId || ''; $('note').value='';
    const next={New:['New','Assigned','In Review'],Assigned:['Assigned','In Review'],'In Review':['In Review','Resolved'],Resolved:['Resolved','Closed','Reopened'],Closed:['Closed','Reopened'],Reopened:['Reopened','Assigned','In Review']};
    [...$('status').options].forEach(o=>o.disabled=!next[current.status]?.includes(o.value));
+   updateNoteHint();
    $('messages').innerHTML=current.messages.length?current.messages.map(m=>`<div class="history-entry"><strong>${e(m.author)}</strong><div class="small muted">${e(date(m.sentAt))}</div><div>${e(m.message)}</div></div>`).join(''):'<p class="muted">No messages yet.</p>';
    $('history').innerHTML=current.history.length?`<div class="case-timeline">${current.history.map(h=>`<article class="timeline-item"><div class="timeline-marker" aria-hidden="true">${historyIcon(h.action)}</div><div class="timeline-card"><div class="timeline-heading"><strong>${e(historyTitle(h.action))}</strong><time>${e(date(h.createdAt))}</time></div><div class="timeline-actor">By ${e(h.actor)}</div><div class="timeline-details">${e(historyDetails(h))}</div></div></article>`).join('')}</div>`:'<p class="muted">No case activity has been recorded yet.</p>';
    $('reply-form').hidden=current.status==='Closed'; $('reply').value='';
    if(focus) $('case-detail').focus();
  }
  $('type').onchange=rating;
+ $('status').onchange=updateNoteHint;
  $('cancel-edit').onclick=resetEditor;
  $('filters').onsubmit=event=>{event.preventDefault();page=0;run(load,event.submitter);};
  $('previous').onclick=()=>{if(page>0){page--;run(load);}};
@@ -57,7 +64,8 @@
    await api('/cases/'+current.id+'?version='+current.version,'DELETE');current=null;resetEditor();$('case-detail').hidden=true;await load();notice('Case deleted.','success');
  },$('delete-case'));
  $('handle-form').onsubmit=event=>{event.preventDefault();run(async()=>{
-   const note=$('note').value.trim();if(!note)throw new Error('Enter an action or resolution note.');
+   const note=$('note').value.trim();
+   if(['Resolved','Closed'].includes($('status').value) && !note)throw new Error('Add a resolution note before resolving or closing this case.');
    await api('/cases/'+current.id,'PATCH',{status:$('status').value,priority:$('priority').value,assigneeId:$('assignee').value?Number($('assignee').value):null,note,version:current.version});
    await open(current.id,false);await load();notice('Case update and history saved.','success');
  },event.submitter);};

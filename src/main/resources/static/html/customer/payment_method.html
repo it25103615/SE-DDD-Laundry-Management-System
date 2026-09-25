@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Select Payment Method | LaundryLink</title>
+    <link rel="stylesheet" href="../../css/global.css" />
+    <link rel="stylesheet" href="../../css/dashboard.css" />
+    <script src="../../js/global-pre.js"></script>
+    <script src="../../js/global-post.js" defer></script>
+    <script src="../../js/customer/payment-flow.js" defer></script>
+  </head>
+  <body data-payment-page="method">
+    <nav class="dashboard_nav">
+      <ul class="navigation">
+        <li class="logo">
+          <a href="dashboard.html"><h3>LaundryLink</h3></a>
+        </li>
+        <li class="nav_right">
+          <a href="dashboard.html">Dashboard</a
+          ><a href="my_orders.html">My Orders</a
+          ><a href="payments.html">Payments</a
+          ><span class="profile_badge">PF</span>
+        </li>
+      </ul>
+    </nav>
+    <main>
+      <header class="page_header">
+        <div class="subtitle">CHECKOUT</div>
+        <h1>Select payment method</h1>
+        <p>Choose how you would like to complete this payment.</p>
+      </header>
+      <section class="card" style="max-width: 760px; margin: 0 auto">
+        <div class="top_bar">
+          <div>
+            <span class="muted small">ORDER</span>
+            <h2 id="method-order-title">Order</h2>
+          </div>
+          <div>
+            <span class="muted small">AMOUNT TO PAY</span>
+            <h2 id="method-amount">Loading...</h2>
+          </div>
+        </div>
+        <form class="unstyled_form" id="payment-method-form" action="payment_checkout.html" style="padding: 0; box-shadow: none; border: 0; background: transparent">
+          <div class="grid grid_two" style="margin-top: 20px">
+            <label class="card service_option" for="method-card">
+              <input id="method-card" type="radio" name="paymentMethod" value="CARD" checked />
+              <span class="muted small">PAY ONLINE</span>
+              <h3>Credit/Debit Card</h3>
+              <p class="muted">Use a card for this demonstration payment.</p>
+            </label>
+            <label class="card service_option" for="method-cash">
+              <input id="method-cash" type="radio" name="paymentMethod" value="CASH" />
+              <span class="muted small">PAY AT COUNTER</span>
+              <h3>Cash</h3>
+              <p class="muted">Record a cash payment using the existing backend method.</p>
+            </label>
+          </div>
+          <p class="alert alert_error" id="method-error" hidden></p>
+          <div class="actions">
+            <button class="custom_button custom_button_bg" type="submit">Continue</button>
+            <a class="custom_button custom_button_border" href="payments.html">Back</a>
+          </div>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

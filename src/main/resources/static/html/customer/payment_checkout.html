@@ -8,33 +8,72 @@
     <link rel="stylesheet" href="../../css/dashboard.css" />
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
+    <script src="../../js/customer/payment-flow.js" defer></script>
   </head>
-  <body>
+  <body data-payment-page="checkout">
     <nav class="dashboard_nav">
       <ul class="navigation">
         <li class="logo">
           <a href="dashboard.html"><h3>LaundryLink</h3></a>
         </li>
-        <li class="nav_right"><a href="payments.html">← Payments</a></li>
+        <li class="nav_right"><a id="checkout-back-link" href="payment_method.html">Back</a></li>
       </ul>
     </nav>
     <main>
       <header class="page_header">
-        <h1>Pay LKR 2,480</h1>
-        <p>Complete payment for order #1042.</p>
+        <div class="subtitle">SECURE PAYMENT</div>
+        <h1 id="checkout-title">Pay securely</h1>
+        <p id="checkout-subtitle">Complete payment for your order.</p>
       </header>
-      <form action="receipt.html" style="max-width: 680px">
-        <div class="field">
-          <label for="card">Card number</label
-          ><input
-            class="input"
-            id="card"
-            required
-            placeholder="4242 4242 4242 4242"
-          />
+      <section class="grid grid_two" style="align-items: start">
+        <form id="payment-checkout-form" action="receipt.html">
+          <div id="card-fields">
+            <div class="field">
+              <label for="cardholder-name">Cardholder Name</label>
+              <input class="input" id="cardholder-name" autocomplete="cc-name" placeholder="Priya Fernando" />
+              <small class="danger" data-error-for="cardholder-name"></small>
+            </div>
+            <div class="field">
+              <label for="card-number">Card Number</label>
+              <input class="input" id="card-number" inputmode="numeric" autocomplete="cc-number" placeholder="4242 4242 4242 4242" />
+              <small class="danger" data-error-for="card-number"></small>
+            </div>
+            <div class="grid grid_two">
+              <div class="field">
+                <label for="expiry-date">Expiry Date</label>
+                <input class="input" id="expiry-date" autocomplete="cc-exp" placeholder="MM/YY" />
+                <small class="danger" data-error-for="expiry-date"></small>
+              </div>
+              <div class="field">
+                <label for="cvv">CVV</label>
+                <input class="input" id="cvv" inputmode="numeric" autocomplete="cc-csc" placeholder="123" />
+                <small class="danger" data-error-for="cvv"></small>
+              </div>
+            </div>
+          </div>
+          <div id="cash-fields" class="alert alert_success" hidden>
+            This will record the payment as cash using the existing LaundryLink payment API.
+          </div>
+          <p class="alert alert_error" id="checkout-error" hidden></p>
+          <div class="actions">
+            <button class="custom_button custom_button_bg" id="final-pay-button" type="submit">Pay Now</button>
+            <a class="custom_button custom_button_border" href="payments.html">Cancel</a>
+          </div>
+        </form>
+        <div class="card">
+          <span class="muted small">PAYMENT SUMMARY</span>
+          <h2 id="summary-amount">Loading...</h2>
+          <p id="summary-order" class="muted">Order</p>
+          <div class="top_bar">
+            <span>Method</span>
+            <strong id="summary-method">Card</strong>
+          </div>
+          <div class="top_bar">
+            <span>Status</span>
+            <strong id="summary-status">Ready</strong>
+          </div>
         </div>
-        <button class="custom_button custom_button_bg">Pay securely</button>
-      </form>
+      </section>
     </main>
   </body>
 </html>

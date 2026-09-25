@@ -119,6 +119,27 @@ class SupportServiceTest {
         service.handle(admin,1,new CaseUpdate("In Review","High",9,"Checking the garment",0));
         verify(repo).audit(eq(1),eq(9),eq("Case updated"),contains("Checking the garment"));
     }
+    @Test void assignmentDoesNotRequireANote() {
+        found("New");
+        when(repo.count(anyString(),eq(9))).thenReturn(1);
+        when(repo.update(anyString(),any(Object[].class))).thenReturn(1);
+        assertDoesNotThrow(()->service.handle(admin,1,new CaseUpdate("Assigned","Normal",9,"",0)));
+        verify(repo).audit(eq(1),eq(9),eq("Case updated"),contains("Assigned to:"));
+    }
+    @Test void resolvingCaseRequiresExplanation() {
+        when(repo.query(anyString(),eq(1))).thenReturn(List.of(assignedItem("In Review",9)));
+        var error=assertThrows(ResponseStatusException.class,
+                ()->service.handle(admin,1,new CaseUpdate("Resolved","Normal",9,"",0)));
+        assertEquals(400,error.getStatusCode().value());
+        verify(repo,never()).update(anyString(),any(Object[].class));
+    }
+    @Test void assignedLaundryStaffCanReply() {
+        var staff=new Actor(6,"Laundry Staff","STAFF",false);
+        when(repo.query(anyString(),eq(1))).thenReturn(List.of(assignedItem("Assigned",6)));
+        when(repo.update(anyString(),any(Object[].class))).thenReturn(1);
+        assertDoesNotThrow(()->service.message(staff,1,new MessageInput("I will check the garment.")));
+        verify(repo).update(contains("INSERT INTO chat"),eq("I will check the garment."),eq(6),eq(1));
+    }
     @Test void replyPersistsToChatAndAudit() {
         found("In Review");
         when(repo.update(anyString(),any(Object[].class))).thenReturn(1);

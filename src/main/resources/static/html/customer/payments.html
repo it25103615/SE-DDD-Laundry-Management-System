@@ -8,8 +8,9 @@
     <link rel="stylesheet" href="../../css/dashboard.css" />
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
+    <script src="../../js/customer/payment-flow.js" defer></script>
   </head>
-  <body>
+  <body data-payment-page="payments">
     <nav class="dashboard_nav">
       <ul class="navigation">
         <li class="logo">
@@ -41,12 +42,13 @@
           <article class="card top_bar">
             <div>
               <span class="muted small">OUTSTANDING BALANCE</span>
-              <h2>LKR 2,480</h2>
-              <p class="muted">Order #1042 · Due on delivery</p>
+              <h2 id="outstanding-amount">Loading...</h2>
+              <p class="muted" id="payment-order-line">Checking your balance</p>
             </div>
             <a
               class="custom_button custom_button_bg"
-              href="payment_checkout.html"
+              id="pay-now-link"
+              href="payment_method.html?orderID=5"
               >Pay now</a
             >
           </article>
@@ -62,20 +64,9 @@
                   <th></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody id="payment-history-body">
                 <tr>
-                  <td>28 Jul 2026</td>
-                  <td>#1018</td>
-                  <td>Visa ···· 4242</td>
-                  <td>LKR 1,260</td>
-                  <td><a class="link" href="receipt.html">Receipt</a></td>
-                </tr>
-                <tr>
-                  <td>12 Jul 2026</td>
-                  <td>#996</td>
-                  <td>Cash</td>
-                  <td>LKR 900</td>
-                  <td><a class="link" href="receipt.html">Receipt</a></td>
+                  <td colspan="5">Loading payment history...</td>
                 </tr>
               </tbody>
             </table>
