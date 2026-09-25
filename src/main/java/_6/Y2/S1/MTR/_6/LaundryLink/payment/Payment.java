@@ -15,6 +15,7 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer paymentID;
 
+    @Column(columnDefinition = "decimal(10,2)", nullable = false)
     private Double amount;
 
     private Integer orderID;

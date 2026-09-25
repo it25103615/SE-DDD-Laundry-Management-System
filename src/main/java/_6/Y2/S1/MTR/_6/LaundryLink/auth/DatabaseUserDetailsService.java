@@ -5,9 +5,8 @@ import _6.Y2.S1.MTR._6.LaundryLink.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.*;
-import org.springframework.stereotype.Service;
 
-@Service @RequiredArgsConstructor
+@RequiredArgsConstructor
 public class DatabaseUserDetailsService implements UserDetailsService {
     private final UserRepository userRepository;
     @Override public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
