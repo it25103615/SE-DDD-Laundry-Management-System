@@ -20,11 +20,12 @@ public class SupportAccess {
         public boolean coordinator() { return Set.of("ADMIN", "OWNER", "CSM", "CUSTOMER_SERVICE_MANAGER").contains(role); }
         public boolean seesAllCases() { return coordinator(); }
         public boolean manager() { return Set.of("ADMIN", "MANAGER", "OWNER").contains(role); }
+        public boolean owner() { return Set.of("ADMIN", "OWNER").contains(role); }
     }
     public Actor actor(Principal principal, Integer demoUser) {
         boolean demo = false;
         List<Actor> actors;
-        String select = "SELECT userID, CONCAT(firstName, ' ', lastName), UPPER(type) FROM users WHERE ";
+        String select = "SELECT userID, CONCAT(firstName, ' ', lastName), UPPER(type) FROM users WHERE active=1 AND ";
         if (principal != null) {
             actors = db.query(select + "email = ?", (r, n) -> new Actor(r.getInt(1), r.getString(2), r.getString(3), demo), principal.getName());
         } else throw new ResponseStatusException(UNAUTHORIZED, "Sign in first.");
@@ -36,4 +37,5 @@ public class SupportAccess {
     public void staff(Actor actor) { if (!actor.staff()) throw new ResponseStatusException(FORBIDDEN, "Support staff access required."); }
     public void coordinator(Actor actor) { if (!actor.coordinator()) throw new ResponseStatusException(FORBIDDEN, "Customer service manager access required."); }
     public void manager(Actor actor) { if (!actor.manager()) throw new ResponseStatusException(FORBIDDEN, "Manager or owner access required."); }
+    public void owner(Actor actor) { if (!actor.owner()) throw new ResponseStatusException(FORBIDDEN, "Owner access required."); }
 }

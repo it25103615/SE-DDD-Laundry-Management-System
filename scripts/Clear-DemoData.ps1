@@ -11,6 +11,7 @@ try {
 SET XACT_ABORT ON;
 BEGIN TRANSACTION;
 DELETE FROM chat;
+DELETE FROM notifications;
 DELETE FROM support_activity;
 DELETE FROM feedback;
 DELETE FROM payments;
@@ -19,9 +20,9 @@ DELETE FROM orderLines;
 DELETE FROM delivery;
 DELETE FROM orders;
 DELETE FROM addresses;
-DELETE FROM system_settings;
 DELETE FROM users;
 DBCC CHECKIDENT ('chat', RESEED, 0);
+DBCC CHECKIDENT ('notifications', RESEED, 0);
 DBCC CHECKIDENT ('support_activity', RESEED, 0);
 DBCC CHECKIDENT ('feedback', RESEED, 0);
 DBCC CHECKIDENT ('payments', RESEED, 0);
@@ -30,7 +31,6 @@ DBCC CHECKIDENT ('orderLines', RESEED, 0);
 DBCC CHECKIDENT ('delivery', RESEED, 0);
 DBCC CHECKIDENT ('orders', RESEED, 0);
 DBCC CHECKIDENT ('addresses', RESEED, 0);
-DBCC CHECKIDENT ('system_settings', RESEED, 0);
 DBCC CHECKIDENT ('users', RESEED, 0);
 COMMIT;
 "@

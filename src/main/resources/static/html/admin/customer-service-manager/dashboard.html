@@ -24,11 +24,9 @@
 </a>
 </li>
 <li class="nav_right">
-<a href="/html/admin/owner/administration_overview.html">Overview</a>
+<a href="/html/admin/customer-service-manager/dashboard.html">Overview</a>
 <a href="/html/admin/customer-service-manager/complaints.html">Support cases</a>
 <a href="/html/admin/customer-service-manager/orders.html">Order lookup</a>
-<a href="/html/admin/owner/reports.html">Reports</a>
-<a href="/html/admin/manager/system_settings.html">Settings</a>
 <a href="/html/account/profile.html">My profile</a>
 </li>
 </ul>
@@ -86,8 +84,14 @@
 </div>
 </form>
 </section>
-<section class="section">
-<h2 id="queue-title">Support cases</h2>
+<section class="support-summary" id="case-summary" aria-label="Case summary">
+<button class="summary-card is-active" type="button" data-summary-status="" aria-pressed="true"><span class="summary-icon" aria-hidden="true">◎</span><span><small>All cases</small><strong id="summary-total">—</strong><em>Complete queue</em></span></button>
+<button class="summary-card" type="button" data-summary-status="pending" aria-pressed="false"><span class="summary-icon pending" aria-hidden="true">!</span><span><small>Pending</small><strong id="summary-pending">—</strong><em>Needs attention</em></span></button>
+<button class="summary-card" type="button" data-summary-status="In Review" aria-pressed="false"><span class="summary-icon review" aria-hidden="true">↻</span><span><small>In progress</small><strong id="summary-progress">—</strong><em>Being reviewed</em></span></button>
+<button class="summary-card" type="button" data-summary-status="resolved" aria-pressed="false"><span class="summary-icon resolved" aria-hidden="true">✓</span><span><small>Resolved</small><strong id="summary-resolved">—</strong><em>Completed cases</em></span></button>
+</section>
+<section class="section support-queue card" aria-labelledby="queue-title">
+<div class="queue-heading"><div><div class="subtitle">CASE QUEUE</div><h2 id="queue-title">Support cases</h2><p class="muted" id="queue-description">Search, prioritise and open a customer case.</p></div><span class="queue-count" id="visible-count" aria-live="polite">Loading…</span></div>
 <form id="filters" class="toolbar">
 <div class="field">
 <label for="search">Search</label>
@@ -114,9 +118,18 @@
 <option>Question</option>
 </select>
 </div>
+<div class="field">
+<label for="filter-priority">Priority</label>
+<select class="input" id="filter-priority"><option value="">All priorities</option><option>High</option><option>Normal</option><option>Low</option></select>
+</div>
+<div class="field" id="assignee-filter-field">
+<label for="filter-assignee">Assigned staff</label>
+<select class="input" id="filter-assignee"><option value="">Anyone</option></select>
+</div>
 <button class="custom_button custom_button_bg" type="submit">Search</button>
+<button class="custom_button filter-reset" id="clear-filters" type="button">Clear</button>
 </form>
-<div class="table_wrap">
+<div class="table_wrap case-table-wrap" aria-live="polite" aria-busy="false">
 <table>
 <thead>
 <tr>
@@ -139,11 +152,12 @@
 <button class="custom_button" id="next">Next</button>
 </div>
 </section>
-<section id="case-detail" class="card detail section" hidden tabindex="-1">
+<div id="detail-backdrop" class="detail-backdrop" hidden></div>
+<section id="case-detail" class="card detail section" hidden tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="detail-title">
 <div class="top_bar">
 <h2 id="detail-title">
 </h2>
-<button class="custom_button" id="close-detail">Close panel</button>
+<button class="custom_button panel-close" id="close-detail" aria-label="Close case details">×</button>
 </div>
 <p id="detail-meta" class="muted">
 </p>
@@ -190,9 +204,9 @@
 </div>
 <button class="custom_button custom_button_bg" type="submit">Save case update</button>
 </form>
-<div class="split section">
-<section>
-<h3>Conversation</h3>
+<div class="split section case-communications">
+<section class="conversation-panel">
+<div class="panel-heading"><div><h3>Conversation</h3><p class="muted small">Customer and support messages</p></div></div>
 <div id="messages">
 </div>
 <form id="reply-form">
@@ -201,11 +215,11 @@
 <textarea class="input" id="reply" maxlength="250" required>
 </textarea>
 </div>
-<button class="custom_button custom_button_bg" type="submit">Send reply</button>
+<button class="custom_button custom_button_bg" id="send-reply" type="submit">Send reply <span aria-hidden="true">→</span></button>
 </form>
 </section>
-<section>
-<h3>Case history</h3>
+<section class="history-panel">
+<div class="panel-heading"><div><h3>Case history</h3><p class="muted small">Assignments and status changes</p></div></div>
 <div id="history">
 </div>
 </section>

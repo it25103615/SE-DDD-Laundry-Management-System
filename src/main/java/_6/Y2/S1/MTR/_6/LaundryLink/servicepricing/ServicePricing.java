@@ -30,6 +30,7 @@ public class ServicePricing {
     @Column(name = "serviceID")
     private Integer serviceID;
 
+    @Column(columnDefinition = "decimal(10,2)", nullable = false)
     private Double price;
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -17,6 +17,7 @@
    $('status-chart').innerHTML=report.statuses.length?report.statuses.map(r=>`<div class="chart-row"><span>${e(r.status)}</span><div class="bar" aria-hidden="true"><span style="width:${100*r.orders/Math.max(s.totalOrders,1)}%"></span></div><strong>${r.orders}</strong></div>`).join(''):'<p>No orders in this period.</p>';
    const support=report.support;
    $('support-metrics').innerHTML=`<p><strong>${support.openCases}</strong> open cases · ${support.totalCases} total</p><p>Average rating: <strong>${support.averageRating==null?'No ratings yet':Number(support.averageRating).toFixed(2)+' / 5'}</strong> (${support.ratingCount} ratings)</p>`;
+   $('alerts').innerHTML=report.alerts.map(a=>`<article class="card metric"><span class="muted small">${e(a.label)}</span><strong>${e(a.total)}</strong></article>`).join('');
    table('services',report.services,['service','orders','items',r=>money(r.value)]);
    table('customers',report.customers,['customer','orders',r=>money(r.orderValue),r=>money(r.recordedPayments)]);
    $('export').disabled=false;notice('Report generated from database records.','success');

@@ -59,19 +59,29 @@ BEGIN TRY
        ON target.serviceID=source.serviceID AND target.itemID=source.itemID
     WHEN NOT MATCHED THEN INSERT(serviceID,itemID,price) VALUES(source.serviceID,source.itemID,source.price);
 
-    /* Single-table ISA samples: subtypes are represented by users.type. */
+    /* Single-table ISA samples: subtypes are represented by users.type.
+       Assignment accounts use LaundryLink1!. The six simple stakeholder
+       demo accounts below use Name1234 as documented in the credentials list. */
     MERGE dbo.users AS target
     USING (VALUES
-        ('Ayesha',NULL,'Fernando','ayesha.fernando@assignment.laundrylink.lk',NULL,'0712345601','CUSTOMER'),
-        ('Kavindu',NULL,'Perera','kavindu.perera@assignment.laundrylink.lk',NULL,'0712345602','CUSTOMER'),
-        ('Nimali',NULL,'Silva','nimali.silva@assignment.laundrylink.lk',NULL,'0712345603','CUSTOMER'),
-        ('Ravindu',NULL,'Jayasinghe','ravindu.rider@assignment.laundrylink.lk',NULL,'0712345604','RIDER'),
-        ('Fathima',NULL,'Rizwan','fathima.rider@assignment.laundrylink.lk',NULL,'0712345605','RIDER'),
-        ('Malith',NULL,'Dias','malith.staff@assignment.laundrylink.lk',NULL,'0712345606','STAFF'),
-        ('Shalini',NULL,'De Alwis','shalini.manager@assignment.laundrylink.lk',NULL,'0712345607','MANAGER'),
-        ('Dinesh',NULL,'Gunawardena','dinesh.owner@assignment.laundrylink.lk',NULL,'0712345608','OWNER')
-    ) AS source(firstName,middleName,lastName,email,password,phoneNumber,type)
+        ('Ayesha',NULL,'Fernando','ayesha.fernando@assignment.laundrylink.lk','$2a$10$JubJfTSRWCO3oTOBnrayR.hcBzzgjHMFAcXUpGvDT2/vAwCiB5M7O','0712345601','CUSTOMER',0),
+        ('Kavindu',NULL,'Perera','kavindu.perera@assignment.laundrylink.lk','$2a$10$JubJfTSRWCO3oTOBnrayR.hcBzzgjHMFAcXUpGvDT2/vAwCiB5M7O','0712345602','CUSTOMER',0),
+        ('Nimali',NULL,'Silva','nimali.silva@assignment.laundrylink.lk','$2a$10$JubJfTSRWCO3oTOBnrayR.hcBzzgjHMFAcXUpGvDT2/vAwCiB5M7O','0712345603','CUSTOMER',0),
+        ('Ravindu',NULL,'Jayasinghe','ravindu.rider@assignment.laundrylink.lk','$2a$10$JubJfTSRWCO3oTOBnrayR.hcBzzgjHMFAcXUpGvDT2/vAwCiB5M7O','0712345604','RIDER',0),
+        ('Fathima',NULL,'Rizwan','fathima.rider@assignment.laundrylink.lk','$2a$10$JubJfTSRWCO3oTOBnrayR.hcBzzgjHMFAcXUpGvDT2/vAwCiB5M7O','0712345605','RIDER',0),
+        ('Malith',NULL,'Dias','malith.staff@assignment.laundrylink.lk','$2a$10$JubJfTSRWCO3oTOBnrayR.hcBzzgjHMFAcXUpGvDT2/vAwCiB5M7O','0712345606','STAFF',0),
+        ('Shalini',NULL,'De Alwis','shalini.manager@assignment.laundrylink.lk','$2a$10$JubJfTSRWCO3oTOBnrayR.hcBzzgjHMFAcXUpGvDT2/vAwCiB5M7O','0712345607','MANAGER',0),
+        ('Dinesh',NULL,'Gunawardena','dinesh.owner@assignment.laundrylink.lk','$2a$10$JubJfTSRWCO3oTOBnrayR.hcBzzgjHMFAcXUpGvDT2/vAwCiB5M7O','0712345608','OWNER',0),
+        ('Anna',NULL,'Customer','anna@customer.com','$2a$10$1KDqj6fKQfS7RQVszxPaburFF42/RUfNxwH5iUJTLg7x7GWxGh7ki','0712345611','CUSTOMER',1),
+        ('Ravi',NULL,'Rider','ravi@rider.com','$2a$10$Wiex9/zmcn/fCsnL94iswu8/S98o6HzV89TafM5kze7BwVtXHRgVW','0712345612','RIDER',1),
+        ('Sam',NULL,'Staff','sam@staff.com','$2a$10$guYOZz33UgK9JsNLLParqO0jXrTkaiCyb3BHDKz/yDbd5pLh/qGou','0712345613','STAFF',1),
+        ('Cathy',NULL,'Support','cathy@csm.com','$2a$10$L6PoIgZzuc1BPl30xZ0OLOAq0LSUaupcoE2hxR0QuXC.BSF9t33Qy','0712345614','CSM',1),
+        ('Maya',NULL,'Manager','maya@manager.com','$2a$10$WZo0TPpt3L.LuFBemCJ99.UySvNPcKhTLVD5gFOPqjtnHBtSZXJeW','0712345615','MANAGER',1),
+        ('Oliver',NULL,'Owner','oliver@owner.com','$2a$10$8VbbFHeF6vxZ157KSmJuHe.eHOh9YFUB28ltKQu2PDPYcH2tpiROy','0712345616','OWNER',1)
+    ) AS source(firstName,middleName,lastName,email,password,phoneNumber,type,resetDemoPassword)
        ON target.email=source.email
+    WHEN MATCHED AND (target.password IS NULL OR source.resetDemoPassword=1) THEN
+      UPDATE SET password=source.password,active=1,type=source.type,updatedAt=SYSDATETIME(),version=version+1
     WHEN NOT MATCHED THEN
       INSERT(firstName,middleName,lastName,email,password,phoneNumber,type)
       VALUES(source.firstName,source.middleName,source.lastName,source.email,source.password,source.phoneNumber,source.type);
@@ -84,6 +94,8 @@ BEGIN TRY
     DECLARE @Staff INT=(SELECT userID FROM dbo.users WHERE email='malith.staff@assignment.laundrylink.lk');
     DECLARE @Manager INT=(SELECT userID FROM dbo.users WHERE email='shalini.manager@assignment.laundrylink.lk');
     DECLARE @Owner INT=(SELECT userID FROM dbo.users WHERE email='dinesh.owner@assignment.laundrylink.lk');
+    DECLARE @DemoCustomer INT=(SELECT userID FROM dbo.users WHERE email='anna@customer.com');
+    DECLARE @DemoCsm INT=(SELECT userID FROM dbo.users WHERE email='cathy@csm.com');
 
     IF NOT EXISTS(SELECT 1 FROM dbo.addresses WHERE userID=@Customer1 AND nickname='Home')
       INSERT dbo.addresses(nickname,street,city,state,DeliveryInstructions,isDefault,userID)
@@ -143,17 +155,23 @@ BEGIN TRY
     IF NOT EXISTS(SELECT 1 FROM dbo.feedback WHERE subject='Pickup time clarification') INSERT dbo.feedback(feedback,userID,orderID,caseType,subject,rating,caseStatus,priority,assigneeID) VALUES('Please confirm the planned pickup time.',@Customer2,@Order3,'Question','Pickup time clarification',NULL,'Assigned','Normal',@Manager);
     IF NOT EXISTS(SELECT 1 FROM dbo.feedback WHERE subject='Ironing crease issue') INSERT dbo.feedback(feedback,userID,orderID,caseType,subject,rating,caseStatus,priority,assigneeID) VALUES('Two shirts have incorrect sleeve creases.',@Customer2,@Order4,'Complaint','Ironing crease issue',NULL,'In Review','High',@Manager);
     IF NOT EXISTS(SELECT 1 FROM dbo.feedback WHERE subject='Helpful rider') INSERT dbo.feedback(feedback,userID,orderID,caseType,subject,rating,caseStatus,priority,assigneeID) VALUES('The delivery rider was polite and helpful.',@Customer3,@Order5,'Feedback','Helpful rider',5,'Resolved','Low',@Staff);
+    IF NOT EXISTS(SELECT 1 FROM dbo.feedback WHERE subject='Demo pickup timing question' AND userID=@DemoCustomer) INSERT dbo.feedback(feedback,userID,orderID,caseType,subject,rating,caseStatus,priority,assigneeID) VALUES('Could you confirm the pickup time for my next booking?',@DemoCustomer,NULL,'Question','Demo pickup timing question',NULL,'Assigned','Normal',@DemoCsm);
+    IF NOT EXISTS(SELECT 1 FROM dbo.feedback WHERE subject='Demo garment care feedback' AND userID=@DemoCustomer) INSERT dbo.feedback(feedback,userID,orderID,caseType,subject,rating,caseStatus,priority,assigneeID) VALUES('My previous laundry was returned fresh and neatly folded.',@DemoCustomer,NULL,'Feedback','Demo garment care feedback',5,'Resolved','Low',@DemoCsm);
 
     DECLARE @Feedback1 INT=(SELECT feedbackID FROM dbo.feedback WHERE subject='Careful handling request');
     DECLARE @Feedback2 INT=(SELECT feedbackID FROM dbo.feedback WHERE subject='Excellent folding');
     DECLARE @Feedback3 INT=(SELECT feedbackID FROM dbo.feedback WHERE subject='Pickup time clarification');
     DECLARE @Feedback4 INT=(SELECT feedbackID FROM dbo.feedback WHERE subject='Ironing crease issue');
     DECLARE @Feedback5 INT=(SELECT feedbackID FROM dbo.feedback WHERE subject='Helpful rider');
+    DECLARE @DemoFeedback1 INT=(SELECT feedbackID FROM dbo.feedback WHERE subject='Demo pickup timing question' AND userID=@DemoCustomer);
+    DECLARE @DemoFeedback2 INT=(SELECT feedbackID FROM dbo.feedback WHERE subject='Demo garment care feedback' AND userID=@DemoCustomer);
     IF NOT EXISTS(SELECT 1 FROM dbo.chat WHERE feedbackID=@Feedback1 AND message='We have added the handling note.') INSERT dbo.chat(message,userID,feedbackID) VALUES('We have added the handling note.',@Staff,@Feedback1);
     IF NOT EXISTS(SELECT 1 FROM dbo.chat WHERE feedbackID=@Feedback2 AND message='Thank you for your feedback.') INSERT dbo.chat(message,userID,feedbackID) VALUES('Thank you for your feedback.',@Staff,@Feedback2);
     IF NOT EXISTS(SELECT 1 FROM dbo.chat WHERE feedbackID=@Feedback3 AND message='Pickup is scheduled for 9 AM.') INSERT dbo.chat(message,userID,feedbackID) VALUES('Pickup is scheduled for 9 AM.',@Manager,@Feedback3);
     IF NOT EXISTS(SELECT 1 FROM dbo.chat WHERE feedbackID=@Feedback4 AND message='We are reviewing the affected shirts.') INSERT dbo.chat(message,userID,feedbackID) VALUES('We are reviewing the affected shirts.',@Manager,@Feedback4);
     IF NOT EXISTS(SELECT 1 FROM dbo.chat WHERE feedbackID=@Feedback5 AND message='We will pass this message to the rider.') INSERT dbo.chat(message,userID,feedbackID) VALUES('We will pass this message to the rider.',@Staff,@Feedback5);
+    IF NOT EXISTS(SELECT 1 FROM dbo.chat WHERE feedbackID=@DemoFeedback1 AND message='Your request is assigned and we will confirm the available pickup window shortly.') INSERT dbo.chat(message,userID,feedbackID) VALUES('Your request is assigned and we will confirm the available pickup window shortly.',@DemoCsm,@DemoFeedback1);
+    IF NOT EXISTS(SELECT 1 FROM dbo.chat WHERE feedbackID=@DemoFeedback2 AND message='Thank you, Anna. We are happy you enjoyed the service.') INSERT dbo.chat(message,userID,feedbackID) VALUES('Thank you, Anna. We are happy you enjoyed the service.',@DemoCsm,@DemoFeedback2);
 
     IF NOT EXISTS(SELECT 1 FROM dbo.delivery WHERE orderID=@Order1) INSERT dbo.delivery(orderID,userID,pickup_riderID,delivery_riderID,riderNotes,pickup_scheduled,pickup_actual,delivery_time) VALUES(@Order1,@Customer1,@Rider1,@Rider2,'Completed without issue','2026-08-30 09:00','2026-08-30 09:05','2026-09-01 16:30');
     IF NOT EXISTS(SELECT 1 FROM dbo.delivery WHERE orderID=@Order2) INSERT dbo.delivery(orderID,userID,pickup_riderID,delivery_riderID,riderNotes,pickup_scheduled,pickup_actual,delivery_time) VALUES(@Order2,@Customer1,@Rider1,NULL,'Processing at shop','2026-09-01 08:30','2026-09-01 08:35',NULL);
@@ -166,16 +184,6 @@ BEGIN TRY
     IF NOT EXISTS(SELECT 1 FROM dbo.support_activity WHERE feedbackID=@Feedback3 AND action='Assigned') INSERT dbo.support_activity(feedbackID,actorID,action,details) VALUES(@Feedback3,@Manager,'Assigned','Manager took ownership of pickup query.');
     IF NOT EXISTS(SELECT 1 FROM dbo.support_activity WHERE feedbackID=@Feedback4 AND action='Reviewed') INSERT dbo.support_activity(feedbackID,actorID,action,details) VALUES(@Feedback4,@Manager,'Reviewed','Garments sent for quality inspection.');
     IF NOT EXISTS(SELECT 1 FROM dbo.support_activity WHERE feedbackID=@Feedback5 AND action='Resolved') INSERT dbo.support_activity(feedbackID,actorID,action,details) VALUES(@Feedback5,@Staff,'Resolved','Compliment recorded for rider team.');
-
-    MERGE dbo.system_settings AS target
-    USING (VALUES
-      ('shop.name','LaundryLink Central','Public shop name'),
-      ('shop.phone','0112345678','Customer contact number'),
-      ('pickup.start_hour','08:00','First pickup time'),
-      ('pickup.end_hour','18:00','Last pickup time'),
-      ('support.email','support@laundrylink.lk','Support contact email')
-    ) AS source(settingKey,settingValue,description) ON target.settingKey=source.settingKey
-    WHEN NOT MATCHED THEN INSERT(settingKey,settingValue,description,updatedBy) VALUES(source.settingKey,source.settingValue,source.description,@Owner);
 
     COMMIT TRANSACTION;
 END TRY
@@ -194,6 +202,6 @@ SELECT tableName,recordCount FROM (VALUES
  ('payments',(SELECT COUNT(*) FROM dbo.payments)),('logs',(SELECT COUNT(*) FROM dbo.logs)),
  ('feedback',(SELECT COUNT(*) FROM dbo.feedback)),('chat',(SELECT COUNT(*) FROM dbo.chat)),
  ('delivery',(SELECT COUNT(*) FROM dbo.delivery)),('support_activity',(SELECT COUNT(*) FROM dbo.support_activity)),
- ('system_settings',(SELECT COUNT(*) FROM dbo.system_settings))
+ ('notifications',(SELECT COUNT(*) FROM dbo.notifications))
 ) counts(tableName,recordCount)
 ORDER BY tableName;

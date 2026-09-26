@@ -1,6 +1,7 @@
 package _6.Y2.S1.MTR._6.LaundryLink.service.account;
 
 import _6.Y2.S1.MTR._6.LaundryLink.dto.account.RegistrationRequest;
+import _6.Y2.S1.MTR._6.LaundryLink.service.shared.NotificationService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -15,10 +16,12 @@ import _6.Y2.S1.MTR._6.LaundryLink.dto.account.ProfileRequests;
 public class AccountService {
     private final JdbcTemplate db;
     private final PasswordEncoder passwords;
+    private final NotificationService notifications;
 
-    public AccountService(JdbcTemplate db, PasswordEncoder passwords) {
+    public AccountService(JdbcTemplate db, PasswordEncoder passwords, NotificationService notifications) {
         this.db = db;
         this.passwords = passwords;
+        this.notifications = notifications;
     }
 
     @Transactional
@@ -40,6 +43,7 @@ public class AccountService {
             db.update("INSERT INTO addresses(nickname,street,isDefault,userID) VALUES ('Home',?,1,?)",
                     request.address().trim(), id);
         }
+        notifications.notifyUser(id, "ACCOUNT", "Welcome to LaundryLink", "Your customer account was created successfully.", "/html/customer/dashboard.html", "ACCOUNT", id);
         return id;
     }
 
@@ -67,6 +71,7 @@ public class AccountService {
         var saved=profile(nextEmail);
         var result=new LinkedHashMap<String,Object>(saved);
         result.put("emailChanged",!signedInEmail.equalsIgnoreCase(nextEmail));
+        notifications.notifyUser(id, "ACCOUNT", "Profile updated", "Your LaundryLink profile details were updated.", "/html/account/profile.html", "ACCOUNT", id);
         return result;
     }
 
@@ -80,5 +85,6 @@ public class AccountService {
         if(!passwords.matches(input.currentPassword(),String.valueOf(row.get("password"))))
             throw new ResponseStatusException(BAD_REQUEST,"Current password is incorrect.");
         db.update("UPDATE users SET password=? WHERE userID=?",passwords.encode(input.newPassword()),row.get("id"));
+        notifications.notifyUser(((Number)row.get("id")).intValue(), "SECURITY", "Password changed", "Your LaundryLink password was changed.", "/html/account/profile.html", "ACCOUNT", ((Number)row.get("id")).intValue());
     }
 }

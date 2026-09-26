@@ -9,14 +9,14 @@
 - `items` describes garments or laundry item categories.
 - `services` describes work such as washing, ironing and dry cleaning.
 - `servicePricing` resolves the many-to-many Item–Service relationship and stores the price of each valid combination.
-- `payments` records amounts against orders.
+- `payments` records amounts, processing status and processing time against orders.
 - `status` is the controlled workflow catalogue.
 - `logs` records status transitions over time.
 - `delivery` stores pickup/delivery riders and timestamps.
 - `feedback` stores complaints, questions and ratings as support cases.
 - `chat` stores messages belonging to a support case.
-- `support_activity` is an audit trail of actions on cases/settings.
-- `system_settings` stores manager-maintained operational settings.
+- `support_activity` is an audit trail of actions on support cases.
+- `notifications` stores each user's inbox entries, unread state and related-page link.
 
 ## Keys and relationships to remember
 
@@ -25,7 +25,7 @@
 - `orderLines` references both `orders` and the composite pricing key.
 - `orders.userID` identifies the customer; `orders.statusID` identifies the current state.
 - Rider columns reference `users`, and the trigger enforces the Rider subtype.
-- `users.email` and `system_settings.settingKey` are unique candidate keys.
+- `users.email` is a unique candidate key.
 
 ## Why one users table?
 
@@ -65,7 +65,7 @@ EXEC dbo.sp_UpdateOrderStatus @OrderID=1, @NewStatusID=3;
 
 ## Trigger flow
 
-`trg_delivery_rider_check` runs automatically after an insert or update on `delivery`. It checks every row in the `inserted` pseudo-table. Non-null rider IDs must belong to a user whose type is `RIDER`; otherwise `THROW` cancels the statement.
+`trg_delivery_rider_check` runs automatically after an insert or update on `delivery`. It checks every row in the `inserted` pseudo-table. Non-null rider IDs must belong to a user whose type is `RIDER`; otherwise `THROW` cancels the statement. Three additional triggers publish notifications when orders change, accepted payments are recorded, or riders are assigned.
 
 A procedure is called explicitly and can accept parameters. A trigger fires automatically because a table event occurred.
 

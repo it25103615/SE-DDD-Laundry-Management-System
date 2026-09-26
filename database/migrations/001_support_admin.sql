@@ -32,14 +32,4 @@ IF OBJECT_ID('support_activity', 'U') IS NULL
         details NVARCHAR(1000) NOT NULL,
         createdAt DATETIME2 NOT NULL DEFAULT SYSDATETIME()
     );
-IF OBJECT_ID('system_settings', 'U') IS NULL
-    CREATE TABLE system_settings(
-        settingID INT IDENTITY PRIMARY KEY,
-        settingKey VARCHAR(60) NOT NULL UNIQUE,
-        settingValue NVARCHAR(250) NOT NULL,
-        description NVARCHAR(250) NOT NULL,
-        updatedBy INT NOT NULL REFERENCES users(userID),
-        updatedAt DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
-        version INT NOT NULL DEFAULT 0
-    );
 COMMIT;

@@ -64,6 +64,19 @@ public class ReportService {
               AVG(CAST(rating AS DECIMAL(5,2))) AS averageRating,COUNT(rating) AS ratingCount
             FROM feedback WHERE deleted=0
             """).getFirst());
+        result.put("alerts",repo.query("""
+            SELECT 'High-priority support cases' AS label,COUNT(*) AS total
+            FROM feedback WHERE deleted=0 AND priority='High' AND caseStatus NOT IN('Resolved','Closed')
+            UNION ALL
+            SELECT 'Unassigned support cases',COUNT(*)
+            FROM feedback WHERE deleted=0 AND assigneeID IS NULL AND caseStatus NOT IN('Resolved','Closed')
+            UNION ALL
+            SELECT 'Overdue pickups',COUNT(*)
+            FROM delivery WHERE pickup_scheduled<SYSDATETIME() AND pickup_actual IS NULL
+            UNION ALL
+            SELECT 'Orders without timeline activity',COUNT(*)
+            FROM orders o WHERE NOT EXISTS(SELECT 1 FROM logs l WHERE l.orderID=o.orderID)
+            """));
         result.put("serviceOptions",repo.query("SELECT serviceID AS id,serviceName AS name FROM services ORDER BY serviceName"));
         result.put("period",Map.of("from",from==null?"All time":from.toString(),"to",to==null?"All time":to.toString(),"serviceId",serviceId==null?"All services":serviceId.toString()));
         return result;
