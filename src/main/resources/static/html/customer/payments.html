@@ -48,9 +48,37 @@
             <a
               class="custom_button custom_button_bg"
               id="pay-now-link"
-              href="payment_method.html?orderID=5"
+              href="payment_method.html"
               >Pay now</a
             >
+          </article>
+          <article class="card" id="billing-summary-card" style="margin-top: 22px">
+            <div class="top_bar">
+              <div>
+                <span class="muted small">BILLING SUMMARY</span>
+                <h2 id="billing-final">Loading...</h2>
+              </div>
+              <span class="status" id="billing-order-label">Invoice</span>
+            </div>
+            <div class="top_bar">
+              <span>Subtotal</span>
+              <strong id="billing-subtotal">Loading...</strong>
+            </div>
+            <div class="top_bar">
+              <span id="billing-promotion-label">Promotion discount</span>
+              <strong id="billing-discount">Loading...</strong>
+            </div>
+            <hr />
+            <form class="unstyled_form" id="promotion-form" style="padding: 0; box-shadow: none; border: 0; background: transparent">
+              <div class="field">
+                <label for="promotion-code">Promotion code</label>
+                <input class="input" id="promotion-code" name="promotionCode" type="text" autocomplete="off" placeholder="Enter promotion code" />
+              </div>
+              <p class="alert" id="promotion-message" hidden></p>
+              <div class="actions">
+                <button class="custom_button custom_button_border" id="apply-promotion-button" type="submit">Apply</button>
+              </div>
+            </form>
           </article>
           <h2 style="margin-top: 36px">Payment history</h2>
           <div class="table_wrap">
