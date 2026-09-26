@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Payment Details | LaundryLink</title>
+    <link rel="stylesheet" href="../../../css/global.css" />
+    <link rel="stylesheet" href="../../../css/dashboard.css" />
+    <script src="../../../js/global-pre.js"></script>
+    <script src="../../../js/global-post.js" defer></script>
+    <script src="../../../js/admin/payment-management.js" defer></script>
+  </head>
+  <body data-payment-admin-page="detail">
+    <nav class="dashboard_nav">
+      <ul class="navigation">
+        <li class="logo">
+          <a href="administration_overview.html"><h3>LaundryLink</h3></a>
+        </li>
+        <li class="nav_right">
+          <a href="administration_overview.html">Dashboard</a
+          ><a href="payments_billing.html">Payments &amp; Billing</a
+          ><a href="reports.html">Reports</a
+          ><span class="profile_badge">AD</span>
+        </li>
+      </ul>
+    </nav>
+    <main>
+      <header class="page_header">
+        <div class="subtitle">FINANCE</div>
+        <h1 id="detail-title">Payment Details</h1>
+        <p id="detail-subtitle">Review the customer payment before updating its status.</p>
+      </header>
+      <section class="grid grid_two" style="align-items: start">
+        <article class="card">
+          <span class="muted small">CUSTOMER PAYMENT</span>
+          <h2 id="detail-amount">Loading...</h2>
+          <div class="top_bar">
+            <span>Payment ID</span>
+            <strong id="detail-payment-id">-</strong>
+          </div>
+          <div class="top_bar">
+            <span>Order</span>
+            <strong id="detail-order-id">-</strong>
+          </div>
+          <div class="top_bar">
+            <span>Customer</span>
+            <strong id="detail-customer-id">-</strong>
+          </div>
+          <div class="top_bar">
+            <span>Method</span>
+            <strong id="detail-method">Recorded payment</strong>
+          </div>
+          <div class="top_bar">
+            <span>Payment Status</span>
+            <strong id="detail-payment-status">-</strong>
+          </div>
+          <div class="top_bar">
+            <span>Order Status</span>
+            <strong id="detail-order-status">-</strong>
+          </div>
+        </article>
+        <article class="card">
+          <span class="muted small">BILLING SUMMARY</span>
+          <div class="top_bar">
+            <span>Payable amount</span>
+            <strong id="detail-payable">-</strong>
+          </div>
+          <div class="top_bar">
+            <span>Paid amount</span>
+            <strong id="detail-paid">-</strong>
+          </div>
+          <div class="top_bar">
+            <span>Outstanding</span>
+            <strong id="detail-outstanding">-</strong>
+          </div>
+          <p class="alert alert_success" id="detail-success" hidden></p>
+          <p class="alert alert_error" id="detail-error" hidden></p>
+          <p class="alert" id="detail-final-status" hidden></p>
+          <div class="actions">
+            <button class="custom_button custom_button_bg" id="approve-payment">Accept Payment</button>
+            <button class="custom_button custom_button_border" id="reject-payment">Reject Payment</button>
+            <a class="custom_button custom_button_nobg" href="payments_billing.html">Back</a>
+          </div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

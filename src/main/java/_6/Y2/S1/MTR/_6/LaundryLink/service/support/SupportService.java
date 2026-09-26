@@ -2,6 +2,7 @@ package _6.Y2.S1.MTR._6.LaundryLink.service.support;
 
 import _6.Y2.S1.MTR._6.LaundryLink.repository.support.SupportRepository;
 import _6.Y2.S1.MTR._6.LaundryLink.security.support.SupportAccess;
+import _6.Y2.S1.MTR._6.LaundryLink.service.shared.NotificationService;
 
 import java.util.*;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ import _6.Y2.S1.MTR._6.LaundryLink.security.support.SupportAccess.Actor;
 public class SupportService {
     private final SupportRepository repo;
     private final SupportAccess access;
+    private final NotificationService notifications;
     private static final Map<String, Set<String>> TRANSITIONS = Map.of(
         "New", Set.of("Assigned", "In Review"),
         "Assigned", Set.of("In Review"),
@@ -23,9 +25,9 @@ public class SupportService {
         "Resolved", Set.of("Closed", "Reopened"),
         "Closed", Set.of("Reopened"),
         "Reopened", Set.of("Assigned", "In Review"));
-    public SupportService(SupportRepository repo, SupportAccess access) { this.repo = repo; this.access = access; }
+    public SupportService(SupportRepository repo, SupportAccess access, NotificationService notifications) { this.repo = repo; this.access = access; this.notifications = notifications; }
 
-    public List<Map<String, Object>> cases(Actor actor, String search, String status, String type, int page) {
+    public List<Map<String, Object>> cases(Actor actor, String search, String status, String type, String priority, Integer assigneeId, int page) {
         if (page < 0) throw new ResponseStatusException(BAD_REQUEST, "Invalid page.");
         String sql = SupportRepository.CASE_SELECT;
         List<Object> args = new ArrayList<>();
@@ -37,11 +39,29 @@ public class SupportService {
             String term = "%" + search.replace("[", "[[]").replace("%", "[%]").replace("_", "[_]") + "%";
             args.addAll(List.of(term, term, term));
         }
-        if (status != null && !status.isBlank()) { sql += " AND f.caseStatus=?"; args.add(status); }
+        if ("pending".equalsIgnoreCase(status)) sql += " AND f.caseStatus IN ('New','Assigned','Reopened')";
+        else if ("resolved".equalsIgnoreCase(status)) sql += " AND f.caseStatus IN ('Resolved','Closed')";
+        else if (status != null && !status.isBlank()) { sql += " AND f.caseStatus=?"; args.add(status); }
         if (type != null && !type.isBlank()) { sql += " AND f.caseType=?"; args.add(type); }
+        if (priority != null && !priority.isBlank()) { sql += " AND f.priority=?"; args.add(priority); }
+        if (assigneeId != null && actor.seesAllCases()) { sql += " AND f.assigneeID=?"; args.add(assigneeId); }
         sql += " ORDER BY f.updatedAt DESC, f.feedbackID DESC OFFSET ? ROWS FETCH NEXT 25 ROWS ONLY";
         args.add((long) page * 25);
         return repo.query(sql, args.toArray());
+    }
+    public Map<String, Object> summary(Actor actor) {
+        String scope = "";
+        List<Object> args = new ArrayList<>();
+        if ("CUSTOMER".equals(actor.role())) { scope = " AND userID=?"; args.add(actor.id()); }
+        else if (!actor.seesAllCases()) { scope = " AND assigneeID=?"; args.add(actor.id()); }
+        return repo.query("""
+            SELECT COUNT(*) AS total,
+              COALESCE(SUM(CASE WHEN caseStatus IN ('New','Assigned','Reopened') THEN 1 ELSE 0 END),0) AS pending,
+              COALESCE(SUM(CASE WHEN caseStatus='In Review' THEN 1 ELSE 0 END),0) AS inProgress,
+              COALESCE(SUM(CASE WHEN caseStatus IN ('Resolved','Closed') THEN 1 ELSE 0 END),0) AS resolved,
+              COALESCE(SUM(CASE WHEN priority='High' AND caseStatus NOT IN ('Resolved','Closed') THEN 1 ELSE 0 END),0) AS highPriority
+            FROM feedback WHERE deleted=0
+            """ + scope, args.toArray()).getFirst();
     }
     public Map<String, Object> one(Actor actor, int id) {
         var rows = repo.query(SupportRepository.CASE_SELECT + " AND f.feedbackID=?", id);
@@ -58,7 +78,8 @@ public class SupportService {
             WHERE a.feedbackID=? ORDER BY a.createdAt, a.activityID
             """, id));
         item.put("messages", repo.query("""
-            SELECT c.chatID AS id, c.message, c.sentAt, CONCAT(u.firstName, ' ', u.lastName) AS author
+            SELECT c.chatID AS id, c.message, c.sentAt, c.userID AS authorId,
+                   UPPER(u.type) AS authorRole, CONCAT(u.firstName, ' ', u.lastName) AS author
             FROM chat c JOIN users u ON u.userID=c.userID WHERE c.feedbackID=? ORDER BY c.sentAt, c.chatID
             """, id));
         return item;
@@ -78,6 +99,8 @@ public class SupportService {
             OUTPUT INSERTED.feedbackID VALUES (?, ?, ?, ?, ?, ?)
             """, input.message().trim(), actor.id(), input.orderId(), input.type(), input.subject().trim(), input.rating());
         repo.audit(id, actor.id(), "Created", input.type() + " submitted");
+        notifications.notifyRoles(Set.of("CSM","CUSTOMER_SERVICE_MANAGER","OWNER","ADMIN"), "SUPPORT", "New support case",
+                input.type() + " #" + id + ": " + input.subject().trim(), "/html/admin/customer-service-manager/complaints.html?caseId=" + id, "SUPPORT", id, actor.id());
         return detail(actor, id);
     }
     @Transactional
@@ -106,10 +129,13 @@ public class SupportService {
     public Map<String, Object> handle(Actor actor, int id, CaseUpdate input) {
         access.coordinator(actor);
         var item = one(actor, id);
+        String note = input.note() == null ? "" : input.note().trim();
+        if (Set.of("Resolved", "Closed").contains(input.status()) && note.isBlank())
+            throw new ResponseStatusException(BAD_REQUEST, "Add a resolution note before resolving or closing a case.");
         if (!allowed((String) item.get("status"), input.status())) throw new ResponseStatusException(CONFLICT, "Invalid case transition. Assign or review before resolving; resolve before closing.");
         if (!"New".equals(input.status()) && input.assigneeId() == null) throw new ResponseStatusException(BAD_REQUEST, "Assign a staff member before progressing the case.");
-        if (input.assigneeId() != null && repo.count("SELECT COUNT(*) FROM users WHERE userID=? AND UPPER(type) IN ('ADMIN','MANAGER','OWNER','CSM','CUSTOMER_SERVICE_MANAGER','STAFF','RIDER')", input.assigneeId()) != 1)
-            throw new ResponseStatusException(BAD_REQUEST, "Assignee must be a customer-service, management, laundry, or delivery staff member.");
+        if (input.assigneeId() != null && repo.count("SELECT COUNT(*) FROM users WHERE userID=? AND active=1 AND UPPER(type) IN ('ADMIN','MANAGER','OWNER','CSM','CUSTOMER_SERVICE_MANAGER')", input.assigneeId()) != 1)
+            throw new ResponseStatusException(BAD_REQUEST, "Assignee must be an active customer-service manager or authorised manager.");
         changed(repo.update("""
             UPDATE feedback SET caseStatus=?, priority=?, assigneeID=?, version=version+1, updatedAt=SYSDATETIME()
             WHERE feedbackID=? AND version=? AND deleted=0
@@ -118,7 +144,14 @@ public class SupportService {
                 "SELECT CONCAT(firstName, ' ', lastName) AS name FROM users WHERE userID=?", input.assigneeId())
                 .stream().findFirst().map(row -> String.valueOf(row.get("name"))).orElse("Staff member");
         repo.audit(id, actor.id(), "Case updated", "Status: " + item.get("status") + " → " + input.status()
-                + "\nPriority: " + input.priority() + "\nAssigned to: " + assignee + "\nNote: " + input.note().trim());
+                + "\nPriority: " + input.priority() + "\nAssigned to: " + assignee
+                + (note.isBlank() ? "" : "\nNote: " + note));
+        notifications.notifyUser(number(item, "customerId"), "SUPPORT", "Support case updated",
+                "Case #" + id + " is now " + input.status() + ".", "/html/customer/feedback.html?caseId=" + id, "SUPPORT", id);
+        Object previousAssignee = item.get("assigneeId");
+        if (input.assigneeId() != null && (!(previousAssignee instanceof Number) || ((Number) previousAssignee).intValue() != input.assigneeId()))
+            notifications.notifyUser(input.assigneeId(), "ASSIGNMENT", "Support case assigned",
+                    "Case #" + id + " was assigned to you.", "/html/admin/customer-service-manager/complaints.html?caseId=" + id, "SUPPORT", id);
         return detail(actor, id);
     }
     @Transactional
@@ -129,11 +162,19 @@ public class SupportService {
         changed(repo.update("UPDATE feedback SET updatedAt=SYSDATETIME(), version=version+1 WHERE feedbackID=? AND deleted=0 AND version=? AND caseStatus<>'Closed'", id, item.get("version")));
         repo.update("INSERT INTO chat(message,userID,feedbackID) VALUES (?,?,?)", input.message().trim(), actor.id(), id);
         repo.audit(id, actor.id(), "Message added", "Communication recorded");
+        if ("CUSTOMER".equals(actor.role())) {
+            Object assignee = item.get("assigneeId");
+            if (assignee instanceof Number) notifications.notifyUser(((Number) assignee).intValue(), "SUPPORT", "Customer replied",
+                    "The customer replied to case #" + id + ".", "/html/admin/customer-service-manager/complaints.html?caseId=" + id, "SUPPORT", id);
+            else notifications.notifyRoles(Set.of("CSM","CUSTOMER_SERVICE_MANAGER","OWNER","ADMIN"), "SUPPORT", "Customer replied",
+                    "A customer replied to unassigned case #" + id + ".", "/html/admin/customer-service-manager/complaints.html?caseId=" + id, "SUPPORT", id, actor.id());
+        } else notifications.notifyUser(number(item, "customerId"), "SUPPORT", "Support replied",
+                "A support reply was added to case #" + id + ".", "/html/customer/feedback.html?caseId=" + id, "SUPPORT", id);
         return detail(actor, id);
     }
     public Map<String, Object> options(Actor actor) {
         var orders = repo.query("SELECT orderID AS id FROM orders WHERE userID=? ORDER BY orderID DESC", actor.id());
-        var staff = actor.coordinator() ? repo.query("SELECT userID AS id, CONCAT(firstName, ' ', lastName) AS name, UPPER(type) AS role FROM users WHERE UPPER(type) IN ('ADMIN','MANAGER','OWNER','CSM','CUSTOMER_SERVICE_MANAGER','STAFF','RIDER') ORDER BY type, firstName") : List.of();
+        var staff = actor.coordinator() ? repo.query("SELECT userID AS id, CONCAT(firstName, ' ', lastName) AS name, UPPER(type) AS role FROM users WHERE active=1 AND UPPER(type) IN ('ADMIN','MANAGER','OWNER','CSM','CUSTOMER_SERVICE_MANAGER') ORDER BY type, firstName") : List.of();
         return Map.of("actor", actor, "orders", orders, "staff", staff);
     }
     static boolean canView(Actor actor, Map<String, Object> item) {

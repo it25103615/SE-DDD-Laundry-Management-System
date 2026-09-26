@@ -3,7 +3,7 @@ package _6.Y2.S1.MTR._6.LaundryLink.controller.support;
 import _6.Y2.S1.MTR._6.LaundryLink.exception.support.SupportErrors;
 import _6.Y2.S1.MTR._6.LaundryLink.security.support.SupportAccess;
 import _6.Y2.S1.MTR._6.LaundryLink.service.support.ReportService;
-import _6.Y2.S1.MTR._6.LaundryLink.service.support.SettingsService;
+import _6.Y2.S1.MTR._6.LaundryLink.service.support.AdministrationService;
 import _6.Y2.S1.MTR._6.LaundryLink.service.support.SupportService;
 
 import java.util.Map;
@@ -22,7 +22,7 @@ class SupportControllerTest {
     @BeforeEach void setup() {
         access=mock(SupportAccess.class);service=mock(SupportService.class);
         when(access.actor(isNull(),eq(1))).thenReturn(new SupportAccess.Actor(1,"Customer","CUSTOMER",true));
-        mvc=MockMvcBuilders.standaloneSetup(new SupportController(access,service,mock(SettingsService.class),mock(ReportService.class)))
+        mvc=MockMvcBuilders.standaloneSetup(new SupportController(access,service,mock(ReportService.class),mock(AdministrationService.class)))
             .setControllerAdvice(new SupportErrors()).build();
     }
     @Test void validCreateReturnsCreated() throws Exception {

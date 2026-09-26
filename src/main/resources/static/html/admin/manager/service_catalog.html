@@ -1,102 +1,37 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Service Catalog | LaundryLink</title>
-    <link rel="stylesheet" href="../../../css/global.css" />
-    <link rel="stylesheet" href="../../../css/dashboard.css" />
-    <script src="../../../js/global-pre.js"></script>
-    <script src="../../../js/global-post.js" defer></script>
-  </head>
-  <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="../owner/administration_overview.html"
-            ><h3>LaundryLink</h3></a
-          >
-        </li>
-        <li class="nav_right">
-          <a href="../owner/administration_overview.html">Dashboard</a
-          ><a href="../customer-service-manager/orders.html">Orders</a
-          ><a href="service_catalog.html">Service Catalog</a
-          ><span class="profile_badge">AD</span>
-        </li>
-      </ul>
-    </nav>
-    <main>
-      <header class="page_header top_bar">
-        <div>
-          <div class="subtitle">ADMINISTRATION</div>
-          <h1>Service Catalog</h1>
-          <p>Manage services, item prices and availability.</p>
-        </div>
-        <a
-          class="custom_button custom_button_bg"
-          href="../../public/pricing.html"
-          >+ Add service</a
-        >
-      </header>
-      <div class="table_wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>SERVICE</th>
-              <th>ITEMS</th>
-              <th>TURNAROUND</th>
-              <th>STATUS</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Wash &amp; Fold</strong></td>
-              <td>12</td>
-              <td>48 hours</td>
-              <td><span class="status">ACTIVE</span></td>
-              <td>
-                <a class="link" href="../../public/pricing.html"
-                  >Edit pricing</a
-                >
-              </td>
-            </tr>
-            <tr>
-              <td><strong>Dry Cleaning</strong></td>
-              <td>18</td>
-              <td>72 hours</td>
-              <td><span class="status">ACTIVE</span></td>
-              <td>
-                <a class="link" href="../../public/pricing.html"
-                  >Edit pricing</a
-                >
-              </td>
-            </tr>
-            <tr>
-              <td><strong>Ironing</strong></td>
-              <td>10</td>
-              <td>48 hours</td>
-              <td><span class="status">ACTIVE</span></td>
-              <td>
-                <a class="link" href="../../public/pricing.html"
-                  >Edit pricing</a
-                >
-              </td>
-            </tr>
-            <tr>
-              <td><strong>Shoe Cleaning</strong></td>
-              <td>3</td>
-              <td>72 hours</td>
-              <td><span class="status">ACTIVE</span></td>
-              <td>
-                <a class="link" href="../../public/pricing.html"
-                  >Edit pricing</a
-                >
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </main>
-  </body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Service catalogue | LaundryLink</title>
+<link rel="stylesheet" href="../../../css/global.css">
+<link rel="stylesheet" href="../../../css/dashboard.css">
+<link rel="stylesheet" href="../../../css/support/support.css">
+<script src="../../../js/global-pre.js" defer></script>
+<script src="../../../js/support/common.js" defer></script>
+</head>
+<body data-page="service-catalog">
+<nav class="dashboard_nav"><ul class="navigation"><li class="logo"><a href="dashboard.html"><h3>LaundryLink</h3></a></li><li class="nav_right"><a href="dashboard.html">Dashboard</a><a href="service_catalog.html">Service catalogue</a><a href="staff_accounts.html">Staff accounts</a></li></ul></nav>
+<main class="support-page">
+<header class="page_header"><div class="subtitle">ADMINISTRATION</div><h1>Service catalogue</h1><p id="identity">Connecting…</p></header>
+<div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+<div class="split">
+<section class="card"><h2 id="service-form-title">Add service</h2><form id="service-form">
+<div class="field"><label for="service-name">Service name</label><input class="input" id="service-name" required maxlength="30"></div>
+<div class="field"><label for="service-description">Description</label><textarea class="input" id="service-description" required maxlength="250"></textarea></div>
+<div class="field"><label for="turnaround">Turnaround time (hours)</label><input class="input" id="turnaround" type="number" min="1" max="720" required value="48"></div>
+<label><input id="service-active" type="checkbox" checked> Available for new orders</label>
+<div class="actions"><button class="custom_button custom_button_bg" type="submit">Save service</button><button class="custom_button" id="cancel-service" type="button">Clear</button></div>
+</form></section>
+<section class="card"><h2>Item pricing</h2><p class="muted small">Select a service and item to add or update its current price.</p><form id="price-form">
+<div class="field"><label for="price-service">Service</label><select class="input" id="price-service" required></select></div>
+<div class="field"><label for="price-item">Item</label><select class="input" id="price-item" required></select></div>
+<div class="field"><label for="price">Price (LKR)</label><input class="input" id="price" type="number" min="0" step="0.01" required></div>
+<div class="actions"><button class="custom_button custom_button_bg" type="submit">Save price</button></div>
+</form></section>
+</div>
+<section class="card section"><h2>Services</h2><div class="table_wrap"><table><thead><tr><th>Service</th><th>Turnaround</th><th>Status</th><th>Priced items</th><th>Action</th></tr></thead><tbody id="service-rows"></tbody></table></div></section>
+<section class="card section"><h2>Price list</h2><div class="table_wrap"><table><thead><tr><th>Service</th><th>Item</th><th>Price</th></tr></thead><tbody id="price-rows"></tbody></table></div></section>
+</main>
+</body>
 </html>

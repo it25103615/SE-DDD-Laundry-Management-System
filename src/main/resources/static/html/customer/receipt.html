@@ -8,8 +8,9 @@
     <link rel="stylesheet" href="../../css/dashboard.css" />
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
+    <script src="../../js/customer/payment-flow.js" defer></script>
   </head>
-  <body>
+  <body data-payment-page="receipt">
     <nav class="dashboard_nav">
       <ul class="navigation">
         <li class="logo">
@@ -23,16 +24,18 @@
     </nav>
     <main>
       <header class="welcome_banner" style="margin-top: 34px">
-        <h1>Payment recorded ✓</h1>
-        <p>Receipt #LL-1042-2026</p>
+        <h1 id="receipt-title">Payment recorded</h1>
+        <p id="receipt-reference">Receipt</p>
       </header>
       <section class="card" style="max-width: 680px; margin: 24px auto">
-        <p>Order #1042 · Priya Fernando</p>
+        <p id="receipt-order">Order</p>
         <div class="top_bar">
           <h2>Total paid</h2>
-          <h2>LKR 2,480</h2>
+          <h2 id="receipt-amount">Loading...</h2>
         </div>
-        <a class="custom_button custom_button_bg" href="payments.html"
+        <p class="muted" id="receipt-method">Payment method</p>
+        <p class="muted" id="receipt-time">Payment time</p>
+        <a class="custom_button custom_button_bg" id="receipt-payments-link" href="payments.html"
           >Back to payments</a
         >
       </section>

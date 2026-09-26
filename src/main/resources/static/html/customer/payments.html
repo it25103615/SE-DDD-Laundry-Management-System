@@ -8,8 +8,9 @@
     <link rel="stylesheet" href="../../css/dashboard.css" />
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
+    <script src="../../js/customer/payment-flow.js" defer></script>
   </head>
-  <body>
+  <body data-payment-page="payments">
     <nav class="dashboard_nav">
       <ul class="navigation">
         <li class="logo">
@@ -41,14 +42,43 @@
           <article class="card top_bar">
             <div>
               <span class="muted small">OUTSTANDING BALANCE</span>
-              <h2>LKR 2,480</h2>
-              <p class="muted">Order #1042 · Due on delivery</p>
+              <h2 id="outstanding-amount">Loading...</h2>
+              <p class="muted" id="payment-order-line">Checking your balance</p>
             </div>
             <a
               class="custom_button custom_button_bg"
-              href="payment_checkout.html"
+              id="pay-now-link"
+              href="payment_method.html"
               >Pay now</a
             >
+          </article>
+          <article class="card" id="billing-summary-card" style="margin-top: 22px">
+            <div class="top_bar">
+              <div>
+                <span class="muted small">BILLING SUMMARY</span>
+                <h2 id="billing-final">Loading...</h2>
+              </div>
+              <span class="status" id="billing-order-label">Invoice</span>
+            </div>
+            <div class="top_bar">
+              <span>Subtotal</span>
+              <strong id="billing-subtotal">Loading...</strong>
+            </div>
+            <div class="top_bar">
+              <span id="billing-promotion-label">Promotion discount</span>
+              <strong id="billing-discount">Loading...</strong>
+            </div>
+            <hr />
+            <form class="unstyled_form" id="promotion-form" style="padding: 0; box-shadow: none; border: 0; background: transparent">
+              <div class="field">
+                <label for="promotion-code">Promotion code</label>
+                <input class="input" id="promotion-code" name="promotionCode" type="text" autocomplete="off" placeholder="Enter promotion code" />
+              </div>
+              <p class="alert" id="promotion-message" hidden></p>
+              <div class="actions">
+                <button class="custom_button custom_button_border" id="apply-promotion-button" type="submit">Apply</button>
+              </div>
+            </form>
           </article>
           <h2 style="margin-top: 36px">Payment history</h2>
           <div class="table_wrap">
@@ -62,20 +92,9 @@
                   <th></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody id="payment-history-body">
                 <tr>
-                  <td>28 Jul 2026</td>
-                  <td>#1018</td>
-                  <td>Visa ···· 4242</td>
-                  <td>LKR 1,260</td>
-                  <td><a class="link" href="receipt.html">Receipt</a></td>
-                </tr>
-                <tr>
-                  <td>12 Jul 2026</td>
-                  <td>#996</td>
-                  <td>Cash</td>
-                  <td>LKR 900</td>
-                  <td><a class="link" href="receipt.html">Receipt</a></td>
+                  <td colspan="5">Loading payment history...</td>
                 </tr>
               </tbody>
             </table>

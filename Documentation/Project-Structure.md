@@ -15,7 +15,7 @@ Base source directory: `src/main/java/_6/Y2/S1/MTR/_6/LaundryLink`.
 | `rider` | Lathurshan S. | Pickup and delivery |
 | `payment` | Shathurshigah R. | Payments, billing and promotions |
 | `support` | Agksheya B. | Reporting, administration and customer support |
-| `shared` | Shared integration code | Existing order statuses and status logs |
+| `shared` | Shared integration code | Order statuses, status logs and the cross-module notification inbox |
 
 These destinations follow the responsibility map in the project briefing. Account, order, processing and payment backend implementations have not yet been merged into this checkout. Their `package-info.java` files document the intended locations without creating placeholder endpoints or beans.
 
@@ -32,6 +32,8 @@ These destinations follow the responsibility map in the project briefing. Accoun
 | `security/<module>` | Identity resolution and access checks | `security/support/SupportAccess.java` |
 | `exception/<module>` | Controller advice and API error handling | `exception/support/SupportErrors.java` |
 
+Cross-module notifications live in `controller/shared/NotificationController.java` and `service/shared/NotificationService.java`. Feature services can publish notifications through this shared service, while database triggers cover direct order, payment and delivery writes from other modules.
+
 Create model classes only when the implementation needs them. Support currently uses JDBC over existing tables, so its `entity` folder is reserved for future typed models. Rider also queries existing shared tables directly.
 
 ## Example: where Agksheya's files go
@@ -39,7 +41,7 @@ Create model classes only when the implementation needs them. Support currently 
 ```text
 controller/support/SupportController.java
 service/support/SupportService.java
-service/support/SettingsService.java
+service/support/AdministrationService.java
 service/support/ReportService.java
 repository/support/SupportRepository.java
 dto/support/SupportRequests.java
