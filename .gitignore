@@ -42,3 +42,10 @@ mssql-jdbc_auth-*.dll
 graphify-out/
 
 temp.txt
+
+# Local Maven repository caches
+.m2/
+.maven-user-home/
+
+# Archived resource snapshots
+src/main/resources/*.zip
