@@ -406,10 +406,6 @@
           method: "POST",
           body: JSON.stringify({ paymentMethod: method, amount }),
         });
-        sessionStorage.setItem(
-          "laundrylinkLastPayment",
-          JSON.stringify({ ...result, displayMethod, paidAt: new Date().toLocaleString() }),
-        );
         window.location.href = `receipt.html?paymentID=${result.paymentID}&orderID=${id}`;
       } catch (error) {
         button.disabled = false;
@@ -422,27 +418,48 @@
     });
   }
 
-  function loadReceiptPage() {
-    let payment = null;
-    try {
-      payment = JSON.parse(sessionStorage.getItem("laundrylinkLastPayment") || "null");
-    } catch (error) {
-      payment = null;
-    }
-
+  async function loadReceiptPage() {
     const queryPaymentID = params().get("paymentID");
     const queryOrderID = params().get("orderID");
-    const paymentID = payment && payment.paymentID ? payment.paymentID : queryPaymentID;
-    const amount = payment && payment.amount ? payment.amount : null;
     const paymentsLink = document.getElementById("receipt-payments-link");
-
-    setText("receipt-title", payment ? "Payment successful" : "Payment recorded");
-    setText("receipt-reference", paymentID ? `Receipt #LL-${queryOrderID}-${paymentID}` : "Receipt");
-    setText("receipt-order", queryOrderID ? `Order #${queryOrderID}` : "Order not selected");
-    setText("receipt-amount", amount ? money(amount) : "Unavailable");
-    setText("receipt-method", `Method: ${payment && payment.displayMethod ? payment.displayMethod : "Recorded payment"}`);
-    setText("receipt-time", `Date/time: ${payment && payment.paidAt ? payment.paidAt : "Not available"}`);
     if (paymentsLink && queryOrderID) paymentsLink.href = paymentFlowUrl("payments.html", queryOrderID);
+
+    if (!queryPaymentID || !queryOrderID) {
+      setText("receipt-title", "Receipt unavailable");
+      setText("receipt-reference", "Missing payment or order reference");
+      setText("receipt-order", queryOrderID ? `Order #${queryOrderID}` : "Order not selected");
+      setText("receipt-amount", "Unavailable");
+      setText("receipt-subtotal", "Unavailable");
+      setText("receipt-discount", "Unavailable");
+      setText("receipt-status", "Status: Unavailable");
+      setText("receipt-method", "Method: Not recorded");
+      setText("receipt-time", "Date/time: Not recorded");
+      return;
+    }
+
+    try {
+      const receipt = await api(`/api/payments/${queryPaymentID}/receipt?orderID=${encodeURIComponent(queryOrderID)}`);
+      setText("receipt-title", "Payment receipt");
+      setText("receipt-reference", `Receipt #LL-${receipt.orderID}-${receipt.paymentID}`);
+      setText("receipt-order", `Order #${receipt.orderID}`);
+      setText("receipt-amount", money(receipt.amountPaid));
+      setText("receipt-subtotal", money(receipt.subtotal));
+      setText("receipt-discount", `- ${money(receipt.discountAmount)}`);
+      setText("receipt-status", `Status: ${String(receipt.paymentStatus || "Unknown").replaceAll("_", " ")}`);
+      setText("receipt-method", "Method: Not recorded");
+      setText("receipt-time", "Date/time: Not recorded");
+      if (paymentsLink) paymentsLink.href = paymentFlowUrl("payments.html", receipt.orderID);
+    } catch (error) {
+      setText("receipt-title", "Receipt unavailable");
+      setText("receipt-reference", error.status === 403 ? "You do not have access to this receipt" : "Receipt could not be loaded");
+      setText("receipt-order", `Order #${queryOrderID}`);
+      setText("receipt-amount", "Unavailable");
+      setText("receipt-subtotal", "Unavailable");
+      setText("receipt-discount", "Unavailable");
+      setText("receipt-status", "Status: Unavailable");
+      setText("receipt-method", "Method: Not recorded");
+      setText("receipt-time", "Date/time: Not recorded");
+    }
   }
 
   if (page === "payments") loadPaymentsPage();

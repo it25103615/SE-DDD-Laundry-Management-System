@@ -206,6 +206,126 @@ class PaymentServiceTest {
     }
 
     @Test
+    void returnsReceiptForRecordedPayment() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentManagementRepository managementRepository = managementRepository("CUSTOMER", new PaymentOrderStatus(1, "Unconfirmed"));
+        PaymentService service = paymentService(paymentRepository, managementRepository, billingService);
+        Payment payment = new Payment(900.0, 1);
+        payment.setPaymentID(12);
+
+        when(paymentRepository.findById(12)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findByOrderID(1)).thenReturn(List.of(payment));
+        when(billingService.getBillingDetails(1)).thenReturn(
+                billingDetails(1, 7, BigDecimal.valueOf(1000.0), BigDecimal.valueOf(100.0), BigDecimal.valueOf(900.0))
+        );
+
+        PaymentReceiptResponse receipt = service.getCustomerReceipt(7, 12, 1);
+
+        assertEquals(12, receipt.getPaymentID());
+        assertEquals(1, receipt.getOrderID());
+        assertEquals(BigDecimal.valueOf(1000.0), receipt.getSubtotal());
+        assertEquals(BigDecimal.valueOf(100.0), receipt.getDiscountAmount());
+        assertEquals(BigDecimal.valueOf(900.0), receipt.getFinalPayableAmount());
+        assertEquals(BigDecimal.valueOf(900.0), receipt.getAmountPaid());
+        assertEquals(PaymentStatus.PAID, receipt.getPaymentStatus());
+    }
+
+    @Test
+    void rejectsReceiptForUnknownPayment() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentService service = paymentService(
+                paymentRepository,
+                managementRepository("CUSTOMER", new PaymentOrderStatus(1, "Unconfirmed")),
+                billingService
+        );
+
+        when(paymentRepository.findById(99)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class, () -> service.getCustomerReceipt(7, 99, 1));
+    }
+
+    @Test
+    void rejectsReceiptWhenRequestedOrderDoesNotMatchPaymentOrder() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentService service = paymentService(
+                paymentRepository,
+                managementRepository("CUSTOMER", new PaymentOrderStatus(1, "Unconfirmed")),
+                billingService
+        );
+        Payment payment = new Payment(900.0, 1);
+        payment.setPaymentID(12);
+
+        when(paymentRepository.findById(12)).thenReturn(Optional.of(payment));
+
+        assertThrows(IllegalArgumentException.class, () -> service.getCustomerReceipt(7, 12, 2));
+    }
+
+    @Test
+    void preventsCustomerFromViewingAnotherCustomersReceipt() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentManagementRepository managementRepository = managementRepository("CUSTOMER", new PaymentOrderStatus(1, "Unconfirmed"));
+        PaymentService service = paymentService(paymentRepository, managementRepository, billingService);
+        Payment payment = new Payment(900.0, 1);
+        payment.setPaymentID(12);
+
+        when(paymentRepository.findById(12)).thenReturn(Optional.of(payment));
+        when(billingService.getBillingDetails(1)).thenReturn(billingDetails(1, 8, BigDecimal.valueOf(900.0)));
+
+        assertThrows(AccessDeniedException.class, () -> service.getCustomerReceipt(7, 12, 1));
+    }
+
+    @Test
+    void receiptAmountComesFromRecordedPaymentAndBillingComesFromBackend() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentManagementRepository managementRepository = managementRepository("CUSTOMER", new PaymentOrderStatus(1, "Unconfirmed"));
+        PaymentService service = paymentService(paymentRepository, managementRepository, billingService);
+        Payment payment = new Payment(800.0, 1);
+        payment.setPaymentID(12);
+
+        when(paymentRepository.findById(12)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findByOrderID(1)).thenReturn(List.of(payment));
+        when(billingService.getBillingDetails(1)).thenReturn(
+                billingDetails(1, 7, BigDecimal.valueOf(1000.0), BigDecimal.valueOf(100.0), BigDecimal.valueOf(900.0))
+        );
+
+        PaymentReceiptResponse receipt = service.getCustomerReceipt(7, 12, 1);
+
+        assertEquals(BigDecimal.valueOf(800.0), receipt.getAmountPaid());
+        assertEquals(BigDecimal.valueOf(1000.0), receipt.getSubtotal());
+        assertEquals(BigDecimal.valueOf(100.0), receipt.getDiscountAmount());
+        assertEquals(BigDecimal.valueOf(900.0), receipt.getFinalPayableAmount());
+        assertEquals(PaymentStatus.PARTIALLY_PAID, receipt.getPaymentStatus());
+    }
+
+    @Test
+    void discountedOrderReceiptReturnsCorrectBillingAmounts() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentManagementRepository managementRepository = managementRepository("CUSTOMER", new PaymentOrderStatus(1, "Unconfirmed"));
+        PaymentService service = paymentService(paymentRepository, managementRepository, billingService);
+        Payment payment = new Payment(750.0, 1);
+        payment.setPaymentID(12);
+
+        when(paymentRepository.findById(12)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findByOrderID(1)).thenReturn(List.of(payment));
+        when(billingService.getBillingDetails(1)).thenReturn(
+                billingDetails(1, 7, BigDecimal.valueOf(1000.0), BigDecimal.valueOf(250.0), BigDecimal.valueOf(750.0))
+        );
+
+        PaymentReceiptResponse receipt = service.getCustomerReceipt(7, 12, 1);
+
+        assertEquals(BigDecimal.valueOf(1000.0), receipt.getSubtotal());
+        assertEquals(BigDecimal.valueOf(250.0), receipt.getDiscountAmount());
+        assertEquals(BigDecimal.valueOf(750.0), receipt.getFinalPayableAmount());
+        assertEquals(PaymentStatus.PAID, receipt.getPaymentStatus());
+    }
+
+    @Test
     void preventsCustomerFromViewingAnotherCustomersPaymentRecord() {
         PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
         BillingService billingService = Mockito.mock(BillingService.class);
@@ -394,6 +514,16 @@ class PaymentServiceTest {
 
     private BillingDetails billingDetails(Integer orderID, Integer userID, BigDecimal payableAmount) {
         return new BillingDetails(orderID, userID, List.of(), payableAmount, BigDecimal.ZERO, payableAmount);
+    }
+
+    private BillingDetails billingDetails(
+            Integer orderID,
+            Integer userID,
+            BigDecimal subtotal,
+            BigDecimal discountAmount,
+            BigDecimal finalPayableAmount
+    ) {
+        return new BillingDetails(orderID, userID, List.of(), subtotal, discountAmount, finalPayableAmount);
     }
 
     private PaymentService paymentService(

@@ -71,6 +71,28 @@ public class PaymentService {
         return toPaymentResponse(payment);
     }
 
+    public PaymentReceiptResponse getCustomerReceipt(Integer customerID, Integer paymentID, Integer requestedOrderID) {
+        Payment payment = paymentRepository.findById(paymentID).orElseThrow();
+        if (requestedOrderID != null && !requestedOrderID.equals(payment.getOrderID())) {
+            throw new IllegalArgumentException("Payment does not belong to the requested order");
+        }
+
+        BillingDetails billingDetails = billingService.getBillingDetails(payment.getOrderID());
+        verifyCanViewOrderPaymentRecords(customerID, billingDetails);
+        PaymentStatusResponse status = buildPaymentStatus(payment.getOrderID(), billingDetails);
+
+        return new PaymentReceiptResponse(
+                payment.getPaymentID(),
+                payment.getOrderID(),
+                billingDetails.getSubtotal(),
+                billingDetails.getDiscountAmount(),
+                billingDetails.getFinalPayableAmount(),
+                BigDecimal.valueOf(payment.getAmount()),
+                status.getStatus(),
+                status.getOrderStatus()
+        );
+    }
+
     public List<PaymentResponse> getPayments(Integer managementUserID) {
         paymentAccessService.requireManagementUser(managementUserID);
         return paymentRepository.findAll().stream()
