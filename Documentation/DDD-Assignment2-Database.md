@@ -162,17 +162,17 @@ These are explicit Part 02 refinements; they were not all present in the origina
 5. Added the support-case columns and support audit table to the fresh-install DDL, matching the backend already in this project.
 6. Added account active/audit/version fields and service description/turnaround/active/version fields for operational administration.
 7. Replaced the rider trigger body with a multi-row-safe, null-safe implementation using `THROW`.
-8. Added `sp_UpdateOrderStatus`, which updates an order and inserts its status log atomically.
+8. Added one Part E database routine for each project module: read-only functions for account and order lookups, and procedures for processing, rider, payment, and support/CSM actions.
 9. Added persistent user notifications and payment processing fields. Database triggers publish order, payment and rider-assignment notifications even when the owning module writes directly to its table.
 
 Migration `003_ddd_assignment2_refinement.sql` checks for unknown roles, orphaned pricing rows, invalid quantities, null/negative prices, negative payments, and money values that cannot be represented by `DECIMAL(10,2)`. Any problem rolls back the transaction. It also removes the unused `system_settings` table.
 
 ## 5. DDL and migration strategy
 
-- **Fresh installation:** run `initialize_database.sql` only. It directly creates all 15 final tables, constraints, the procedure, triggers, and essential reference catalogues. Migrations 001, 002 and 003 are not required afterward.
+- **Fresh installation:** run `initialize_database.sql` only. It directly creates all 15 final tables, constraints, the six module routines, triggers, and essential reference catalogues. Migrations 001, 002 and 003 are not required afterward.
 - **Existing development database:** do not rerun `initialize_database.sql`. For the current database, where migrations 001 and 002 are already applied, run only `database/migrations/003_ddd_assignment2_refinement.sql` after taking a verified backup.
 - `001_support_admin.sql` and `002_account_password_hash.sql` are retained as historical schema-evolution records. Their final support-table, feedback-column, and password-column results are already incorporated directly into the master initializer.
-- `003_ddd_assignment2_refinement.sql` remains the upgrade path for an existing database; it removes the unused settings table and creates or updates the procedure, notification storage and triggers.
+- `003_ddd_assignment2_refinement.sql` remains the schema-refinement upgrade path for an existing database. Then run `004_ddd_assignment2_module_routines.sql` to replace the old single Part E procedure with the six module-specific routines.
 
 The project does not use Flyway or Liquibase. Migration execution is manual or through `scripts/Initialize-SupportDatabase.ps1`. Therefore the operator must retain evidence of which scripts were executed.
 
@@ -190,16 +190,25 @@ The executable queries are in `database/ddd_assignment2_queries.sql`.
 2. **JOIN:** order, customer and readable status data.
 3. **Aggregation:** count, sum, average, minimum and maximum payment values.
 4. **GROUP BY/HAVING:** services appearing on at least two order lines.
-5. **Subquery:** customers whose payment total exceeds the average customer total.
+5. **Subquery:** customers who have placed at least one order; the inner query supplies the user IDs to match.
 6. Optional catalogue join: item/service prices.
 
-## 8. Stored procedure
+## 8. Module routines (Assignment Part E)
 
-`dbo.sp_UpdateOrderStatus(@OrderID, @NewStatusID)` validates both keys, locks and reads the current status, rejects a no-op, updates the order, and inserts a corresponding log row. `TRY/CATCH`, `XACT_ABORT`, and one transaction guarantee that the update and audit entry either both succeed or both roll back.
+- Account function `dbo.fn_GetAccountProfile(@UserID)` returns a safe account summary without the password.
+- Order function `dbo.fn_GetCustomerOrders(@CustomerID)` lists a customer's orders, statuses, line counts, and totals.
+- Processing procedure `dbo.sp_UpdateProcessingStatus(@OrderID, @NewStatusID)` changes an order's processing status and inserts its status log atomically.
+- Rider procedure `dbo.sp_AssignDeliveryRider(@DeliveryID, @RiderID)` assigns a valid rider to a delivery; the rider trigger also enforces the subtype.
+- Payment procedure `dbo.sp_RecordPayment(@OrderID, @Amount)` records a positive payment for an existing order.
+- Support/CSM function `dbo.fn_GetOpenSupportCases()` returns unresolved support cases for the CSM work dashboard.
+
+Their definitions are in `initialize_database.sql` and `database/migrations/004_ddd_assignment2_module_routines.sql`. The rollback-safe six-module demo is in `database/ddd_assignment2_procedure_trigger_demo.sql`.
 
 ## 9. Trigger
 
 `dbo.trg_delivery_rider_check` runs after inserts and updates to `delivery`. It examines the full `inserted` pseudo-table, so multi-row statements are supported. Null rider assignments remain valid, while any non-null pickup or delivery rider must reference a `users` row with type `RIDER`.
+
+For the general Part F demonstration, use `dbo.trg_order_notifications`: it sends the customer an inbox notification when an order is inserted or its status changes. The demo changes a sample order inside a transaction, displays the resulting notification, and rolls back both rows.
 
 `trg_order_notifications`, `trg_payment_notifications`, and `trg_delivery_assignment_notifications` create inbox records for customer order changes, accepted payments, and rider assignments. Because SQL Server does not allow a direct `OUTPUT` result set from a table with enabled triggers, new inserts that need the generated identity should use `SCOPE_IDENTITY()` or `OUTPUT ... INTO`.
 
@@ -227,7 +236,7 @@ The executable queries are in `database/ddd_assignment2_queries.sql`.
 
 ### Verified by static inspection
 
-- Migration 003 contains transactional preflight checks, both missing `servicePricing` foreign keys, exact-money conversions, quantity/money checks, role validation, the stored procedure, and the revised trigger.
+- Migration 003 contains transactional preflight checks, both missing `servicePricing` foreign keys, exact-money conversions, quantity/money checks, role validation, and the revised trigger. Migration 004 creates the six Part E routines.
 - The sample script contains non-deleting, transaction-protected data and a final row-count query covering all 15 relations.
 - The five required query forms and the rollback-safe procedure/trigger demonstrations are present.
 - The fresh-install initializer represents the refined schema, but it was not executed because it is destructive.
@@ -236,6 +245,6 @@ The executable queries are in `database/ddd_assignment2_queries.sql`.
 
 - The assignment sample-data script completed successfully. Every one of the 15 tables now has at least five rows; verified counts range from 5 to 26.
 - All five required query forms completed successfully: simple `SELECT`, multi-table `JOIN`, aggregation, `GROUP BY/HAVING`, and subquery.
-- The stored-procedure demonstration changed order 1 from status 15 to status 1 and created log 6 inside an outer transaction. The outer rollback restored status 15 and the original log count.
+- The earlier single order-status procedure demonstration was replaced by six module-specific routine demonstrations. The new definitions and demo script have not yet been executed against the live database; fresh output screenshots are still required.
 - The trigger accepted a valid `RIDER` assignment and rejected a non-rider assignment with SQL Server error 51020. Both demonstrations preserved the original delivery row.
-- The verified outputs and explanations are included in `Documentation/2026-Y2-S1-MTR-26_Assignment01_Part02.pdf`.
+- Existing assignment screenshots, if retained elsewhere, predate the six-procedure Part E update and must be refreshed for Part E.
