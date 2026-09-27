@@ -1,15 +1,26 @@
 (function () {
-  const CUSTOMER_ID = sessionStorage.getItem("laundrylinkCustomerID") || "1";
-  const DEFAULT_ORDER_ID = "5";
-  const TEMP_DEMO_AMOUNTS = { 5: 750 };
+  const ORDER_DRAFT_KEY = "laundryLink.orderDraft";
   const page = document.body.dataset.paymentPage;
 
   function params() {
     return new URLSearchParams(window.location.search);
   }
 
+  function readOrderDraft() {
+    try {
+      return JSON.parse(sessionStorage.getItem(ORDER_DRAFT_KEY)) || {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function customerID() {
+    const draft = readOrderDraft();
+    return sessionStorage.getItem("laundrylinkCustomerID") || params().get("userID") || draft.userID || "";
+  }
+
   function orderID() {
-    return params().get("orderID") || DEFAULT_ORDER_ID;
+    return params().get("orderID") || "";
   }
 
   function money(value) {
@@ -17,13 +28,19 @@
     return `LKR ${number.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   }
 
-  function displayOutstanding(id, status) {
-    const outstanding = Number(status.outstandingAmount || 0);
-    const demoAmount = TEMP_DEMO_AMOUNTS[Number(id)];
-    if (outstanding <= 0 && status.status === "REJECTED" && demoAmount) {
-      return demoAmount;
-    }
-    return outstanding;
+  function displayOutstanding(status) {
+    return Number(status.outstandingAmount || 0);
+  }
+
+  function paymentFlowUrl(pageName, id, extra = {}) {
+    const search = new URLSearchParams();
+    search.set("orderID", id);
+    const urlCustomerID = params().get("userID");
+    if (urlCustomerID) search.set("userID", urlCustomerID);
+    Object.entries(extra).forEach(([key, value]) => {
+      if (value) search.set(key, value);
+    });
+    return `${pageName}?${search.toString()}`;
   }
 
   function methodLabel(method) {
@@ -31,17 +48,27 @@
   }
 
   function api(path, options) {
+    const headers = {
+      "Content-Type": "application/json",
+      ...(options && options.headers ? options.headers : {}),
+    };
+    const resolvedCustomerID = customerID();
+    if (resolvedCustomerID) {
+      headers["X-User-ID"] = resolvedCustomerID;
+    }
+
     return fetch(path, {
       ...options,
-      headers: {
-        "Content-Type": "application/json",
-        "X-User-ID": CUSTOMER_ID,
-        ...(options && options.headers ? options.headers : {}),
-      },
+      headers,
     }).then(async (response) => {
       if (!response.ok) {
         const error = new Error(`Request failed with status ${response.status}`);
         error.status = response.status;
+        try {
+          error.body = await response.json();
+        } catch (ignore) {
+          error.body = null;
+        }
         throw error;
       }
       if (response.status === 204) return null;
@@ -55,6 +82,13 @@
     element.hidden = !message;
   }
 
+  function showMessage(element, message, success) {
+    if (!element) return;
+    element.textContent = message || "";
+    element.hidden = !message;
+    element.className = `alert ${success ? "alert_success" : "alert_error"}`;
+  }
+
   function setText(id, value) {
     const element = document.getElementById(id);
     if (element) element.textContent = value;
@@ -64,36 +98,118 @@
     return api(`/api/payments/orders/${id}/status`);
   }
 
-  function saveOrderContext(id, status) {
-    const outstandingAmount = displayOutstanding(id, status);
-    sessionStorage.setItem("laundrylinkPaymentOrderID", id);
-    sessionStorage.setItem("laundrylinkPaymentAmount", outstandingAmount);
+  async function getInvoice(id) {
+    return api(`/api/billing/orders/${id}/invoice`);
+  }
+
+  function displayInvoice(invoice) {
+    setText("billing-order-label", `Order #${invoice.orderID}`);
+    setText("billing-subtotal", money(invoice.subtotal));
+    setText("billing-discount", `- ${money(invoice.discountAmount)}`);
+    setText("billing-final", money(invoice.finalPayableAmount));
+    const appliedCode = sessionStorage.getItem(`laundrylinkPromotionCode:${invoice.orderID}`);
+    const hasDiscount = Number(invoice.discountAmount || 0) > 0;
+    setText("billing-promotion-label", hasDiscount && appliedCode ? `Promotion discount (${appliedCode})` : "Promotion discount");
+  }
+
+  async function refreshBillingAndStatus(id) {
+    const [invoice, status] = await Promise.all([getInvoice(id), getStatus(id)]);
+    displayInvoice(invoice);
+    return { invoice, status };
+  }
+
+  function promotionMessageForError(error) {
+    if (error.status === 404) return "Promotion code does not exist.";
+    if (error.status === 400) return "Promotion could not be applied to this order.";
+    return "Promotion could not be checked. Please try again.";
+  }
+
+  async function applyPromotion(id, code) {
+    const validation = await api(`/api/promotions/${encodeURIComponent(code)}/orders/${id}/validate`);
+    if (!validation.valid) {
+      return validation.message || "Promotion is not valid for this order.";
+    }
+
+    await api(`/api/promotions/${encodeURIComponent(code)}/orders/${id}/apply`, { method: "POST" });
+    sessionStorage.setItem(`laundrylinkPromotionCode:${id}`, code.toUpperCase());
+    await refreshBillingAndStatus(id);
+    return "";
   }
 
   async function loadPaymentsPage() {
     const id = orderID();
     const historyBody = document.getElementById("payment-history-body");
     const payLink = document.getElementById("pay-now-link");
+    const promotionForm = document.getElementById("promotion-form");
+    const promotionInput = document.getElementById("promotion-code");
+    const promotionMessage = document.getElementById("promotion-message");
+    const applyButton = document.getElementById("apply-promotion-button");
 
-    try {
-      const status = await getStatus(id);
-      const outstandingAmount = displayOutstanding(id, status);
-      saveOrderContext(id, status);
-      setText("outstanding-amount", money(outstandingAmount));
-      setText("payment-order-line", `Order #${id} · ${status.status.replaceAll("_", " ")}`);
-      if (payLink) {
-        payLink.href = `payment_method.html?orderID=${id}`;
-        if (outstandingAmount <= 0) {
-          payLink.textContent = "Paid";
-          payLink.setAttribute("aria-disabled", "true");
-        } else {
-          payLink.textContent = "Pay now";
-          payLink.removeAttribute("aria-disabled");
-        }
-      }
-    } catch (error) {
+    if (!id) {
       setText("outstanding-amount", "Unavailable");
-      setText("payment-order-line", "Could not load outstanding balance");
+      setText("payment-order-line", "Open an order before reviewing payment.");
+      setText("billing-order-label", "Invoice");
+      setText("billing-subtotal", "Unavailable");
+      setText("billing-discount", "Unavailable");
+      setText("billing-final", "Unavailable");
+      showMessage(promotionMessage, "CROSS-MODULE CHANGE REQUIRED: this page needs a real orderID from Order Management navigation.", false);
+      if (payLink) {
+        payLink.setAttribute("aria-disabled", "true");
+        payLink.removeAttribute("href");
+      }
+    } else {
+      try {
+        const { status } = await refreshBillingAndStatus(id);
+        const outstandingAmount = displayOutstanding(status);
+        setText("outstanding-amount", money(outstandingAmount));
+        setText("payment-order-line", `Order #${id} · ${status.status.replaceAll("_", " ")}`);
+        if (payLink) {
+          payLink.href = paymentFlowUrl("payment_method.html", id);
+          if (outstandingAmount <= 0) {
+            payLink.textContent = "Paid";
+            payLink.setAttribute("aria-disabled", "true");
+          } else {
+            payLink.textContent = "Pay now";
+            payLink.removeAttribute("aria-disabled");
+          }
+        }
+      } catch (error) {
+        setText("outstanding-amount", "Unavailable");
+        setText("payment-order-line", "Could not load billing or outstanding balance");
+        setText("billing-subtotal", "Unavailable");
+        setText("billing-discount", "Unavailable");
+        setText("billing-final", "Unavailable");
+      }
+    }
+
+    if (promotionForm) {
+      promotionForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const code = promotionInput ? promotionInput.value.trim() : "";
+        showMessage(promotionMessage, "", false);
+        if (!id) {
+          showMessage(promotionMessage, "Open an order before applying a promotion.", false);
+          return;
+        }
+        if (!code) {
+          showMessage(promotionMessage, "Enter a promotion code.", false);
+          return;
+        }
+
+        if (applyButton) applyButton.disabled = true;
+        try {
+          const validationMessage = await applyPromotion(id, code);
+          if (validationMessage) {
+            showMessage(promotionMessage, validationMessage, false);
+          } else {
+            showMessage(promotionMessage, "Promotion applied successfully.", true);
+          }
+        } catch (error) {
+          showMessage(promotionMessage, promotionMessageForError(error), false);
+        } finally {
+          if (applyButton) applyButton.disabled = false;
+        }
+      });
     }
 
     try {
@@ -124,15 +240,26 @@
     const id = orderID();
     const form = document.getElementById("payment-method-form");
     const errorBox = document.getElementById("method-error");
-    setText("method-order-title", `Order #${id}`);
+    const backLink = document.getElementById("method-back-link");
+    const continueButton = form ? form.querySelector('button[type="submit"]') : null;
+    setText("method-order-title", id ? `Order #${id}` : "Order not selected");
+    if (!id) {
+      showError(errorBox, "Open an order before selecting a payment method.");
+      setText("method-amount", "Unavailable");
+      if (continueButton) continueButton.disabled = true;
+      return;
+    }
 
+    if (backLink) backLink.href = paymentFlowUrl("payments.html", id);
+    if (continueButton) continueButton.disabled = true;
     try {
-      const status = await getStatus(id);
-      const outstandingAmount = displayOutstanding(id, status);
-      saveOrderContext(id, status);
+      const { status } = await refreshBillingAndStatus(id);
+      const outstandingAmount = displayOutstanding(status);
       setText("method-amount", money(outstandingAmount));
       if (outstandingAmount <= 0) {
         showError(errorBox, "This order does not have an outstanding balance.");
+      } else if (continueButton) {
+        continueButton.disabled = false;
       }
     } catch (error) {
       showError(errorBox, "Could not load payment amount for this order.");
@@ -146,8 +273,7 @@
         showError(errorBox, "Please select a payment method.");
         return;
       }
-      sessionStorage.setItem("laundrylinkPaymentMethod", selected.value);
-      window.location.href = `payment_checkout.html?orderID=${id}&method=${selected.value}`;
+      window.location.href = paymentFlowUrl("payment_checkout.html", id, { method: selected.value });
     });
   }
 
@@ -202,17 +328,37 @@
 
   async function loadCheckoutPage() {
     const id = orderID();
-    const method = params().get("method") || sessionStorage.getItem("laundrylinkPaymentMethod") || "CARD";
+    const method = params().get("method");
     const form = document.getElementById("payment-checkout-form");
     const errorBox = document.getElementById("checkout-error");
     const button = document.getElementById("final-pay-button");
     const cardFields = document.getElementById("card-fields");
     const cashFields = document.getElementById("cash-fields");
     const backLink = document.getElementById("checkout-back-link");
-    let amount = Number(sessionStorage.getItem("laundrylinkPaymentAmount") || 0);
+    const cancelLink = document.getElementById("checkout-cancel-link");
+    let amount = null;
 
-    sessionStorage.setItem("laundrylinkPaymentMethod", method);
-    if (backLink) backLink.href = `payment_method.html?orderID=${id}`;
+    if (!id) {
+      setText("summary-order", "Order not selected");
+      setText("summary-amount", "Unavailable");
+      showError(errorBox, "Open an order before checkout.");
+      if (button) button.disabled = true;
+      return;
+    }
+
+    if (method !== "CARD" && method !== "CASH") {
+      setText("summary-order", `Order #${id}`);
+      setText("summary-amount", "Unavailable");
+      showError(errorBox, "Select a payment method before checkout.");
+      if (button) button.disabled = true;
+      if (backLink) backLink.href = paymentFlowUrl("payment_method.html", id);
+      if (cancelLink) cancelLink.href = paymentFlowUrl("payments.html", id);
+      return;
+    }
+
+    if (button) button.disabled = true;
+    if (backLink) backLink.href = paymentFlowUrl("payment_method.html", id);
+    if (cancelLink) cancelLink.href = paymentFlowUrl("payments.html", id);
     setText("summary-method", methodLabel(method));
     setText("summary-order", `Order #${id}`);
     setText("checkout-subtitle", `Complete payment for order #${id}.`);
@@ -223,12 +369,15 @@
     }
 
     try {
-      const status = await getStatus(id);
-      saveOrderContext(id, status);
-      amount = displayOutstanding(id, status);
+      const { status } = await refreshBillingAndStatus(id);
+      amount = displayOutstanding(status);
       setText("summary-amount", money(amount));
       setText("checkout-title", method === "CASH" ? `Confirm ${money(amount)}` : `Pay ${money(amount)}`);
-      if (amount <= 0) showError(errorBox, "This order does not have an outstanding balance.");
+      if (amount <= 0) {
+        showError(errorBox, "This order does not have an outstanding balance.");
+      } else if (button) {
+        button.disabled = false;
+      }
     } catch (error) {
       setText("summary-amount", "Unavailable");
       showError(errorBox, "Could not load the outstanding payment amount.");
@@ -238,7 +387,7 @@
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       showError(errorBox, "");
-      if (amount <= 0) {
+      if (amount === null || amount <= 0) {
         showError(errorBox, "Payment amount is not valid.");
         return;
       }
@@ -282,16 +431,18 @@
     }
 
     const queryPaymentID = params().get("paymentID");
-    const queryOrderID = params().get("orderID") || orderID();
+    const queryOrderID = params().get("orderID");
     const paymentID = payment && payment.paymentID ? payment.paymentID : queryPaymentID;
-    const amount = payment && payment.amount ? payment.amount : sessionStorage.getItem("laundrylinkPaymentAmount");
+    const amount = payment && payment.amount ? payment.amount : null;
+    const paymentsLink = document.getElementById("receipt-payments-link");
 
     setText("receipt-title", payment ? "Payment successful" : "Payment recorded");
     setText("receipt-reference", paymentID ? `Receipt #LL-${queryOrderID}-${paymentID}` : "Receipt");
-    setText("receipt-order", `Order #${queryOrderID}`);
-    setText("receipt-amount", money(amount));
+    setText("receipt-order", queryOrderID ? `Order #${queryOrderID}` : "Order not selected");
+    setText("receipt-amount", amount ? money(amount) : "Unavailable");
     setText("receipt-method", `Method: ${payment && payment.displayMethod ? payment.displayMethod : "Recorded payment"}`);
     setText("receipt-time", `Date/time: ${payment && payment.paidAt ? payment.paidAt : "Not available"}`);
+    if (paymentsLink && queryOrderID) paymentsLink.href = paymentFlowUrl("payments.html", queryOrderID);
   }
 
   if (page === "payments") loadPaymentsPage();
