@@ -28,8 +28,21 @@
     else window.alert(`${title}${detail ? `\n${detail}` : ""}`);
   }
 
-  async function api(path, options) {
-    const response = await fetch(`${API}${path}`, options);
+  async function api(path, options = {}) {
+    const headers = new Headers(options.headers);
+    headers.set("Accept", "application/json");
+    if (!["GET", "HEAD", "OPTIONS"].includes((options.method || "GET").toUpperCase())) {
+      const csrf = await api("/auth/csrf");
+      headers.set(csrf.headerName, csrf.token);
+    }
+    const response = await fetch(`${API}${path}`, { ...options, headers, credentials: "same-origin" });
+    if (response.redirected) {
+      throw new Error("The order request was redirected. Refresh the page and check your sign-in before trying again.");
+    }
+    const isJson = /\bapplication\/(?:[\w.-]+\+)?json\b/i.test(response.headers.get("Content-Type") || "");
+    if (response.status !== 204 && !isJson) {
+      throw new Error(`The order API returned an unexpected response (HTTP ${response.status}). Please refresh and try again.`);
+    }
     if (!response.ok) {
       let message = "Please review the entered order information and try again.";
       try {
@@ -232,20 +245,29 @@
       const total = lines.reduce((sum, line) => sum + (data.pricing.find((price) => price.itemID === line.itemID && price.serviceID === line.serviceID)?.price || 0) * line.quantity, 0);
       main.innerHTML = `<header class="page_header"><div class="subtitle">NEW ORDER · REVIEW</div><h1>Review your order</h1></header><ol class="step_list"><li class="done">1 Services</li><li class="done">2 Items</li><li class="done">3 Schedule</li><li class="done">4 Instructions</li><li class="active">5 Review</li></ol><section class="card"><h2>Items and services</h2>${lines.map((line) => { const item = data.items.find((entry) => entry.itemID === line.itemID); const service = data.services.find((entry) => entry.serviceID === line.serviceID); const price = data.pricing.find((entry) => entry.itemID === line.itemID && entry.serviceID === line.serviceID); return `<div class="activity_item"><span class="activity_dot"></span><div><strong>${line.quantity} × ${escapeHtml(item?.itemName || "Unknown item")}</strong><p class="muted small">${escapeHtml(service?.serviceName || "Unknown service")}</p></div><strong>${money((price?.price || 0) * line.quantity)}</strong></div>`; }).join("") || "<p class=\"muted\">No items have been selected.</p>"}<div class="top_bar"><h3>Order total</h3><h2>${money(total)}</h2></div></section><form id="confirm-order-form" style="margin-top:20px"><label class="check_row"><input type="checkbox" required>I confirm the item and service selections are correct.</label><div class="actions"><a class="custom_button custom_button_nobg" href="new_order_items.html">Edit items</a><button class="custom_button custom_button_bg" type="submit">Confirm order</button></div></form>`;
       const form = document.getElementById("confirm-order-form");
+      let submitting = false;
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
+        if (submitting) return;
         if (!draft.userID || lines.length === 0
           || (draft.services || []).some((serviceID) => !lines.some((line) => line.serviceID === serviceID))
           || !form.reportValidity()) {
           toast("Order details are incomplete", "Return to services and items before confirming.");
           return;
         }
+        const button = form.querySelector('button[type="submit"]');
+        submitting = true;
+        button.disabled = true;
         try {
           const created = await api("/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userID: draft.userID, orderLines: lines }) });
           saveDraft({ ...draft, lastOrderID: created.orderID, lines: [] });
           toast("Order created", `Order #${created.orderID} is ${created.statusLabel}.`);
           window.location.href = `upcoming_order_details.html?userID=${created.userID}&orderID=${created.orderID}`;
-        } catch (error) { toast("Order could not be created", error.message); }
+        } catch (error) {
+          submitting = false;
+          button.disabled = false;
+          toast("Order could not be created", error.message);
+        }
       });
     } catch (error) { main.insertAdjacentHTML("beforeend", `<div class="alert">Unable to review this order: ${escapeHtml(error.message)}</div>`); }
   }
