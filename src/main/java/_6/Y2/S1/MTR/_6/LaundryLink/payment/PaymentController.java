@@ -54,6 +54,25 @@ public class PaymentController {
         }
     }
 
+    @GetMapping("/{paymentID}/receipt")
+    public ResponseEntity<PaymentReceiptResponse> getReceipt(
+            @PathVariable Integer paymentID,
+            @RequestParam(required = false) Integer orderID,
+            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
+            Principal principal
+    ) {
+        try {
+            Integer customerID = paymentAccessService.resolveCustomerID(principal, headerUserID);
+            return ResponseEntity.ok(paymentService.getCustomerReceipt(customerID, paymentID, orderID));
+        } catch (NoSuchElementException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     @GetMapping
     public ResponseEntity<List<PaymentResponse>> getPayments(
             @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,

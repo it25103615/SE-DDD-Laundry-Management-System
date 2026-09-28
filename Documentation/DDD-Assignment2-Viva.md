@@ -41,31 +41,23 @@ The EER has User subtypes, but they currently have no independent attributes. Si
 2. `JOIN`: combines orders, users and statuses.
 3. `COUNT/SUM/AVG/MIN/MAX`: summarizes payments.
 4. `GROUP BY ... HAVING`: groups service usage and filters groups after aggregation.
-5. Subquery: calculates average customer totals, then returns customers above that average.
+5. Subquery: finds user IDs in `orders`, then lists matching customers.
 
 `WHERE` filters rows before grouping; `HAVING` filters groups after aggregation.
 
 ## Procedure flow
 
-`sp_UpdateOrderStatus`:
-
-1. Starts a transaction.
-2. Validates the order and new status.
-3. Locks and reads the current status.
-4. Rejects an unchanged status.
-5. Updates the order.
-6. Inserts the before/after transition in `logs`.
-7. Commits; `CATCH` rolls back and rethrows on error.
+Part E now has one simple routine for each project module. `fn_GetAccountProfile`, `fn_GetCustomerOrders`, and `fn_GetOpenSupportCases` are read-only table-valued functions. `sp_UpdateProcessingStatus`, `sp_AssignDeliveryRider`, and `sp_RecordPayment` are procedures for data-changing actions. The processing procedure records a status log. The demo rolls back its data-changing examples afterward.
 
 Example syntax:
 
 ```sql
-EXEC dbo.sp_UpdateOrderStatus @OrderID=1, @NewStatusID=3;
+SELECT * FROM dbo.fn_GetOpenSupportCases();
 ```
 
 ## Trigger flow
 
-`trg_delivery_rider_check` runs automatically after an insert or update on `delivery`. It checks every row in the `inserted` pseudo-table. Non-null rider IDs must belong to a user whose type is `RIDER`; otherwise `THROW` cancels the statement. Three additional triggers publish notifications when orders change, accepted payments are recorded, or riders are assigned.
+For Part F, use `trg_order_notifications`. It runs after an order is inserted or updated. When the status changes, it adds an **Order status updated** notification for that order's customer. The demo updates a sample order, shows the notification, then rolls back both changes. The existing `trg_delivery_rider_check` separately ensures assigned riders have the `RIDER` role.
 
 A procedure is called explicitly and can accept parameters. A trigger fires automatically because a table event occurred.
 

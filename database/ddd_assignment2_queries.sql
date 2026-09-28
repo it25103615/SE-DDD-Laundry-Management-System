@@ -40,25 +40,12 @@ HAVING COUNT(*) >= 2
 ORDER BY orderLineCount DESC;
 
 /* QUERY 5 - SUBQUERY
-   Finds customers whose total recorded payments exceed the average customer total. */
-SELECT u.userID,
-       CONCAT(u.firstName, ' ', u.lastName) AS customerName,
-       SUM(p.amount) AS customerPaymentTotal
-FROM dbo.users u
-JOIN dbo.orders o ON o.userID=u.userID
-JOIN dbo.payments p ON p.orderID=o.orderID
-WHERE u.type='CUSTOMER'
-GROUP BY u.userID, u.firstName, u.lastName
-HAVING SUM(p.amount) > (
-    SELECT AVG(customerTotal)
-    FROM (
-        SELECT SUM(p2.amount) AS customerTotal
-        FROM dbo.orders o2
-        JOIN dbo.payments p2 ON p2.orderID=o2.orderID
-        GROUP BY o2.userID
-    ) totals
-)
-ORDER BY customerPaymentTotal DESC;
+   Lists customers who have placed at least one order. The inner query finds
+   user IDs on orders; the outer query returns matching customer details. */
+SELECT userID, firstName, lastName
+FROM dbo.users
+WHERE type='CUSTOMER'
+  AND userID IN (SELECT userID FROM dbo.orders);
 
 /* OPTIONAL QUERY 6 - composite pricing lookup for the service catalogue. */
 SELECT s.serviceName, i.itemName, sp.price
