@@ -58,4 +58,19 @@ public class PaymentManagementJdbcRepository implements PaymentManagementReposit
                 orderID
         );
     }
+
+    @Override
+    public boolean wasPaymentVerified(Integer orderID) {
+        Integer count = jdbcTemplate.queryForObject(
+                """
+                        SELECT COUNT(*)
+                        FROM logs l
+                        JOIN status s ON s.statusID = l.status_after
+                        WHERE l.orderID = ? AND s.statusLabel = 'Payment Verified'
+                        """,
+                Integer.class,
+                orderID
+        );
+        return count != null && count > 0;
+    }
 }

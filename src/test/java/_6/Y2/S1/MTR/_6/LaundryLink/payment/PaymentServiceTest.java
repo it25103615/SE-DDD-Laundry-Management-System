@@ -7,6 +7,8 @@ import _6.Y2.S1.MTR._6.LaundryLink.entity.shared.Status;
 import _6.Y2.S1.MTR._6.LaundryLink.service.shared.LogService;
 import _6.Y2.S1.MTR._6.LaundryLink.service.shared.StatusService;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.springframework.security.access.AccessDeniedException;
 
@@ -438,6 +440,7 @@ class PaymentServiceTest {
         request.setApproved(true);
         Status unconfirmed = status(1, "Unconfirmed");
         Status verified = status(2, "Payment Verified");
+        Status awaitingPickup = status(3, "Awaiting Pickup");
 
         when(managementRepository.findUserType(11)).thenReturn(Optional.of("MANAGER"));
         when(paymentRepository.findById(4)).thenReturn(Optional.of(payment));
@@ -445,17 +448,77 @@ class PaymentServiceTest {
         when(paymentRepository.findByOrderID(1)).thenReturn(List.of(payment));
         when(managementRepository.findOrderStatus(1)).thenReturn(Optional.of(new PaymentOrderStatus(1, "Unconfirmed")));
         when(statusService.getByLabel("Payment Verified")).thenReturn(verified);
+        when(statusService.getByLabel("Awaiting Pickup")).thenReturn(awaitingPickup);
         when(statusService.getById(1)).thenReturn(unconfirmed);
         when(logService.logChange(Mockito.any(Log.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         PaymentVerificationResponse response = service.verifyPayment(11, 4, request);
 
+        // Approval verifies the payment, then releases the order for pickup straight away.
         assertEquals("Unconfirmed", response.getPreviousOrderStatus());
-        assertEquals("Payment Verified", response.getUpdatedOrderStatus());
+        assertEquals("Awaiting Pickup", response.getUpdatedOrderStatus());
         assertEquals(11, response.getVerifiedByUserID());
         assertNotNull(response.getVerificationDate());
         assertNotNull(response.getVerificationTime());
-        Mockito.verify(managementRepository).updateOrderStatus(1, 2);
+        InOrder statusChanges = Mockito.inOrder(managementRepository);
+        statusChanges.verify(managementRepository).updateOrderStatus(1, 2);
+        statusChanges.verify(managementRepository).updateOrderStatus(1, 3);
+        // Both moves are logged: Unconfirmed -> Payment Verified, then Payment Verified -> Awaiting Pickup.
+        ArgumentCaptor<Log> logs = ArgumentCaptor.forClass(Log.class);
+        Mockito.verify(logService, Mockito.times(2)).logChange(logs.capture());
+        assertEquals(verified, logs.getAllValues().get(0).getStatusAfter());
+        assertEquals(verified, logs.getAllValues().get(1).getStatusBefore());
+        assertEquals(awaitingPickup, logs.getAllValues().get(1).getStatusAfter());
+    }
+
+    @Test
+    void approvedOrderStillShowsVerifiedAfterMovingToAwaitingPickup() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentManagementRepository managementRepository = managementRepository("MANAGER", new PaymentOrderStatus(3, "Awaiting Pickup"));
+        PaymentService service = paymentService(paymentRepository, managementRepository, billingService);
+        Payment payment = new Payment(1350.0, 1);
+        payment.setPaymentID(4);
+
+        when(paymentRepository.findAll()).thenReturn(List.of(payment));
+        when(paymentRepository.findByOrderID(1)).thenReturn(List.of(payment));
+        when(billingService.getBillingDetails(1)).thenReturn(billingDetails(1, 7, BigDecimal.valueOf(1350.0)));
+        when(managementRepository.wasPaymentVerified(1)).thenReturn(true);
+
+        List<PaymentRecordResponse> records = service.getPaymentRecords(11, null, null, null, null);
+
+        // The order has moved on, but its log shows the payment was verified, so the
+        // payment page keeps showing it as verified (and hides Approve/Reject).
+        assertEquals(PaymentStatus.VERIFIED, records.get(0).getPaymentStatus());
+    }
+
+    @Test
+    void rejectedPaymentDoesNotReleaseOrderForPickup() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentManagementRepository managementRepository = Mockito.mock(PaymentManagementRepository.class);
+        StatusService statusService = Mockito.mock(StatusService.class);
+        LogService logService = Mockito.mock(LogService.class);
+        PaymentService service = new PaymentService(paymentRepository, managementRepository, billingService,
+                new PaymentAccessService(managementRepository), statusService, logService);
+        Payment payment = new Payment(1350.0, 1);
+        payment.setPaymentID(4);
+        Status unconfirmed = status(1, "Unconfirmed");
+        Status failed = status(16, "Payment Failed");
+
+        when(managementRepository.findUserType(11)).thenReturn(Optional.of("MANAGER"));
+        when(paymentRepository.findById(4)).thenReturn(Optional.of(payment));
+        when(billingService.getBillingDetails(1)).thenReturn(billingDetails(1, 7, BigDecimal.valueOf(1350.0)));
+        when(paymentRepository.findByOrderID(1)).thenReturn(List.of(payment));
+        when(managementRepository.findOrderStatus(1)).thenReturn(Optional.of(new PaymentOrderStatus(1, "Unconfirmed")));
+        when(statusService.getByLabel("Payment Failed")).thenReturn(failed);
+        when(statusService.getById(1)).thenReturn(unconfirmed);
+
+        service.rejectPayment(11, 4);
+
+        Mockito.verify(managementRepository).updateOrderStatus(1, 16);
+        Mockito.verify(managementRepository, Mockito.never()).updateOrderStatus(1, 3);
+        Mockito.verify(statusService, Mockito.never()).getByLabel("Awaiting Pickup");
     }
 
     @Test
