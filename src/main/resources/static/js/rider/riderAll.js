@@ -95,6 +95,15 @@
             ...options,
             headers: { "Content-Type": "application/json", ...(options.headers || {}) }
         });
+        // SecurityConfig blocks non-riders before the API runs, and Spring answers that with a
+        // redirect (to the login page, or the portal for a wrong role) rather than JSON.
+        if (response.redirected) {
+            if (response.url.includes("/html/auth/login.html")) {
+                window.location.href = "/html/auth/login.html";
+                throw new Error("Please sign in with a rider account.");
+            }
+            throw new Error("This page is for rider accounts only.");
+        }
         // The rider API only serves signed-in rider accounts: send a signed-out user to the
         // login page, and explain a 403 (signed in, but not as a rider).
         if (response.status === 401) {
