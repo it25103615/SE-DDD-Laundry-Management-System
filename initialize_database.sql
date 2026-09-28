@@ -68,12 +68,12 @@ IF OBJECT_ID('dbo.addresses', 'U') IS NOT NULL
     DROP TABLE dbo.addresses;
 IF OBJECT_ID('dbo.status', 'U') IS NOT NULL
     DROP TABLE dbo.status;
+IF OBJECT_ID('dbo.servicePricing', 'U') IS NOT NULL
+    DROP TABLE dbo.servicePricing;
 IF OBJECT_ID('dbo.items', 'U') IS NOT NULL
     DROP TABLE dbo.items;
 IF OBJECT_ID('dbo.services', 'U') IS NOT NULL
     DROP TABLE dbo.services;
-IF OBJECT_ID('dbo.servicePricing', 'U') IS NOT NULL
-    DROP TABLE dbo.servicePricing;
 IF OBJECT_ID('dbo.users', 'U') IS NOT NULL
     DROP TABLE dbo.users;
 
