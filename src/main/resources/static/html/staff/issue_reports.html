@@ -8,6 +8,9 @@
     <link rel="stylesheet" href="../../css/dashboard.css" />
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
+    <!-- Live data: GET/POST /api/processing/issues (see issue-reports.js). -->
+    <script src="../../js/staff/processing-api.js" defer></script>
+    <script src="../../js/staff/issue-reports.js" defer></script>
   </head>
   <body>
     <nav class="dashboard_nav">
@@ -20,7 +23,7 @@
           ><a href="processing_board.html">Processing Board</a
           ><a href="receive_items.html">Receive Items</a
           ><a href="issue_reports.html">Issue Reports</a
-          ><span class="profile_badge">NS</span>
+          ><span class="profile_badge">S</span>
         </li>
       </ul>
     </nav>
@@ -29,50 +32,44 @@
         <div>
           <div class="subtitle">FACILITY QUALITY</div>
           <h1>Issue Reports</h1>
-          <p>Record damaged, missing or mismatched items.</p>
+          <p>Record damaged, missing or mismatched items. Each report is also sent to customer service as a complaint case.</p>
         </div>
         <a class="custom_button custom_button_bg" href="#new-report"
           >Submit report</a
         >
       </header>
+      <div id="notice" class="alert" hidden style="margin-bottom: 22px"></div>
       <div class="table_wrap">
         <table>
           <thead>
             <tr>
-              <th>REPORT</th>
+              <th>CASE</th>
               <th>ORDER</th>
+              <th>ITEM</th>
               <th>ISSUE</th>
               <th>REPORTED</th>
-              <th>STATUS</th>
+              <th>CASE STATUS</th>
               <th></th>
             </tr>
           </thead>
-          <tbody>
-            <tr>
-              <td>#IR-82</td>
-              <td>#1040</td>
-              <td>Existing stain</td>
-              <td>Today, 9:40 AM</td>
-              <td><span class="status">OPEN</span></td>
-              <td><a class="link" href="order_processing.html">Open</a></td>
-            </tr>
-            <tr>
-              <td>#IR-79</td>
-              <td>#1035</td>
-              <td>Item count mismatch</td>
-              <td>Yesterday</td>
-              <td>Resolved</td>
-              <td><a class="link" href="order_processing.html">Open</a></td>
-            </tr>
+          <tbody id="issue-rows">
+            <tr><td colspan="7" class="muted">Loading…</td></tr>
           </tbody>
         </table>
       </div>
-      <form id="new-report" class="card" style="margin-top: 40px">
+      <!-- action is set so global-post.js leaves the form alone; issue-reports.js submits it. -->
+      <form id="new-report" class="card" style="margin-top: 40px" action="issue_reports.html">
         <h2>New issue report</h2>
         <div class="grid grid_two">
           <div class="field">
             <label for="order">Order number</label
-            ><input class="input" id="order" name="order" required />
+            ><input class="input" id="order" name="order" required inputmode="numeric" placeholder="e.g. 6" />
+          </div>
+          <div class="field">
+            <label for="item">Item</label
+            ><select class="input" id="item" name="item">
+              <option value="">Whole order</option>
+            </select>
           </div>
           <div class="field">
             <label for="issue">Issue type</label
@@ -92,6 +89,7 @@
             id="details"
             name="details"
             required
+            maxlength="250"
           ></textarea>
         </div>
         <button class="custom_button custom_button_bg" type="submit">
