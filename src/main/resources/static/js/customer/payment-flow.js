@@ -47,6 +47,10 @@
     return method === "CASH" ? "Cash" : "Credit/Debit Card";
   }
 
+  function statusLabel(status) {
+    return String(status || "Unknown").replaceAll("_", " ");
+  }
+
   function api(path, options) {
     const headers = {
       "Content-Type": "application/json",
@@ -215,22 +219,31 @@
     try {
       const history = await api("/api/payments/history");
       if (!historyBody) return;
+      if (!Array.isArray(history)) {
+        historyBody.innerHTML = '<tr><td colspan="5">Payment history could not be loaded.</td></tr>';
+        return;
+      }
       if (!history.length) {
-        historyBody.innerHTML = '<tr><td colspan="5">No payments recorded yet.</td></tr>';
+        historyBody.innerHTML = '<tr><td colspan="5">No payment history available.</td></tr>';
         return;
       }
       historyBody.innerHTML = history
-        .map(
-          (payment) => `
+        .filter((payment) => payment && payment.paymentID && payment.orderID)
+        .map((payment) => {
+          const receiptUrl = `receipt.html?paymentID=${encodeURIComponent(payment.paymentID)}&orderID=${encodeURIComponent(payment.orderID)}`;
+          return `
             <tr>
-              <td>Recorded</td>
-              <td>#${payment.orderID}</td>
               <td>Payment #${payment.paymentID}</td>
+              <td>#${payment.orderID}</td>
+              <td>${statusLabel(payment.paymentStatus)}${payment.orderStatus ? ` · ${payment.orderStatus}` : ""}</td>
               <td>${money(payment.amount)}</td>
-              <td><a class="link" href="receipt.html?paymentID=${payment.paymentID}&orderID=${payment.orderID}">Receipt</a></td>
-            </tr>`,
-        )
+              <td><a class="link" href="${receiptUrl}">View Receipt</a></td>
+            </tr>`;
+        })
         .join("");
+      if (!historyBody.innerHTML) {
+        historyBody.innerHTML = '<tr><td colspan="5">Payment history could not be loaded.</td></tr>';
+      }
     } catch (error) {
       if (historyBody) historyBody.innerHTML = '<tr><td colspan="5">Payment history could not be loaded.</td></tr>';
     }

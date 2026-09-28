@@ -190,6 +190,23 @@ class PaymentServiceTest {
     }
 
     @Test
+    void returnsEmptyCustomerPaymentHistoryWhenNoPaymentsExist() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentService service = paymentService(
+                paymentRepository,
+                managementRepository("CUSTOMER", new PaymentOrderStatus(1, "Unconfirmed")),
+                billingService
+        );
+
+        when(paymentRepository.findAll()).thenReturn(List.of());
+
+        List<PaymentHistoryResponse> history = service.getPaymentHistory(7);
+
+        assertTrue(history.isEmpty());
+    }
+
+    @Test
     void letsCustomerViewOwnPaymentRecord() {
         PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
         BillingService billingService = Mockito.mock(BillingService.class);
