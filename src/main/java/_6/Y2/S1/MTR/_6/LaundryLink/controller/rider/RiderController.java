@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+// Every endpoint delegates to RiderService, which only lets a signed-in RIDER account through
+// (401 when signed out, 403 for any other account type).
 @RestController
 @RequestMapping("/api/rider")
 public class RiderController {

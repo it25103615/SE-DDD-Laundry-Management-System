@@ -95,6 +95,15 @@
             ...options,
             headers: { "Content-Type": "application/json", ...(options.headers || {}) }
         });
+        // The rider API only serves signed-in rider accounts: send a signed-out user to the
+        // login page, and explain a 403 (signed in, but not as a rider).
+        if (response.status === 401) {
+            window.location.href = "/html/auth/login.html";
+            throw new Error("Please sign in with a rider account.");
+        }
+        if (response.status === 403) {
+            throw new Error("This page is for rider accounts only.");
+        }
         if (!response.ok) {
             let message = `Request failed (${response.status})`;
             try {
