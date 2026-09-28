@@ -147,6 +147,14 @@ class SupportServiceTest {
         verify(repo).update(contains("INSERT INTO chat"),eq("Thank you"),eq(1),eq(1));
         verify(repo).audit(1,1,"Message added","Communication recorded");
     }
+    @Test void customerCannotEditOrDeleteProcessingIssueRaisedByStaff() {
+        var item=item("New"); item.put("type","Damaged item");
+        when(repo.query(anyString(),eq(1))).thenReturn(List.of(item));
+        assertEquals(403,assertThrows(ResponseStatusException.class,
+                ()->service.edit(customer,1,new CaseInput("Complaint","Title","Text",null,null,0))).getStatusCode().value());
+        assertEquals(403,assertThrows(ResponseStatusException.class,()->service.delete(customer,1,0)).getStatusCode().value());
+        verify(repo,never()).update(anyString(),any(Object[].class));
+    }
     @Test void newCaseDeletionRetainsAudit() {
         found("New");
         when(repo.update(anyString(),eq(1),eq(0))).thenReturn(1);

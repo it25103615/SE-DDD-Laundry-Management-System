@@ -8,14 +8,15 @@ Automated execution from the Codex sandbox was blocked by Windows integrated aut
 
 1. Open `database/migrations/003_ddd_assignment2_refinement.sql`.
 2. Execute it once. Screenshot the successful Messages pane. If a preflight error appears, stop and correct/review the named data issue rather than bypassing it.
-3. Open and execute `database/ddd_assignment2_sample_data.sql`.
-4. Screenshot the final table-count result. Confirm every count is at least 5.
+3. Execute `database/migrations/004_ddd_assignment2_module_routines.sql` to install the six Part E routines.
+4. Open and execute `database/ddd_assignment2_sample_data.sql`.
+5. Screenshot the final table-count result. Confirm every count is at least 5.
 
 ## B. Schema evidence
 
 5. In Object Explorer, expand `laundryLinkDB → Tables` and screenshot all 15 tables.
-6. Expand `Programmability → Stored Procedures` and screenshot `dbo.sp_UpdateOrderStatus`.
-7. Expand `Tables → dbo.delivery → Triggers` and screenshot `dbo.trg_delivery_rider_check`.
+6. Screenshot `fn_GetAccountProfile`, `fn_GetCustomerOrders`, and `fn_GetOpenSupportCases` under Programmability → Functions, and the three module procedures under Programmability → Stored Procedures.
+7. Expand `Tables → dbo.orders → Triggers` and locate `dbo.trg_order_notifications` for Part F evidence.
 8. In a query window run the following and screenshot the result:
 
 ```sql
@@ -64,27 +65,19 @@ SELECT TOP (5) * FROM dbo.notifications;
 ## E. Stored procedure
 
 13. Open `database/ddd_assignment2_procedure_trigger_demo.sql`.
-14. Run only the **PROCEDURE DEMONSTRATION** batch.
-15. Screenshot the `EXEC dbo.sp_UpdateOrderStatus` statement and both result grids: the temporarily changed order and newest log.
-16. The outer demonstration transaction rolls the order and log changes back after the result grids are produced.
+14. In `database/ddd_assignment2_procedure_trigger_demo.sql`, run each **SCREENSHOT 1/6** through **SCREENSHOT 6/6** section separately, selecting through its `GO` line.
+15. Capture each routine's labeled definition from `database/migrations/004_ddd_assignment2_module_routines.sql` as code evidence, then capture its matching demo call and Results grid as execution evidence.
+16. The three procedure demo sections use their own transactions and roll back their changes.
 
 ## F. Trigger
 
-17. Run **CASE 1** separately. Screenshot the valid rider assignment result. The transaction rolls back afterward.
-18. Run **CASE 2** separately. Screenshot error number `51020` and the explanatory error message. The transaction rolls back automatically.
-19. Run this final confirmation and screenshot that delivery data remains valid:
-
-```sql
-SELECT d.deliverID, d.pickup_riderID, p.type AS pickupRole,
-       d.delivery_riderID, r.type AS deliveryRole
-FROM dbo.delivery d
-LEFT JOIN dbo.users p ON p.userID=d.pickup_riderID
-LEFT JOIN dbo.users r ON r.userID=d.delivery_riderID;
-```
+17. Capture the labeled `dbo.trg_order_notifications` definition from `database/migrations/003_ddd_assignment2_refinement.sql` as code evidence.
+18. In `database/ddd_assignment2_procedure_trigger_demo.sql`, run the **PART F — GENERAL ORDER STATUS NOTIFICATION TRIGGER** section.
+19. Capture the `UPDATE dbo.orders` statement and the resulting **Order status updated** notification in one screenshot. The transaction rolls back the order and notification changes.
 
 ## G. Report assembly
 
 20. Label screenshots with figure numbers and short captions.
 21. Put DDL/schema evidence before DML/query evidence.
-22. Include both successful and rejected trigger cases.
+22. Explain that `trg_order_notifications` runs after order inserts or updates and sends a customer notification when the order status changes.
 23. Do not show connection strings, passwords, or local credential files in screenshots.

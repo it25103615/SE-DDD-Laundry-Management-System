@@ -106,70 +106,37 @@ ORDER BY orderLineCount DESC;
 GO
 
 /* SECTION - QUERY 5: SUBQUERY */
-SELECT u.userID,
-       CONCAT(u.firstName,' ',u.lastName) AS customerName,
-       SUM(p.amount) AS customerPaymentTotal
-FROM dbo.users u
-JOIN dbo.orders o ON o.userID=u.userID
-JOIN dbo.payments p ON p.orderID=o.orderID
-WHERE u.type='CUSTOMER'
-GROUP BY u.userID,u.firstName,u.lastName
-HAVING SUM(p.amount)>(
-    SELECT AVG(customerTotal)
-    FROM (
-        SELECT SUM(p2.amount) AS customerTotal
-        FROM dbo.orders o2
-        JOIN dbo.payments p2 ON p2.orderID=o2.orderID
-        GROUP BY o2.userID
-    ) totals
-)
-ORDER BY customerPaymentTotal DESC;
+SELECT userID,firstName,lastName
+FROM dbo.users
+WHERE type='CUSTOMER'
+  AND userID IN (SELECT userID FROM dbo.orders);
 GO
 
-/* SECTION - PROCEDURE DEMO
-   The outer transaction displays the update and audit log, then restores both. */
+/* SECTION - PART E MODULE ROUTINES
+   Run the ASSIGNMENT PART E batch from
+   database/ddd_assignment2_procedure_trigger_demo.sql for the six calls
+   and their sample outputs. This query lists routines for schema evidence. */
+SELECT name AS routineName,type_desc
+FROM sys.objects
+WHERE type IN ('IF','P') AND name IN ('fn_GetAccountProfile','fn_GetCustomerOrders','fn_GetOpenSupportCases',
+               'sp_UpdateProcessingStatus','sp_AssignDeliveryRider','sp_RecordPayment')
+ORDER BY name;
+GO
+
+/* SECTION - PART F GENERAL ORDER STATUS NOTIFICATION TRIGGER
+   Updating any order status automatically creates a notification for its customer.
+   Run this section to show the changed-status notification, then roll back the demo. */
 BEGIN TRANSACTION;
-DECLARE @DemoOrderID INT=(SELECT TOP(1) orderID FROM dbo.orders ORDER BY orderID);
-DECLARE @OldStatusID INT=(SELECT statusID FROM dbo.orders WHERE orderID=@DemoOrderID);
-DECLARE @NewStatusID INT=(SELECT TOP(1) statusID FROM dbo.status WHERE statusID<>@OldStatusID ORDER BY statusID);
-DECLARE @OldLogCount INT=(SELECT COUNT(*) FROM dbo.logs WHERE orderID=@DemoOrderID);
-
-SELECT @DemoOrderID AS orderID,@OldStatusID AS statusBefore,@OldLogCount AS logCountBefore;
-EXEC dbo.sp_UpdateOrderStatus @OrderID=@DemoOrderID,@NewStatusID=@NewStatusID;
-SELECT orderID,statusID AS statusAfter FROM dbo.orders WHERE orderID=@DemoOrderID;
-SELECT TOP(1) * FROM dbo.logs WHERE orderID=@DemoOrderID ORDER BY logID DESC;
+DECLARE @TriggerDemoOrderID INT=(SELECT TOP (1) orderID FROM dbo.orders ORDER BY orderID);
+DECLARE @TriggerDemoStatusID INT=(
+    SELECT TOP (1) statusID FROM dbo.status
+    WHERE statusID<>(SELECT statusID FROM dbo.orders WHERE orderID=@TriggerDemoOrderID)
+    ORDER BY statusID
+);
+UPDATE dbo.orders SET statusID=@TriggerDemoStatusID WHERE orderID=@TriggerDemoOrderID;
+SELECT TOP (1) notificationID,recipientID,category,title,message,relatedID
+FROM dbo.notifications
+WHERE relatedType='ORDER' AND relatedID=@TriggerDemoOrderID AND title='Order status updated'
+ORDER BY notificationID DESC;
 ROLLBACK TRANSACTION;
-
-SELECT orderID,statusID AS restoredStatus FROM dbo.orders WHERE orderID=@DemoOrderID;
-SELECT COUNT(*) AS restoredLogCount FROM dbo.logs WHERE orderID=@DemoOrderID;
-GO
-
-/* SECTION - VALID TRIGGER DEMO
-   A RIDER assignment succeeds inside the test transaction, then is restored. */
-BEGIN TRANSACTION;
-DECLARE @ValidDeliveryID INT=(SELECT TOP(1) deliverID FROM dbo.delivery ORDER BY deliverID);
-DECLARE @ValidRiderID INT=(SELECT TOP(1) userID FROM dbo.users WHERE type='RIDER' ORDER BY userID);
-UPDATE dbo.delivery SET pickup_riderID=@ValidRiderID WHERE deliverID=@ValidDeliveryID;
-SELECT d.deliverID,d.pickup_riderID,u.type AS assignedRole
-FROM dbo.delivery d JOIN dbo.users u ON u.userID=d.pickup_riderID
-WHERE d.deliverID=@ValidDeliveryID;
-ROLLBACK TRANSACTION;
-GO
-
-/* SECTION - INVALID TRIGGER DEMO
-   The trigger must reject this statement. CATCH proves the value was not stored. */
-DECLARE @InvalidDeliveryID INT=(SELECT TOP(1) deliverID FROM dbo.delivery ORDER BY deliverID);
-DECLARE @OriginalPickupRiderID INT=(SELECT pickup_riderID FROM dbo.delivery WHERE deliverID=@InvalidDeliveryID);
-DECLARE @NonRiderID INT=(SELECT TOP(1) userID FROM dbo.users WHERE type<>'RIDER' ORDER BY userID);
-BEGIN TRY
-    BEGIN TRANSACTION;
-    UPDATE dbo.delivery SET pickup_riderID=@NonRiderID WHERE deliverID=@InvalidDeliveryID;
-    ROLLBACK TRANSACTION;
-END TRY
-BEGIN CATCH
-    IF XACT_STATE()<>0 ROLLBACK TRANSACTION;
-    SELECT ERROR_NUMBER() AS errorNumber,ERROR_MESSAGE() AS triggerError;
-END CATCH;
-SELECT deliverID,pickup_riderID AS storedPickupRiderID,@OriginalPickupRiderID AS expectedPickupRiderID
-FROM dbo.delivery WHERE deliverID=@InvalidDeliveryID;
 GO

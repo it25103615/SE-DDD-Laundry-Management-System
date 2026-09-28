@@ -20,6 +20,7 @@ import java.util.Objects;
 public class PaymentService {
     private static final String PAYMENT_VERIFIED = "Payment Verified";
     private static final String PAYMENT_FAILED = "Payment Failed";
+    private static final String AWAITING_PICKUP = "Awaiting Pickup";
 
     private final PaymentRepository paymentRepository;
     private final PaymentManagementRepository paymentManagementRepository;
@@ -69,6 +70,28 @@ public class PaymentService {
         Payment payment = paymentRepository.findById(paymentID).orElseThrow();
         verifyCanViewPaymentRecord(requesterID, payment);
         return toPaymentResponse(payment);
+    }
+
+    public PaymentReceiptResponse getCustomerReceipt(Integer customerID, Integer paymentID, Integer requestedOrderID) {
+        Payment payment = paymentRepository.findById(paymentID).orElseThrow();
+        if (requestedOrderID != null && !requestedOrderID.equals(payment.getOrderID())) {
+            throw new IllegalArgumentException("Payment does not belong to the requested order");
+        }
+
+        BillingDetails billingDetails = billingService.getBillingDetails(payment.getOrderID());
+        verifyCanViewOrderPaymentRecords(customerID, billingDetails);
+        PaymentStatusResponse status = buildPaymentStatus(payment.getOrderID(), billingDetails);
+
+        return new PaymentReceiptResponse(
+                payment.getPaymentID(),
+                payment.getOrderID(),
+                billingDetails.getSubtotal(),
+                billingDetails.getDiscountAmount(),
+                billingDetails.getFinalPayableAmount(),
+                BigDecimal.valueOf(payment.getAmount()),
+                status.getStatus(),
+                status.getOrderStatus()
+        );
     }
 
     public List<PaymentResponse> getPayments(Integer managementUserID) {
@@ -220,11 +243,23 @@ public class PaymentService {
         paymentManagementRepository.updateOrderStatus(payment.getOrderID(), updatedStatus.getStatusID());
         recordVerificationLog(previousOrderStatus, updatedStatus, payment.getOrderID(), verificationDate, verificationTime);
 
+        // Once the payment is verified the order is released for pickup straight away.
+        // Nothing else moves an order from "Payment Verified" to "Awaiting Pickup", and the rider
+        // module only offers pickups for orders at "Awaiting Pickup", so without this step a paid
+        // order would never reach a rider. Both moves are logged, so the history still shows
+        // Unconfirmed -> Payment Verified -> Awaiting Pickup (and the customer is notified of each).
+        Status finalStatus = updatedStatus;
+        if (approved) {
+            finalStatus = statusService.getByLabel(AWAITING_PICKUP);
+            paymentManagementRepository.updateOrderStatus(payment.getOrderID(), finalStatus.getStatusID());
+            recordStatusLog(updatedStatus, finalStatus, payment.getOrderID(), verificationDate, verificationTime);
+        }
+
         return new PaymentVerificationResponse(
                 paymentID,
                 payment.getOrderID(),
                 previousOrderStatus.getStatusLabel(),
-                updatedStatus.getStatusLabel(),
+                finalStatus.getStatusLabel(),
                 managementUserID,
                 verificationDate,
                 verificationTime,
@@ -266,12 +301,28 @@ public class PaymentService {
     }
 
     private PaymentStatus calculateStatus(BigDecimal payableAmount, BigDecimal paidAmount, PaymentOrderStatus orderStatus) {
+        return calculateStatus(payableAmount, paidAmount, orderStatus, false);
+    }
+
+    private PaymentStatus calculateStatus(
+            BigDecimal payableAmount,
+            BigDecimal paidAmount,
+            PaymentOrderStatus orderStatus,
+            boolean verifiedInHistory
+    ) {
         if (orderStatus != null && PAYMENT_VERIFIED.equalsIgnoreCase(orderStatus.getStatusLabel())) {
             return PaymentStatus.VERIFIED;
         }
 
         if (orderStatus != null && PAYMENT_FAILED.equalsIgnoreCase(orderStatus.getStatusLabel())) {
             return PaymentStatus.REJECTED;
+        }
+
+        // An approved order moves on from "Payment Verified" to "Awaiting Pickup" (and later stages)
+        // straight away, so its log is what shows the payment was verified. Without this the
+        // payment would show as PAID again and the Approve/Reject buttons would reappear.
+        if (verifiedInHistory) {
+            return PaymentStatus.VERIFIED;
         }
 
         if (paidAmount.compareTo(BigDecimal.ZERO) == 0) {
@@ -302,7 +353,8 @@ public class PaymentService {
                 payableAmount,
                 paidAmount,
                 outstandingAmount,
-                calculateStatus(payableAmount, paidAmount, orderStatus),
+                calculateStatus(payableAmount, paidAmount, orderStatus,
+                        paymentManagementRepository.wasPaymentVerified(orderID)),
                 orderStatus.getStatusLabel()
         );
     }
@@ -332,9 +384,20 @@ public class PaymentService {
             LocalDate verificationDate,
             LocalTime verificationTime
     ) {
+        recordStatusLog(statusService.getById(previousOrderStatus.getStatusID()), updatedStatus,
+                orderID, verificationDate, verificationTime);
+    }
+
+    private void recordStatusLog(
+            Status statusBefore,
+            Status statusAfter,
+            Integer orderID,
+            LocalDate verificationDate,
+            LocalTime verificationTime
+    ) {
         Log log = new Log();
-        log.setStatusBefore(statusService.getById(previousOrderStatus.getStatusID()));
-        log.setStatusAfter(updatedStatus);
+        log.setStatusBefore(statusBefore);
+        log.setStatusAfter(statusAfter);
         log.setLogDate(verificationDate);
         log.setLogTime(verificationTime);
         log.setOrderID(orderID);

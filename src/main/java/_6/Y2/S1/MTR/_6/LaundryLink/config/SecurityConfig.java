@@ -26,6 +26,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/notifications/**").authenticated()
                         .requestMatchers("/api/customer/dashboard").authenticated()
                         .requestMatchers("/api/account/**").authenticated()
+                        // Laundry processing: the staff pages and their API are for staff, managers and owners only.
+                        .requestMatchers("/api/processing/**", "/html/staff/**").hasAnyRole("STAFF", "MANAGER", "OWNER", "ADMIN")
+                        // Rider pages and the rider API are for rider accounts only (RiderService also checks this).
+                        .requestMatchers("/api/rider/**", "/html/rider/**").hasRole("RIDER")
                         .anyRequest().permitAll()
                 )
                 .exceptionHandling(exceptions -> exceptions

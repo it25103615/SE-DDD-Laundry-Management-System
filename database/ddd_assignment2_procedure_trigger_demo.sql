@@ -1,48 +1,69 @@
 USE laundryLinkDB;
 GO
 
-/* PROCEDURE DEMONSTRATION
-   Choose an existing order and a different existing status before executing.
-   An outer transaction shows both results and then rolls them back, so the
-   demonstration does not retain changes in an existing database. */
+/* ASSIGNMENT PART E — SIX MODULE ROUTINE SCREENSHOTS
+   Run each numbered section separately. Keep that section's SQL and Results grid
+   visible together in the screenshot. The three procedure demos roll back changes. */
+
+/* SCREENSHOT 1/6 — ACCOUNT FUNCTION
+   Select this section through its GO and execute. */
+DECLARE @DemoAccountID INT=(SELECT TOP (1) userID FROM dbo.users WHERE type='CSM' ORDER BY userID);
+SELECT * FROM dbo.fn_GetAccountProfile(@DemoAccountID);
+GO
+
+/* SCREENSHOT 2/6 — ORDER FUNCTION
+   Select this section through its GO and execute. */
+DECLARE @DemoCustomerID INT=(SELECT TOP (1) userID FROM dbo.users WHERE type='CUSTOMER' ORDER BY userID);
+SELECT * FROM dbo.fn_GetCustomerOrders(@DemoCustomerID);
+GO
+
+/* SCREENSHOT 3/6 — PROCESSING PROCEDURE
+   Select this section through its GO and execute; rollback restores order and log. */
 BEGIN TRANSACTION;
 DECLARE @DemoOrderID INT=(SELECT TOP (1) orderID FROM dbo.orders ORDER BY orderID);
 DECLARE @CurrentStatusID INT=(SELECT statusID FROM dbo.orders WHERE orderID=@DemoOrderID);
-DECLARE @DemoNewStatusID INT=(SELECT TOP (1) statusID FROM dbo.status WHERE statusID<>@CurrentStatusID ORDER BY statusID);
-
-EXEC dbo.sp_UpdateOrderStatus @OrderID=@DemoOrderID, @NewStatusID=@DemoNewStatusID;
-
-SELECT o.orderID, o.statusID, s.statusLabel
-FROM dbo.orders o JOIN dbo.status s ON s.statusID=o.statusID
-WHERE o.orderID=@DemoOrderID;
-SELECT TOP (5) * FROM dbo.logs WHERE orderID=@DemoOrderID ORDER BY logID DESC;
+DECLARE @NewStatusID INT=(SELECT TOP (1) statusID FROM dbo.status WHERE statusID<>@CurrentStatusID ORDER BY statusID);
+EXEC dbo.sp_UpdateProcessingStatus @OrderID=@DemoOrderID,@NewStatusID=@NewStatusID;
+SELECT TOP (1) * FROM dbo.logs WHERE orderID=@DemoOrderID ORDER BY logID DESC;
 ROLLBACK TRANSACTION;
 GO
 
-/* TRIGGER DEMONSTRATION
-   Both cases run inside transactions that are rolled back, so demonstration data
-   is not retained. Run Case 1 and Case 2 separately in SSMS for clear screenshots. */
-
-/* CASE 1 - a valid RIDER assignment succeeds, then is rolled back. */
+/* SCREENSHOT 4/6 — RIDER PROCEDURE
+   Select this section through its GO and execute; rollback restores delivery. */
 BEGIN TRANSACTION;
-DECLARE @ValidDeliveryID INT=(SELECT TOP (1) deliverID FROM dbo.delivery ORDER BY deliverID);
-DECLARE @RiderID INT=(SELECT TOP (1) userID FROM dbo.users WHERE type='RIDER' ORDER BY userID);
-UPDATE dbo.delivery SET pickup_riderID=@RiderID WHERE deliverID=@ValidDeliveryID;
-SELECT deliverID,pickup_riderID,delivery_riderID FROM dbo.delivery WHERE deliverID=@ValidDeliveryID;
+DECLARE @DemoDeliveryID INT=(SELECT TOP (1) deliverID FROM dbo.delivery ORDER BY deliverID);
+DECLARE @DemoRiderID INT=(SELECT TOP (1) userID FROM dbo.users WHERE type='RIDER' ORDER BY userID);
+EXEC dbo.sp_AssignDeliveryRider @DeliveryID=@DemoDeliveryID,@RiderID=@DemoRiderID;
 ROLLBACK TRANSACTION;
 GO
 
-/* CASE 2 - a non-RIDER assignment is rejected by trg_delivery_rider_check.
-   TRY/CATCH keeps the script controlled and prints the database error. */
-BEGIN TRY
-    BEGIN TRANSACTION;
-    DECLARE @InvalidDeliveryID INT=(SELECT TOP (1) deliverID FROM dbo.delivery ORDER BY deliverID);
-    DECLARE @NonRiderID INT=(SELECT TOP (1) userID FROM dbo.users WHERE type<>'RIDER' ORDER BY userID);
-    UPDATE dbo.delivery SET pickup_riderID=@NonRiderID WHERE deliverID=@InvalidDeliveryID;
-    ROLLBACK TRANSACTION;
-END TRY
-BEGIN CATCH
-    IF XACT_STATE()<>0 ROLLBACK TRANSACTION;
-    SELECT ERROR_NUMBER() AS errorNumber, ERROR_MESSAGE() AS triggerError;
-END CATCH;
+/* SCREENSHOT 5/6 — PAYMENT PROCEDURE
+   Select this section through its GO and execute; rollback removes payment and notification. */
+BEGIN TRANSACTION;
+DECLARE @DemoPaymentOrderID INT=(SELECT TOP (1) orderID FROM dbo.orders ORDER BY orderID);
+EXEC dbo.sp_RecordPayment @OrderID=@DemoPaymentOrderID,@Amount=1.00;
+ROLLBACK TRANSACTION;
+GO
+
+/* SCREENSHOT 6/6 — SUPPORT / CSM FUNCTION
+   Select this section through GO and execute; it lists open cases for CSM review. */
+SELECT * FROM dbo.fn_GetOpenSupportCases();
+GO
+
+/* PART F — GENERAL ORDER STATUS NOTIFICATION TRIGGER
+   Changing an order status automatically adds a notification for its customer.
+   Select this section through GO and run it; the transaction rolls back both changes. */
+BEGIN TRANSACTION;
+DECLARE @TriggerDemoOrderID INT=(SELECT TOP (1) orderID FROM dbo.orders ORDER BY orderID);
+DECLARE @TriggerDemoStatusID INT=(
+    SELECT TOP (1) statusID FROM dbo.status
+    WHERE statusID<>(SELECT statusID FROM dbo.orders WHERE orderID=@TriggerDemoOrderID)
+    ORDER BY statusID
+);
+UPDATE dbo.orders SET statusID=@TriggerDemoStatusID WHERE orderID=@TriggerDemoOrderID;
+SELECT TOP (1) notificationID,recipientID,category,title,message,relatedID
+FROM dbo.notifications
+WHERE relatedType='ORDER' AND relatedID=@TriggerDemoOrderID AND title='Order status updated'
+ORDER BY notificationID DESC;
+ROLLBACK TRANSACTION;
 GO

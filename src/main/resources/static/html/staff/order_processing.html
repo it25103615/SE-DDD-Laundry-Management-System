@@ -3,11 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Process Order #1042 | LaundryLink</title>
+    <title>Process Order | LaundryLink</title>
     <link rel="stylesheet" href="../../css/global.css" />
     <link rel="stylesheet" href="../../css/dashboard.css" />
     <link rel="stylesheet" href="../../css/staff/order-processing.css" />
     <script src="../../js/global-pre.js"></script>
+    <script src="../../js/global-post.js" defer></script>
+    <!-- Live data: GET /api/processing/orders/{id} plus the status, quality-check, pack and
+         ready endpoints (see order-processing.js). Open as order_processing.html?orderId=6 -->
+    <script src="../../js/staff/processing-api.js" defer></script>
     <script src="../../js/staff/order-processing.js" defer></script>
   </head>
   <body>
@@ -20,8 +24,7 @@
           <a href="processing_board.html">← Processing Board</a
           ><a href="issue_reports.html">Issue Reports</a
           ><a href="../portal.html">Switch Portal</a
-          ><a href="../../index.html">Log Out</a
-          ><span class="profile_badge">NS</span>
+          ><span class="profile_badge">S</span>
         </li>
       </ul>
     </nav>
@@ -30,21 +33,20 @@
         <div class="top_bar">
           <div>
             <div class="subtitle">ORDER PROCESSING WORKFLOW</div>
-            <h1>Order #1042</h1>
-            <p class="muted">
-              Priya Fernando · 6 items · Delivery due 16 Aug at 2:00 PM
-            </p>
+            <h1 id="order-title">Order</h1>
+            <p class="muted" id="order-summary">Loading…</p>
           </div>
           <div style="text-align: right">
-            <span id="order-status" class="status status_info">CLEANING</span>
-            <h2 id="progress-percent">29%</h2>
+            <span id="order-status"></span>
+            <h2 id="progress-percent">0%</h2>
             <small>workflow complete</small>
           </div>
         </div>
         <div class="progress">
-          <span id="progress-bar" style="width: 29%"></span>
+          <span id="progress-bar" style="width: 0%"></span>
         </div>
       </header>
+      <div id="notice" class="alert" hidden style="margin-top: 22px"></div>
       <div
         class="grid grid_two"
         style="grid-template-columns: 1.35fr 0.65fr; margin-top: 22px"
@@ -54,117 +56,20 @@
             <div class="top_bar">
               <div>
                 <h2>Processing timeline</h2>
-                <p class="muted">
-                  Complete each stage in order. The next stage unlocks
-                  automatically.
+                <p class="muted" id="route-note">
+                  Stages follow the order's service route.
                 </p>
               </div>
-              <span class="status status_info">STAFF CHECKLIST</span>
             </div>
-            <ol class="staff-timeline" id="staff-timeline">
-              <li class="timeline-stage completed">
-                <label
-                  ><input class="stage-check" type="checkbox" checked /><span
-                    class="stage-marker"
-                    >✓</span
-                  ><span
-                    ><strong>1. Order received</strong
-                    ><small>Items received and bag count confirmed.</small
-                    ><em>Completed · 14 Aug, 8:10 PM</em></span
-                  ></label
-                >
-              </li>
-              <li class="timeline-stage completed">
-                <label
-                  ><input class="stage-check" type="checkbox" checked /><span
-                    class="stage-marker"
-                    >✓</span
-                  ><span
-                    ><strong>2. Sorting and inspection</strong
-                    ><small>Items counted, tagged and condition recorded.</small
-                    ><em>Completed · 14 Aug, 8:24 PM</em></span
-                  ></label
-                >
-              </li>
-              <li class="timeline-stage current">
-                <label
-                  ><input class="stage-check" type="checkbox" /><span
-                    class="stage-marker"
-                    >3</span
-                  ><span
-                    ><strong>3. Washing / dry cleaning</strong
-                    ><small
-                      >Complete the selected cleaning service for every
-                      item.</small
-                    ><em>Current stage</em></span
-                  ></label
-                >
-              </li>
-              <li class="timeline-stage locked">
-                <label
-                  ><input class="stage-check" type="checkbox" disabled /><span
-                    class="stage-marker"
-                    >4</span
-                  ><span
-                    ><strong>4. Drying</strong
-                    ><small
-                      >Dry items according to their care requirements.</small
-                    ><em>Waiting for cleaning</em></span
-                  ></label
-                >
-              </li>
-              <li class="timeline-stage locked">
-                <label
-                  ><input class="stage-check" type="checkbox" disabled /><span
-                    class="stage-marker"
-                    >5</span
-                  ><span
-                    ><strong>5. Ironing and finishing</strong
-                    ><small>Press, fold or hang items as requested.</small
-                    ><em>Locked</em></span
-                  ></label
-                >
-              </li>
-              <li class="timeline-stage locked">
-                <label
-                  ><input class="stage-check" type="checkbox" disabled /><span
-                    class="stage-marker"
-                    >6</span
-                  ><span
-                    ><strong>6. Quality check</strong
-                    ><small
-                      >Verify item count, finish and customer
-                      instructions.</small
-                    ><em>Locked</em></span
-                  ></label
-                >
-              </li>
-              <li class="timeline-stage locked">
-                <label
-                  ><input class="stage-check" type="checkbox" disabled /><span
-                    class="stage-marker"
-                    >7</span
-                  ><span
-                    ><strong>7. Packed and ready</strong
-                    ><small
-                      >Seal the completed order and move it to dispatch.</small
-                    ><em>Locked</em></span
-                  ></label
-                >
-              </li>
-            </ol>
+            <!-- Filled by order-processing.js: completed / current / locked stages. -->
+            <ol class="staff-timeline" id="staff-timeline"></ol>
           </div>
           <div class="card" style="margin-top: 22px">
             <div class="top_bar">
               <div>
-                <h2>Order scope and item checks</h2>
-                <p class="muted">
-                  Staff can verify every item and instruction directly.
-                </p>
+                <h2>Order items</h2>
+                <p class="muted">What was ordered and what arrived at the shop.</p>
               </div>
-              <span id="scope-count" class="status status_warning"
-                >0 OF 2 CHECKED</span
-              >
             </div>
             <div class="table_wrap">
               <table>
@@ -172,114 +77,50 @@
                   <tr>
                     <th>ITEM</th>
                     <th>SERVICE</th>
-                    <th>QTY</th>
-                    <th>COMPLETED</th>
+                    <th>ORDERED</th>
+                    <th>RECEIVED</th>
+                    <th>CONDITION</th>
                   </tr>
                 </thead>
-                <tbody>
-                  <tr>
-                    <td>Shirts</td>
-                    <td>Wash &amp; Fold</td>
-                    <td>4</td>
-                    <td>
-                      <label class="scope-check"
-                        ><input type="checkbox" class="item-check" />
-                        Checked</label
-                      >
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Trousers</td>
-                    <td>Dry Cleaning</td>
-                    <td>2</td>
-                    <td>
-                      <label class="scope-check"
-                        ><input type="checkbox" class="item-check" />
-                        Checked</label
-                      >
-                    </td>
-                  </tr>
-                </tbody>
+                <tbody id="line-rows"></tbody>
               </table>
             </div>
+            <!-- TC-LP05: the customer's delivery instruction. -->
             <div
               class="alert"
+              id="instruction"
               style="
                 margin-top: 18px;
                 background: #e9f8ff;
                 color: #034b78;
                 border-left-color: #149fe0;
               "
-            >
-              <strong>Customer instructions</strong><br />Use fragrance-free
-              detergent. Treat the stain on the blue shirt collar.
+            ></div>
+          </div>
+          <div class="card" style="margin-top: 22px">
+            <h2>Status history</h2>
+            <div class="table_wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>FROM</th>
+                    <th>TO</th>
+                    <th>WHEN</th>
+                  </tr>
+                </thead>
+                <tbody id="history-rows"></tbody>
+              </table>
             </div>
           </div>
         </section>
         <aside>
-          <article class="card payment-gate">
-            <div class="top_bar">
-              <div>
-                <h2>Payment gate</h2>
-                <p class="muted">Dispatch is controlled by payment status.</p>
-              </div>
-              <span id="payment-badge" class="status status_error"
-                >PAYMENT DUE</span
-              >
-            </div>
-            <div class="payment-amount">
-              <span>Outstanding balance</span><strong>LKR 2,480</strong>
-            </div>
-            <label class="payment-confirm"
-              ><input id="payment-paid" type="checkbox" /><span
-                ><strong>Payment received and verified</strong
-                ><small>Check only after the payment is recorded.</small></span
-              ></label
-            ><a class="link" href="../admin/owner/payments_billing.html"
-              >Open Payments &amp; Billing →</a
-            >
-          </article>
+          <!-- Next stage, manual status change, quality check, pack and release. -->
+          <article class="card" id="actions"></article>
           <article class="card" style="margin-top: 20px">
-            <h2>Dispatch control</h2>
-            <div id="dispatch-lock" class="alert alert_error">
-              <strong>Dispatch locked</strong><br />Complete all processing
-              stages and verify the due payment.
-            </div>
-            <button
-              id="dispatch-button"
-              class="custom_button custom_button_bg"
-              type="button"
-              disabled
-              style="width: 100%; margin-top: 18px"
-            >
-              Dispatch order →
-            </button>
-            <p class="small muted" style="margin-top: 12px">
-              The button unlocks only when stages 1–7 are completed and payment
-              is marked paid.
-            </p>
-          </article>
-          <article class="card" style="margin-top: 20px">
-            <h2>Internal notes</h2>
-            <div class="field">
-              <label for="notes">Processing notes</label
-              ><textarea
-                class="input"
-                id="notes"
-                placeholder="Add a note for the next staff member"
-              ></textarea>
-            </div>
-            <button
-              id="save-notes"
-              class="custom_button custom_button_nobg"
-              type="button"
-            >
-              Save notes
-            </button>
+            <h2>Issues</h2>
+            <div id="issue-list"><p class="muted small">No issues reported.</p></div>
             <div class="actions">
-              <a class="link danger" href="issue_reports.html#new-report"
-                >Report an issue</a
-              >
+              <a class="link danger" id="report-link" href="issue_reports.html#new-report">Report an issue</a>
             </div>
           </article>
         </aside>

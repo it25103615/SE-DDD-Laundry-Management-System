@@ -135,43 +135,11 @@ END CATCH;
 GO
 
 /* One procedure owns the status update and its audit log as one transaction. */
-CREATE OR ALTER PROCEDURE dbo.sp_UpdateOrderStatus
-    @OrderID INT,
-    @NewStatusID INT
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
 
-    BEGIN TRY
-        BEGIN TRANSACTION;
 
-        IF NOT EXISTS (SELECT 1 FROM dbo.orders WHERE orderID=@OrderID)
-            THROW 51010, 'The specified order does not exist.', 1;
-        IF NOT EXISTS (SELECT 1 FROM dbo.status WHERE statusID=@NewStatusID)
-            THROW 51011, 'The specified status does not exist.', 1;
-
-        DECLARE @PreviousStatusID INT;
-        SELECT @PreviousStatusID=statusID
-        FROM dbo.orders WITH (UPDLOCK, HOLDLOCK)
-        WHERE orderID=@OrderID;
-
-        IF @PreviousStatusID=@NewStatusID
-            THROW 51012, 'The order already has the requested status.', 1;
-
-        UPDATE dbo.orders SET statusID=@NewStatusID WHERE orderID=@OrderID;
-        INSERT INTO dbo.logs(status_before,status_after,logDate,logTime,orderID)
-        VALUES(@PreviousStatusID,@NewStatusID,CONVERT(date,SYSDATETIME()),CONVERT(time,SYSDATETIME()),@OrderID);
-
-        COMMIT TRANSACTION;
-    END TRY
-    BEGIN CATCH
-        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
-        THROW;
-    END CATCH;
-END;
-GO
-
+/* PART F — GENERAL SYSTEM TRIGGER: notify customers when orders are placed or their status changes.
+   For the execution screenshot, run the Part F section in database/ddd_assignment2_procedure_trigger_demo.sql.
+*/
 CREATE OR ALTER TRIGGER dbo.trg_order_notifications
 ON dbo.orders AFTER INSERT, UPDATE AS
 BEGIN
