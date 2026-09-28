@@ -36,6 +36,12 @@ IF OBJECT_ID('dbo.sp_GetCustomerOrders', 'P') IS NOT NULL DROP PROCEDURE dbo.sp_
 IF OBJECT_ID('dbo.sp_UpdateProcessingStatus', 'P') IS NOT NULL DROP PROCEDURE dbo.sp_UpdateProcessingStatus;
 IF OBJECT_ID('dbo.sp_AssignDeliveryRider', 'P') IS NOT NULL DROP PROCEDURE dbo.sp_AssignDeliveryRider;
 IF OBJECT_ID('dbo.sp_RecordPayment', 'P') IS NOT NULL DROP PROCEDURE dbo.sp_RecordPayment;
+-- Processing module tables (migration 005) reference orders, orderLines,
+-- status and users, so they are dropped before those tables.
+IF OBJECT_ID('dbo.qualityChecks', 'U') IS NOT NULL
+    DROP TABLE dbo.qualityChecks;
+IF OBJECT_ID('dbo.receivedItems', 'U') IS NOT NULL
+    DROP TABLE dbo.receivedItems;
 IF OBJECT_ID('dbo.support_activity', 'U') IS NOT NULL
     DROP TABLE dbo.support_activity;
 IF OBJECT_ID('dbo.notifications', 'U') IS NOT NULL
@@ -446,6 +452,52 @@ CREATE TABLE notifications(
 );
 CREATE INDEX ix_notifications_recipient ON notifications(recipientID,isRead,createdAt DESC);
 GO
+
+-- ============================================================
+-- ========== Laundry Processing Tables - Start ==========
+-- Same definitions as database/migrations/005_processing.sql (keep both in sync).
+
+-- What staff counted for each order line when the order arrived at the shop.
+CREATE TABLE receivedItems(
+    orderLineID      INT          NOT NULL CONSTRAINT pk_receivedItems PRIMARY KEY,
+    receivedQuantity INT          NOT NULL,
+    itemCondition    VARCHAR(20)  NOT NULL CONSTRAINT df_receivedItems_condition DEFAULT 'As expected',
+    receivedBy       INT          NOT NULL,
+    receivedAt       DATETIME2    NOT NULL CONSTRAINT df_receivedItems_receivedAt DEFAULT SYSDATETIME(),
+
+    CONSTRAINT fk_receivedItems_orderLines FOREIGN KEY(orderLineID) REFERENCES orderLines(orderLineID),
+    CONSTRAINT fk_receivedItems_users FOREIGN KEY(receivedBy) REFERENCES users(userID),
+    CONSTRAINT ck_receivedItems_quantity CHECK(receivedQuantity >= 1),
+    CONSTRAINT ck_receivedItems_condition CHECK(itemCondition IN ('As expected', 'Stained', 'Damaged'))
+);
+GO
+
+-- Issues staff report during processing are stored as support cases in feedback
+-- (caseType = the issue type), so they need no table of their own.
+
+-- Quality checks after Ironing; the newest row per order is the current one.
+CREATE TABLE qualityChecks(
+    checkID        INT IDENTITY(1, 1) CONSTRAINT pk_qualityChecks PRIMARY KEY,
+    orderID        INT          NOT NULL,
+    result         VARCHAR(10)  NOT NULL,
+    reworkStatusID INT          NULL,
+    packed         BIT          NOT NULL CONSTRAINT df_qualityChecks_packed DEFAULT 0,
+    notes          VARCHAR(250) NULL,
+    checkedBy      INT          NOT NULL,
+    checkedAt      DATETIME2    NOT NULL CONSTRAINT df_qualityChecks_checkedAt DEFAULT SYSDATETIME(),
+
+    CONSTRAINT fk_qualityChecks_orders FOREIGN KEY(orderID) REFERENCES orders(orderID),
+    CONSTRAINT fk_qualityChecks_status FOREIGN KEY(reworkStatusID) REFERENCES status(statusID),
+    CONSTRAINT fk_qualityChecks_users FOREIGN KEY(checkedBy) REFERENCES users(userID),
+    CONSTRAINT ck_qualityChecks_result CHECK(result IN ('Passed', 'Failed')),
+    CONSTRAINT ck_qualityChecks_rework CHECK(
+        (result = 'Failed' AND reworkStatusID IN (9, 10, 11, 19))
+        OR (result = 'Passed' AND reworkStatusID IS NULL))
+);
+GO
+
+-- =========== Laundry Processing Tables - End ===========
+-- ============================================================
 
 /* PART F — GENERAL SYSTEM TRIGGER: notify customers when orders are placed or their status changes.
    For the execution screenshot, run the Part F section in database/ddd_assignment2_procedure_trigger_demo.sql.

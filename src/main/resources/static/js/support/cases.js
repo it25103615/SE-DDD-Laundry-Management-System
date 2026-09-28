@@ -3,6 +3,8 @@
  let context,current,editing=null,page=0,summaryStatus='',lastFocus=null;
  const staff=()=>context.actor.role!=='CUSTOMER';
  const coordinator=()=>['ADMIN','OWNER','CSM','CUSTOMER_SERVICE_MANAGER'].includes(context.actor.role);
+ // Laundry processing issues are raised by staff for the customer; customers can reply but not edit or delete them.
+ const staffRaised=item=>['Damaged item','Existing stain','Missing item','Item count mismatch'].includes(item.type);
  const slug=value=>String(value||'').toLowerCase().replace(/\s+/g,'-');
  const initials=name=>String(name||'?').split(/\s+/).map(part=>part[0]).join('').slice(0,2).toUpperCase();
  const historyIcon=action=>({'Created':'＋','Edited':'✎','Case updated':'↻','Message added':'✉','Deleted':'×'}[action]||'•');
@@ -63,7 +65,7 @@
    $('detail-title').textContent='#'+current.id+' — '+current.subject;
    $('detail-meta').innerHTML=[`<span>${e(current.type)}</span>`,statusBadge(current.status),priorityBadge(current.priority),`<span>${current.orderId?'Order #'+e(current.orderId):'General enquiry'}</span>`,current.rating?`<span>★ ${e(current.rating)}/5</span>`:'',`<span>Submitted ${e(date(current.createdAt))}</span>`,current.assignee?`<span>Assigned to ${e(current.assignee)}</span>`:'<span>Unassigned</span>'].filter(Boolean).join('');
    $('detail-message').innerHTML=`<strong>Customer’s original message</strong><span>${e(current.message)}</span>`;
-   $('customer-actions').hidden=staff() || current.status!=='New';$('edit-case').hidden=staff();$('handle-form').hidden=!coordinator();
+   $('customer-actions').hidden=staff() || current.status!=='New' || staffRaised(current);$('edit-case').hidden=staff();$('handle-form').hidden=!coordinator();
    $('status').value=current.status;$('priority').value=current.priority;$('assignee').value=current.assigneeId||'';$('note').value='';
    const next={New:['New','Assigned','In Review'],Assigned:['Assigned','In Review'],'In Review':['In Review','Resolved'],Resolved:['Resolved','Closed','Reopened'],Closed:['Closed','Reopened'],Reopened:['Reopened','Assigned','In Review']};
    [...$('status').options].forEach(option=>option.disabled=!next[current.status]?.includes(option.value));updateNoteHint();

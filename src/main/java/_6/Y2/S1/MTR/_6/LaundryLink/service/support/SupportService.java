@@ -1,5 +1,6 @@
 package _6.Y2.S1.MTR._6.LaundryLink.service.support;
 
+import _6.Y2.S1.MTR._6.LaundryLink.processing.ProcessingIssueRepository;
 import _6.Y2.S1.MTR._6.LaundryLink.repository.support.SupportRepository;
 import _6.Y2.S1.MTR._6.LaundryLink.security.support.SupportAccess;
 import _6.Y2.S1.MTR._6.LaundryLink.service.shared.NotificationService;
@@ -106,6 +107,7 @@ public class SupportService {
     @Transactional
     public Map<String, Object> edit(Actor actor, int id, CaseInput input) {
         var item = one(actor, id);
+        submittedByCustomer(item, "edited");
         validateCase(actor, input);
         if (!"New".equals(item.get("status"))) throw new ResponseStatusException(CONFLICT, "Only new cases can be edited.");
         changed(repo.update("""
@@ -120,6 +122,7 @@ public class SupportService {
         var item = one(actor, id);
         if (!"CUSTOMER".equals(actor.role()) || number(item, "customerId") != actor.id())
             throw new ResponseStatusException(FORBIDDEN, "Only the customer who submitted this case can delete it.");
+        submittedByCustomer(item, "deleted");
         if (!"New".equals(item.get("status"))) throw new ResponseStatusException(CONFLICT, "Only new cases can be deleted; handled cases retain their history.");
         changed(repo.update("UPDATE feedback SET deleted=1, version=version+1, updatedAt=SYSDATETIME() WHERE feedbackID=? AND version=? AND deleted=0 AND caseStatus='New'", id, version));
         repo.audit(id, actor.id(), "Deleted", "Case removed from active views; history retained");
@@ -182,6 +185,15 @@ public class SupportService {
         if ("CUSTOMER".equals(actor.role())) return number(item, "customerId") == actor.id();
         Object assignee = item.get("assigneeId");
         return actor.staff() && assignee instanceof Number && ((Number) assignee).intValue() == actor.id();
+    }
+    /**
+     * Laundry processing issues ("Damaged item", "Missing item", ...) are cases raised by staff and
+     * filed under the order's customer. The customer can view and reply to them, but not edit or
+     * delete them.
+     */
+    static void submittedByCustomer(Map<String, Object> item, String action) {
+        if (ProcessingIssueRepository.ISSUE_TYPES.contains(String.valueOf(item.get("type"))))
+            throw new ResponseStatusException(FORBIDDEN, "This case was raised by staff and cannot be " + action + ".");
     }
     static int number(Map<String, Object> row, String key) { return ((Number) row.get(key)).intValue(); }
     static void changed(int count) { if (count != 1) throw new ResponseStatusException(CONFLICT, "This record changed. Refresh it before trying again."); }
