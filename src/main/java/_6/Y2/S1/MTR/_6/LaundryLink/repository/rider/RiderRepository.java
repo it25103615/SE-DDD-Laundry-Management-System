@@ -2,12 +2,8 @@ package _6.Y2.S1.MTR._6.LaundryLink.repository.rider;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -19,6 +15,8 @@ public class RiderRepository {
     /*
      * The Rider module does not create Order/Delivery entities.
      * These native queries read the existing database tables directly.
+     * The rider's own account (who is signed in, and that they are a RIDER) is looked up by
+     * RiderService through UserRepository, so this class only needs the rider's user ID.
      */
 
     public List<Object[]> findAvailableTasks() {
@@ -179,18 +177,9 @@ public class RiderRepository {
         return updateStatus(deliverId, riderId, "delivery_riderID", 12, 13);
     }
 
-    public Object[] findRider(Integer riderId) {
-        String sql = """
-                SELECT userID, firstName, lastName, type
-                FROM users
-                WHERE userID = :riderId
-                """;
-        List<?> result = entityManager.createNativeQuery(sql)
-                .setParameter("riderId", riderId)
-                .getResultList();
-        return result.isEmpty() ? null : (Object[]) result.get(0);
-    }
-
+    // WHY: A second, database-level guard: RiderService already allows only signed-in RIDER
+    //      accounts, and the claim still only succeeds for a user whose type is RIDER.
+    // HOW: UPPER(type) matches how SecurityConfig builds the role (ROLE_ + UPPER(type)).
     public int acceptPickup(Integer deliverId, Integer riderId) {
         String sql = """
                 UPDATE d
@@ -201,7 +190,7 @@ public class RiderRepository {
                 WHERE d.deliverID = :deliverId
                   AND o.statusID = 3
                   AND d.pickup_riderID IS NULL
-                  AND r.type = 'RIDER'
+                  AND UPPER(r.type) = 'RIDER'
                 """;
         return entityManager.createNativeQuery(sql)
                 .setParameter("deliverId", deliverId)
@@ -219,7 +208,7 @@ public class RiderRepository {
                 WHERE d.deliverID = :deliverId
                   AND o.statusID = 12
                   AND d.delivery_riderID IS NULL
-                  AND r.type = 'RIDER'
+                  AND UPPER(r.type) = 'RIDER'
                 """;
         return entityManager.createNativeQuery(sql)
                 .setParameter("deliverId", deliverId)
