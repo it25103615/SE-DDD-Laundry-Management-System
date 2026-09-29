@@ -1,5 +1,5 @@
 (function () {
-  const MANAGER_ID = sessionStorage.getItem("laundrylinkManagerID") || "11";
+  const MANAGER_ID = sessionStorage.getItem("laundrylinkManagerID");
   const page = document.body.dataset.paymentAdminPage;
 
   function money(value) {
@@ -27,13 +27,22 @@
     element.hidden = !message;
   }
 
-  function api(path, options) {
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function api(path, options = {}) {
     return fetch(path, {
       ...options,
       headers: {
         "Content-Type": "application/json",
-        "X-User-ID": MANAGER_ID,
-        ...(options && options.headers ? options.headers : {}),
+        ...(MANAGER_ID ? { "X-User-ID": MANAGER_ID } : {}),
+        ...(options.headers || {}),
       },
     }).then(async (response) => {
       if (!response.ok) {
@@ -46,8 +55,27 @@
     });
   }
 
-  async function paymentRecords() {
-    return api("/api/payments/management");
+  function paymentFilterQuery() {
+    const form = document.getElementById("payment-filters");
+    const query = new URLSearchParams();
+    if (!form) return "";
+
+    const data = new FormData(form);
+    ["search", "status", "orderID", "customerID"].forEach((field) => {
+      const value = String(data.get(field) || "").trim();
+      if (value) query.set(field, value);
+    });
+
+    const text = query.toString();
+    return text ? `?${text}` : "";
+  }
+
+  async function paymentRecords(query = "") {
+    return api(`/api/payments/management${query}`);
+  }
+
+  async function billingDetails(orderID) {
+    return api(`/api/billing/orders/${encodeURIComponent(orderID)}/invoice`);
   }
 
   function statusMarkup(status) {
@@ -64,7 +92,7 @@
   async function loadListPage() {
     const table = document.getElementById("manager-payment-table");
     try {
-      const records = await paymentRecords();
+      const records = await paymentRecords(paymentFilterQuery());
       const collected = records.reduce((total, record) => total + Number(record.paidAmount || 0), 0);
       const outstanding = records.reduce((total, record) => total + Number(record.outstandingAmount || 0), 0);
       const failed = records.filter((record) => record.paymentStatus === "REJECTED" || /failed/i.test(record.orderStatus || "")).length;
@@ -75,7 +103,7 @@
 
       if (!table) return;
       if (!records.length) {
-        table.innerHTML = '<tr><td colspan="6">No payment records found.</td></tr>';
+        table.innerHTML = '<tr><td colspan="7">No payment records found.</td></tr>';
         return;
       }
 
@@ -83,12 +111,13 @@
         .map(
           (record) => `
             <tr>
+              <td>#${record.paymentID}</td>
               <td>#${record.orderID}</td>
               <td>Customer #${record.customerID}</td>
-              <td>Recorded</td>
               <td>${money(record.amount)}</td>
               <td>${statusMarkup(record.paymentStatus)}</td>
-              <td><a class="link" href="payment_detail.html?paymentID=${record.paymentID}">View</a></td>
+              <td>${escapeHtml(label(record.orderStatus))}</td>
+              <td><a class="link" href="payment_detail.html?paymentID=${encodeURIComponent(record.paymentID)}">View</a></td>
             </tr>`,
         )
         .join("");
@@ -96,11 +125,11 @@
       setText("collected-total", "Unavailable");
       setText("outstanding-total", "Unavailable");
       setText("failed-total", "-");
-      if (table) table.innerHTML = '<tr><td colspan="6">Payment records could not be loaded.</td></tr>';
+      if (table) table.innerHTML = '<tr><td colspan="7">Payment records could not be loaded.</td></tr>';
     }
   }
 
-  function fillDetail(record) {
+  function fillDetail(record, billing) {
     setText("detail-title", `Payment #${record.paymentID}`);
     setText("detail-subtitle", `Review payment for order #${record.orderID}.`);
     setText("detail-amount", money(record.amount));
@@ -109,26 +138,44 @@
     setText("detail-customer-id", `Customer #${record.customerID}`);
     setText("detail-payment-status", label(record.paymentStatus));
     setText("detail-order-status", label(record.orderStatus));
-    setText("detail-payable", money(record.payableAmount));
+    setText("detail-subtotal", money(billing && billing.subtotal));
+    setText("detail-discount", money(billing && billing.discountAmount));
+    setText("detail-payable", money(billing && billing.finalPayableAmount != null ? billing.finalPayableAmount : record.payableAmount));
     setText("detail-paid", money(record.paidAmount));
     setText("detail-outstanding", money(record.outstandingAmount));
 
     const verified = record.paymentStatus === "VERIFIED";
     const rejected = record.paymentStatus === "REJECTED";
-    const complete = verified || rejected;
+    const payable = record.paymentStatus === "PAID";
+    const canVerify = payable && Number(record.outstandingAmount || 0) === 0;
     const approve = document.getElementById("approve-payment");
     const reject = document.getElementById("reject-payment");
     const finalStatus = document.getElementById("detail-final-status");
 
-    if (approve) approve.hidden = complete;
-    if (reject) reject.hidden = complete;
+    if (approve) {
+      approve.hidden = !canVerify;
+      approve.disabled = !canVerify;
+    }
+    if (reject) {
+      reject.hidden = !canVerify;
+      reject.disabled = !canVerify;
+    }
 
     if (finalStatus) {
-      finalStatus.hidden = !complete;
-      finalStatus.className = `alert ${verified ? "alert_success" : "alert_error"}`;
-      finalStatus.textContent = verified
-        ? "This payment has already been accepted. No further action is required."
-        : "This payment has already been rejected. No further action is available.";
+      if (verified || rejected) {
+        finalStatus.hidden = false;
+        finalStatus.className = `alert ${verified ? "alert_success" : "alert_error"}`;
+        finalStatus.textContent = verified
+          ? "This payment has already been accepted. No further action is required."
+          : "This payment has already been rejected. No further action is available.";
+      } else if (!canVerify) {
+        finalStatus.hidden = false;
+        finalStatus.className = "alert";
+        finalStatus.textContent = "This payment is not eligible for verification yet.";
+      } else {
+        finalStatus.hidden = true;
+        finalStatus.textContent = "";
+      }
     }
   }
 
@@ -146,7 +193,8 @@
         showMessage("detail-error", "Payment record could not be found.");
         return;
       }
-      fillDetail(currentRecord);
+      const billing = await billingDetails(currentRecord.orderID);
+      fillDetail(currentRecord, billing);
     }
 
     async function updateStatus(action) {
@@ -163,8 +211,8 @@
         showMessage("detail-error", error.status === 409
           ? "This payment cannot be updated until the full amount has been paid."
           : "Payment status could not be updated.");
-        if (approve) approve.disabled = false;
-        if (reject) reject.disabled = false;
+        if (approve && currentRecord.paymentStatus === "PAID") approve.disabled = false;
+        if (reject && currentRecord.paymentStatus === "PAID") reject.disabled = false;
       }
     }
 
@@ -183,6 +231,22 @@
     }
   }
 
-  if (page === "list") loadListPage();
+  if (page === "list") {
+    const filters = document.getElementById("payment-filters");
+    const clearFilters = document.getElementById("clear-payment-filters");
+    if (filters) {
+      filters.addEventListener("submit", (event) => {
+        event.preventDefault();
+        loadListPage();
+      });
+    }
+    if (clearFilters && filters) {
+      clearFilters.addEventListener("click", () => {
+        filters.reset();
+        loadListPage();
+      });
+    }
+    loadListPage();
+  }
   if (page === "detail") loadDetailPage();
 })();
