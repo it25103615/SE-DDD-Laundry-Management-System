@@ -54,6 +54,17 @@
     return response.status === 204 ? null : response.json();
   }
 
+  // Turns the schedule step's date ("2026-10-02") and time window ("8:00 AM – 11:00 AM") into
+  // the start of that window as a local date-time ("2026-10-02T08:00:00"), which the API stores
+  // as the delivery row's pickup_scheduled. Returns null when no pickup slot has been chosen.
+  function pickupDateTime(schedule) {
+    const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)/i.exec(schedule?.time || "");
+    if (!schedule?.date || !match) return null;
+    let hours = Number(match[1]) % 12;
+    if (match[3].toUpperCase() === "PM") hours += 12;
+    return `${schedule.date}T${String(hours).padStart(2, "0")}:${match[2]}:00`;
+  }
+
   async function catalog() {
     const [items, services, pricing] = await Promise.all([
       api("/items"), api("/services"), api("/service-pricing")
@@ -259,7 +270,10 @@
         submitting = true;
         button.disabled = true;
         try {
-          const created = await api("/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userID: draft.userID, orderLines: lines }) });
+          // QUESTION: only the pickup time is sent here. draft.schedule.deliveryDate/deliveryTime from
+          // the schedule step are never sent, and CreateOrderRequest has no field for them. Should
+          // delivery scheduling be removed from the order creation process, or added to the API?
+          const created = await api("/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userID: draft.userID, orderLines: lines, pickupScheduled: pickupDateTime(draft.schedule) }) });
           saveDraft({ ...draft, lastOrderID: created.orderID, lines: [] });
           toast("Order created", `Order #${created.orderID} is ${created.statusLabel}.`);
           window.location.href = `upcoming_order_details.html?userID=${created.userID}&orderID=${created.orderID}`;

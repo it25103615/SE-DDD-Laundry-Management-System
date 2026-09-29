@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.ArrayList;
@@ -73,12 +74,18 @@ class OrderServiceTest {
             return order;
         });
 
-        CreateOrderResponse response = orderService.createOrder(request(1, line(1, 1, 2)));
+        CreateOrderRequest request = request(1, line(1, 1, 2));
+        LocalDateTime pickup = LocalDateTime.now().plusDays(1).withHour(8).withMinute(0).withSecond(0).withNano(0);
+        request.setPickupScheduled(pickup);
+
+        CreateOrderResponse response = orderService.createOrder(request);
 
         assertEquals(100, response.getOrderID());
         assertEquals("Unconfirmed", response.getStatusLabel());
         assertEquals(360.0, response.getOrderLines().getFirst().getLinePrice());
         verify(orderRepository).save(any(Order.class));
+        // The delivery row must be created for the saved order, with the customer's pickup time.
+        verify(orderRepository).createDelivery(100, 1, pickup);
     }
 
     @Test
@@ -161,6 +168,8 @@ class OrderServiceTest {
                 () -> orderService.createOrder(request(1, line(1, 1, 1), line(99, 1, 1))));
 
         verify(orderRepository, never()).save(any(Order.class));
+        // A failed order must not leave an orphan delivery row behind.
+        verify(orderRepository, never()).createDelivery(any(), any(), any());
     }
 
     @Test

@@ -59,6 +59,15 @@ public class OrderService {
         }
 
         Order savedOrder = orderRepository.save(order);
+
+        // The save above has already inserted the order, so its generated orderID is available.
+        // Creating the delivery row in this same @Transactional method means the order, its
+        // lines and its delivery row are either all saved or all rolled back together.
+        orderRepository.createDelivery(
+                savedOrder.getOrderID(),
+                savedOrder.getUserID(),
+                request.getPickupScheduled());
+
         return toCreateOrderResponse(savedOrder);
     }
 

@@ -1,9 +1,11 @@
 package _6.Y2.S1.MTR._6.LaundryLink.orders;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -45,4 +47,18 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
 
     @Query(value = "SELECT COUNT(*) FROM users WHERE userID = :userID AND type = 'CUSTOMER'", nativeQuery = true)
     int countCustomersByUserID(@Param("userID") Integer userID);
+
+    // Every order needs a matching delivery row so the Rider module can assign pickup and
+    // delivery riders to it later. Only the order, customer and requested pickup time are
+    // known when the order is placed; the rider columns, pickup_actual and delivery_time
+    // stay NULL until the rider workflow fills them in.
+    @Modifying
+    @Query(value = """
+            INSERT INTO delivery(orderID, userID, pickup_scheduled)
+            VALUES (:orderID, :userID, :pickupScheduled)
+            """, nativeQuery = true)
+    void createDelivery(
+            @Param("orderID") Integer orderID,
+            @Param("userID") Integer userID,
+            @Param("pickupScheduled") LocalDateTime pickupScheduled);
 }
