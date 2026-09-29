@@ -33,7 +33,7 @@
       </header>
       <section class="grid grid_three">
         <article class="card metric">
-          <span class="muted small">COLLECTED TODAY</span
+          <span class="muted small">TOTAL COLLECTED</span
           ><strong id="collected-total">Loading...</strong>
         </article>
         <article class="card metric">
@@ -44,21 +44,55 @@
           <span class="muted small">FAILED PAYMENTS</span><strong id="failed-total">Loading...</strong>
         </article>
       </section>
+      <form id="payment-filters" class="card" style="margin-top: 30px">
+        <div class="grid grid_two">
+          <div class="field">
+            <label for="payment-search">Search</label>
+            <input class="input" id="payment-search" name="search" type="search" placeholder="Payment, order, customer or status" />
+          </div>
+          <div class="field">
+            <label for="payment-status-filter">Payment status</label>
+            <select class="input" id="payment-status-filter" name="status">
+              <option value="">All statuses</option>
+              <option value="UNPAID">UNPAID</option>
+              <option value="PARTIALLY_PAID">PARTIALLY_PAID</option>
+              <option value="PAID">PAID</option>
+              <option value="VERIFIED">VERIFIED</option>
+              <option value="REJECTED">REJECTED</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid_two">
+          <div class="field">
+            <label for="order-id-filter">Order ID</label>
+            <input class="input" id="order-id-filter" name="orderID" type="number" min="1" step="1" />
+          </div>
+          <div class="field">
+            <label for="customer-id-filter">Customer ID</label>
+            <input class="input" id="customer-id-filter" name="customerID" type="number" min="1" step="1" />
+          </div>
+        </div>
+        <div class="actions">
+          <button class="custom_button custom_button_bg" type="submit">Search</button>
+          <button class="custom_button custom_button_nobg" id="clear-payment-filters" type="button">Clear</button>
+        </div>
+      </form>
       <div class="table_wrap" style="margin-top: 30px">
         <table>
           <thead>
             <tr>
+              <th>PAYMENT</th>
               <th>ORDER</th>
               <th>CUSTOMER</th>
-              <th>METHOD</th>
               <th>AMOUNT</th>
               <th>STATUS</th>
+              <th>ORDER STATUS</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="manager-payment-table">
             <tr>
-              <td colspan="6">Loading payment records...</td>
+              <td colspan="7">Loading payment records...</td>
             </tr>
           </tbody>
         </table>

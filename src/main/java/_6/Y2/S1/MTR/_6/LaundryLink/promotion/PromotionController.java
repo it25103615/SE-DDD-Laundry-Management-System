@@ -1,8 +1,11 @@
 package _6.Y2.S1.MTR._6.LaundryLink.promotion;
 
+import _6.Y2.S1.MTR._6.LaundryLink.payment.PaymentAccessService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -10,9 +13,11 @@ import java.util.NoSuchElementException;
 @RequestMapping("/api/promotions")
 public class PromotionController {
     private final PromotionService promotionService;
+    private final PaymentAccessService paymentAccessService;
 
-    public PromotionController(PromotionService promotionService) {
+    public PromotionController(PromotionService promotionService, PaymentAccessService paymentAccessService) {
         this.promotionService = promotionService;
+        this.paymentAccessService = paymentAccessService;
     }
 
     @PostMapping
@@ -77,12 +82,17 @@ public class PromotionController {
     @GetMapping("/{promotionCode}/orders/{orderID}/validate")
     public ResponseEntity<PromotionValidationResponse> validatePromotion(
             @PathVariable String promotionCode,
-            @PathVariable Integer orderID
+            @PathVariable Integer orderID,
+            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
+            Principal principal
     ) {
         try {
-            return ResponseEntity.ok(promotionService.validatePromotion(promotionCode, orderID));
+            Integer customerID = paymentAccessService.resolveCustomerID(principal, headerUserID);
+            return ResponseEntity.ok(promotionService.validatePromotionForCustomer(promotionCode, orderID, customerID));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().build();
         }
@@ -91,12 +101,17 @@ public class PromotionController {
     @PostMapping("/{promotionCode}/orders/{orderID}/apply")
     public ResponseEntity<PromotionApplicationResponse> applyPromotion(
             @PathVariable String promotionCode,
-            @PathVariable Integer orderID
+            @PathVariable Integer orderID,
+            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
+            Principal principal
     ) {
         try {
-            return ResponseEntity.ok(promotionService.applyPromotion(promotionCode, orderID));
+            Integer customerID = paymentAccessService.resolveCustomerID(principal, headerUserID);
+            return ResponseEntity.ok(promotionService.applyPromotionForCustomer(promotionCode, orderID, customerID));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().build();
         }
