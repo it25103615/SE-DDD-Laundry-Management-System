@@ -1,6 +1,8 @@
 package _6.Y2.S1.MTR._6.LaundryLink.payment;
 
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingDetails;
+import _6.Y2.S1.MTR._6.LaundryLink.user.User;
+import _6.Y2.S1.MTR._6.LaundryLink.user.UserRepository;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
@@ -15,18 +17,22 @@ public class PaymentAccessService {
     private static final String CSM = "CSM";
 
     private final PaymentManagementRepository paymentManagementRepository;
+    private final UserRepository userRepository;
 
-    public PaymentAccessService(PaymentManagementRepository paymentManagementRepository) {
+    public PaymentAccessService(
+            PaymentManagementRepository paymentManagementRepository,
+            UserRepository userRepository
+    ) {
         this.paymentManagementRepository = paymentManagementRepository;
+        this.userRepository = userRepository;
     }
 
     public Integer resolveUserID(Principal principal, Integer headerUserID) {
         if (principal != null && principal.getName() != null && !principal.getName().isBlank()) {
-            try {
-                return Integer.valueOf(principal.getName());
-            } catch (NumberFormatException ex) {
-                throw new AccessDeniedException("Authenticated user cannot be matched to a user record");
-            }
+            String identity = principal.getName().trim();
+            return userRepository.findByEmailIgnoreCase(identity)
+                    .map(User::getUserID)
+                    .orElseThrow(() -> new AccessDeniedException("Authenticated user cannot be matched to a user record"));
         }
 
         if (headerUserID == null) {

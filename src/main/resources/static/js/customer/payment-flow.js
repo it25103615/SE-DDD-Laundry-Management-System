@@ -1,6 +1,7 @@
 (function () {
   const ORDER_DRAFT_KEY = "laundryLink.orderDraft";
   const page = document.body.dataset.paymentPage;
+  let authenticatedCustomerPromise = null;
 
   function params() {
     return new URLSearchParams(window.location.search);
@@ -14,13 +15,51 @@
     }
   }
 
-  function customerID() {
+  function saveOrderDraft(draft) {
+    sessionStorage.setItem(ORDER_DRAFT_KEY, JSON.stringify(draft || {}));
+  }
+
+  function storedCustomerID() {
     const draft = readOrderDraft();
     return sessionStorage.getItem("laundrylinkCustomerID") || params().get("userID") || draft.userID || "";
   }
 
+  async function authenticatedCustomerID() {
+    if (!authenticatedCustomerPromise) {
+      authenticatedCustomerPromise = fetch("/api/account/profile", {
+        headers: { "Accept": "application/json" },
+        credentials: "same-origin",
+      }).then(async (response) => {
+        if (!response.ok) return "";
+        const profile = await response.json();
+        const id = profile && profile.id ? String(profile.id) : "";
+        if (id) {
+          sessionStorage.setItem("laundrylinkCustomerID", id);
+          const draft = readOrderDraft();
+          if (String(draft.userID || "") !== id) {
+            saveOrderDraft({ ...draft, userID: Number(id) || id });
+          }
+        }
+        return id;
+      }).catch(() => "");
+    }
+    return authenticatedCustomerPromise;
+  }
+
+  async function customerID() {
+    return await authenticatedCustomerID() || storedCustomerID();
+  }
+
   function orderID() {
-    return params().get("orderID") || "";
+    const queryOrderID = params().get("orderID");
+    const draft = readOrderDraft();
+    if (queryOrderID) {
+      if (String(draft.lastOrderID || "") !== queryOrderID) {
+        saveOrderDraft({ ...draft, lastOrderID: Number(queryOrderID) || queryOrderID });
+      }
+      return queryOrderID;
+    }
+    return draft.lastOrderID ? String(draft.lastOrderID) : "";
   }
 
   function money(value) {
@@ -51,12 +90,13 @@
     return String(status || "Unknown").replaceAll("_", " ");
   }
 
-  function api(path, options) {
+  async function api(path, options) {
     const headers = {
+      "Accept": "application/json",
       "Content-Type": "application/json",
       ...(options && options.headers ? options.headers : {}),
     };
-    const resolvedCustomerID = customerID();
+    const resolvedCustomerID = await customerID();
     if (resolvedCustomerID) {
       headers["X-User-ID"] = resolvedCustomerID;
     }
@@ -64,6 +104,7 @@
     return fetch(path, {
       ...options,
       headers,
+      credentials: "same-origin",
     }).then(async (response) => {
       if (!response.ok) {
         const error = new Error(`Request failed with status ${response.status}`);
@@ -122,6 +163,22 @@
     return { invoice, status };
   }
 
+  function displayPaymentStatus(id, status, payLink) {
+    const outstandingAmount = displayOutstanding(status);
+    setText("outstanding-amount", money(outstandingAmount));
+    setText("payment-order-line", `Order #${id} · ${status.status.replaceAll("_", " ")}`);
+    if (payLink) {
+      payLink.href = paymentFlowUrl("payment_method.html", id);
+      if (outstandingAmount <= 0) {
+        payLink.textContent = "Paid";
+        payLink.setAttribute("aria-disabled", "true");
+      } else {
+        payLink.textContent = "Pay now";
+        payLink.removeAttribute("aria-disabled");
+      }
+    }
+  }
+
   function promotionMessageForError(error) {
     if (error.status === 404) return "Promotion code does not exist.";
     if (error.status === 400) return "Promotion could not be applied to this order.";
@@ -163,26 +220,25 @@
       }
     } else {
       try {
-        const { status } = await refreshBillingAndStatus(id);
-        const outstandingAmount = displayOutstanding(status);
-        setText("outstanding-amount", money(outstandingAmount));
-        setText("payment-order-line", `Order #${id} · ${status.status.replaceAll("_", " ")}`);
-        if (payLink) {
-          payLink.href = paymentFlowUrl("payment_method.html", id);
-          if (outstandingAmount <= 0) {
-            payLink.textContent = "Paid";
-            payLink.setAttribute("aria-disabled", "true");
-          } else {
-            payLink.textContent = "Pay now";
-            payLink.removeAttribute("aria-disabled");
-          }
-        }
+        const invoice = await getInvoice(id);
+        displayInvoice(invoice);
       } catch (error) {
-        setText("outstanding-amount", "Unavailable");
-        setText("payment-order-line", "Could not load billing or outstanding balance");
+        setText("billing-order-label", "Invoice");
         setText("billing-subtotal", "Unavailable");
         setText("billing-discount", "Unavailable");
         setText("billing-final", "Unavailable");
+      }
+
+      try {
+        const status = await getStatus(id);
+        displayPaymentStatus(id, status, payLink);
+      } catch (error) {
+        setText("outstanding-amount", "Unavailable");
+        setText("payment-order-line", "Could not load outstanding balance");
+        if (payLink) {
+          payLink.setAttribute("aria-disabled", "true");
+          payLink.removeAttribute("href");
+        }
       }
     }
 

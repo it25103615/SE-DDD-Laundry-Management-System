@@ -6,6 +6,8 @@ import _6.Y2.S1.MTR._6.LaundryLink.entity.shared.Log;
 import _6.Y2.S1.MTR._6.LaundryLink.entity.shared.Status;
 import _6.Y2.S1.MTR._6.LaundryLink.service.shared.LogService;
 import _6.Y2.S1.MTR._6.LaundryLink.service.shared.StatusService;
+import _6.Y2.S1.MTR._6.LaundryLink.user.User;
+import _6.Y2.S1.MTR._6.LaundryLink.user.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
@@ -442,7 +444,7 @@ class PaymentServiceTest {
         PaymentManagementRepository managementRepository = Mockito.mock(PaymentManagementRepository.class);
         StatusService statusService = Mockito.mock(StatusService.class);
         LogService logService = Mockito.mock(LogService.class);
-        PaymentAccessService accessService = new PaymentAccessService(managementRepository);
+        PaymentAccessService accessService = new PaymentAccessService(managementRepository, userRepository(11));
         PaymentService service = new PaymentService(
                 paymentRepository,
                 managementRepository,
@@ -517,7 +519,7 @@ class PaymentServiceTest {
         StatusService statusService = Mockito.mock(StatusService.class);
         LogService logService = Mockito.mock(LogService.class);
         PaymentService service = new PaymentService(paymentRepository, managementRepository, billingService,
-                new PaymentAccessService(managementRepository), statusService, logService);
+                new PaymentAccessService(managementRepository, userRepository(11)), statusService, logService);
         Payment payment = new Payment(1350.0, 1);
         payment.setPaymentID(4);
         Status unconfirmed = status(1, "Unconfirmed");
@@ -549,7 +551,7 @@ class PaymentServiceTest {
                 paymentRepository,
                 managementRepository,
                 billingService,
-                new PaymentAccessService(managementRepository),
+                new PaymentAccessService(managementRepository, userRepository(11)),
                 statusService,
                 logService
         );
@@ -615,7 +617,7 @@ class PaymentServiceTest {
                 paymentRepository,
                 managementRepository,
                 billingService,
-                new PaymentAccessService(managementRepository),
+                new PaymentAccessService(managementRepository, userRepository(7)),
                 Mockito.mock(StatusService.class),
                 Mockito.mock(LogService.class)
         );
@@ -625,6 +627,14 @@ class PaymentServiceTest {
         PaymentManagementRepository repository = Mockito.mock(PaymentManagementRepository.class);
         when(repository.findUserType(Mockito.anyInt())).thenReturn(Optional.of(userType));
         when(repository.findOrderStatus(Mockito.anyInt())).thenReturn(Optional.of(orderStatus));
+        return repository;
+    }
+
+    private UserRepository userRepository(Integer userID) {
+        UserRepository repository = Mockito.mock(UserRepository.class);
+        User user = new User();
+        user.setUserID(userID);
+        when(repository.findByEmailIgnoreCase(Mockito.anyString())).thenReturn(Optional.of(user));
         return repository;
     }
 

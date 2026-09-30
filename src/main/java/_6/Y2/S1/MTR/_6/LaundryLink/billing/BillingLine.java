@@ -16,7 +16,7 @@ public class BillingLine {
         this.serviceID = serviceID;
         this.quantity = quantity;
         this.linePrice = linePrice;
-        this.lineTotal = linePrice.multiply(BigDecimal.valueOf(quantity));
+        this.lineTotal = linePrice;
     }
 
     public Integer getOrderLineID() {
