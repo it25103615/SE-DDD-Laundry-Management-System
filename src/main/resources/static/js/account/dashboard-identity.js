@@ -5,7 +5,6 @@ document.addEventListener('DOMContentLoaded',async()=>{
     const user=await response.json();
     const greeting=document.getElementById('dashboard-greeting')||document.getElementById('greeting');
     if(greeting)greeting.textContent=`Welcome back, ${user.name}`;
-    const badge=document.getElementById('dashboard-badge')||document.getElementById('profile_badge');
-    if(badge)badge.textContent=String(user.name||'User').split(/\s+/).slice(0,2).map(part=>part[0]).join('').toUpperCase();
+    //The profile badge is filled in by the shared navigation bar (global-pre.js)
   }catch{}
 });

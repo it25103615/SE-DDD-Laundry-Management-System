@@ -136,6 +136,9 @@ ul.navigation {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* The phone menu panel (.nav_links when collapsed) is positioned against this
+     list, so it lines up with the page content and not with the window edge. */
+  position: relative;
 }
 ul.navigation li a {
   display: block;
@@ -161,6 +164,142 @@ ul.navigation li.nav_right a {
 }
 ul.navigation li.nav_right a:not(.custom_button):hover {
   background-color: var(--secondary-color);
+}
+
+/* ---- Shared navigation bar, built by global-pre.js ----
+   Inside .nav_right, in order: notification bell, .nav_links (the links),
+   profile badge, Log out button, Menu button. */
+
+/* Nothing in the bar shrinks or wraps, so the logo and .nav_right always have
+   their natural width. fit() in global-pre.js adds those two widths up to decide
+   whether the links fit or have to go into the menu. */
+ul.navigation li.logo,
+ul.navigation li.nav_right,
+ul.navigation li.nav_right > * {
+  flex: 0 0 auto;
+}
+.nav_links {
+  display: flex;
+  align-items: center;
+}
+.nav_links a {
+  white-space: nowrap;
+}
+/* Text links sit a little closer together than the old hand-written bars had
+   them, so more lists fit in one row before the Menu button takes over: the
+   customer links at 1024px and the five staff links at 1366px. */
+ul.navigation li.nav_right .nav_links a:not(.custom_button) {
+  margin: 0 4px;
+  padding-inline: 12px;
+}
+/* The link of the page that is open (or of the section it belongs to). The line
+   is drawn as an inset shadow so it takes no space and nothing moves. */
+.nav_links a[aria-current]:not(.custom_button) {
+  color: var(--primary-color);
+  font-weight: 700;
+  box-shadow: inset 0 -2px 0 var(--primary-color);
+}
+
+/* Profile badge: a round link to the profile page showing the user's initials.
+   The selector is this long so it wins over "ul.navigation li.nav_right a",
+   which would give it the padding, margin and grey hover box of a text link. */
+ul.navigation li.nav_right a.profile_badge {
+  width: 38px;
+  height: 38px;
+  margin: 0 6px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--secondary-color);
+  color: var(--primary-color);
+  font-weight: bold;
+  box-shadow: inset 0 0 0 1px rgba(0, 136, 176, 0.18);
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease;
+}
+ul.navigation li.nav_right a.profile_badge:hover {
+  transform: scale(1.06);
+  background: var(--color-accent-100);
+}
+/* "display: grid" above would otherwise show the badge even while it is hidden
+   (signed-out visitors and the short order/payment bar have no badge) */
+ul.navigation li.nav_right a.profile_badge[hidden] {
+  display: none;
+}
+
+/* Menu button: only shown while the links do not fit in the bar */
+.nav_menu_button {
+  display: none;
+  margin-left: 6px;
+  padding: 9px 12px;
+  border: 1px solid var(--black-20);
+  border-radius: 10px;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.7);
+  font: inherit;
+  cursor: pointer;
+}
+.nav_menu_button:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+/* Collapsed (set by fit() in global-pre.js): the links leave the bar and become
+   a panel under it, closed until the Menu button adds "open". The bell, badge
+   and Log out button stay in the bar. */
+ul.navigation.nav_collapsed .nav_menu_button {
+  display: block;
+}
+ul.navigation.nav_collapsed .nav_links {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 12px;
+  border-radius: 0 0 14px 14px;
+  background: #fff;
+  box-shadow: 0 20px 45px rgba(3, 75, 120, 0.18);
+}
+ul.navigation.nav_collapsed .nav_links.open {
+  display: flex;
+}
+ul.navigation.nav_collapsed li.nav_right .nav_links a {
+  margin: 2px 0;
+}
+ul.navigation.nav_collapsed li.nav_right .nav_links a.custom_button {
+  margin-top: 8px;
+  text-align: center;
+}
+/* On a phone the logo, bell, badge, Log out and Menu button have to share about
+   340px, so each gives up a little size or spacing. */
+@media (max-width: 520px) {
+  ul.navigation li.logo a {
+    padding-right: 6px;
+  }
+  ul.navigation li.logo h3 {
+    font-size: 1rem;
+  }
+  ul.navigation .notification_center {
+    margin-right: 4px;
+  }
+  ul.navigation li.nav_right a.profile_badge {
+    width: 34px;
+    height: 34px;
+    margin: 0 4px;
+  }
+  ul.navigation .logout_button {
+    margin: 0;
+    padding: 10px 6px;
+  }
+  ul.navigation .nav_menu_button {
+    margin-left: 4px;
+    padding: 8px;
+  }
 }
 
 .custom_button {
@@ -710,13 +849,6 @@ tbody td:last-child {
   body {
     margin: 0 5%;
   }
-  ul.navigation {
-    align-items: flex-start;
-  }
-  ul.navigation li.nav_right {
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
   ul.navigation li.nav_right a {
     margin: 2px;
     padding: 10px;
@@ -760,9 +892,6 @@ tbody td:last-child {
 }
 
 @media (max-width: 520px) {
-  ul.navigation li.nav_right a:not(.custom_button) {
-    display: none;
-  }
   .footer,
   .top_bar {
     flex-direction: column;
@@ -799,6 +928,19 @@ tbody td:last-child {
   border: 1px solid rgba(255, 255, 255, 0.75);
   box-shadow: 0 8px 30px rgba(3, 75, 120, 0.08);
   backdrop-filter: blur(14px);
+  /* The bar's background reaches the window edges; the padding puts the logo and
+     links back where the page margins had them. Percentages here are relative to
+     <body>'s width (80% of the page), so 10% of the page = 12.5% of body. */
+  margin-inline: -12.5%;
+  padding-inline: 12.5%;
+}
+@media (max-width: 800px) {
+  /* body margin is 5% here: 5 / 90 = 5.5556% of body */
+  .navbar,
+  .dashboard_nav {
+    margin-inline: -5.5556%;
+    padding-inline: 5.5556%;
+  }
 }
 
 .alert {
@@ -1055,8 +1197,9 @@ tbody td:last-child {
 .notification_empty { margin:0; padding:35px 20px; color:#687a87; text-align:center; }
 @media(max-width:520px){.notification_center{order:-1}.notification_panel{position:fixed;top:68px;right:14px;left:14px;width:auto}.notification_button{width:42px;height:42px}}
 
-/* Log out button injected into .nav_right by global-pre.js for signed-in users.
-   Styled to match the navigation links beside it rather than a filled button. */
+/* Log out button, part of the navigation bar built by global-pre.js and shown to
+   signed-in users. Styled to match the navigation links beside it rather than a
+   filled button. */
 .logout_button {
   flex: 0 0 auto;
   margin: 0 10px;
@@ -1075,8 +1218,8 @@ tbody td:last-child {
   opacity: 0.6;
   cursor: progress;
 }
-/* Same tighter spacing the navigation links get on narrow screens. Unlike those
-   links it is not hidden below 520px, so signing out stays possible on a phone. */
+/* Same tighter spacing the navigation links get on narrow screens. It stays in
+   the bar when the links move into the menu, so signing out is always one tap. */
 @media (max-width: 800px) {
   .logout_button {
     margin: 2px;

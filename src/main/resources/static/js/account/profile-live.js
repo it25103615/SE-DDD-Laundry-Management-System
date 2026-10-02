@@ -1,10 +1,11 @@
 document.addEventListener('DOMContentLoaded',async()=>{
   const $=id=>document.getElementById(id);
-  const destination={CUSTOMER:'/html/customer/dashboard.html',STAFF:'/html/staff/dashboard.html',RIDER:'/html/rider/dashboard.html',MANAGER:'/html/admin/manager/dashboard.html',CSM:'/html/admin/customer-service-manager/dashboard.html',CUSTOMER_SERVICE_MANAGER:'/html/admin/customer-service-manager/dashboard.html',OWNER:'/html/admin/owner/dashboard.html',ADMIN:'/html/admin/owner/dashboard.html'};
   let csrf,account;
   const show=(message,error=false)=>{const box=$('profile-message');box.textContent=message;box.className='profile-message'+(error?' error':'');box.hidden=false;};
   async function api(path,method='GET',body){const headers={Accept:'application/json'};if(csrf&&method!=='GET')headers[csrf.headerName]=csrf.token;if(body)headers['Content-Type']='application/json';const response=await fetch('/api/account/profile'+path,{method,headers,body:body?JSON.stringify(body):undefined});if(response.redirected){location.href='/html/auth/login.html';return;}const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.message||result.detail||'Unable to save your profile.');return result;}
-  function render(data){account=data;$('name').value=data.name||'';$('phone').value=String(data.phone||'').trim();$('email').value=data.email||'';$('profile-role').textContent=`Signed in as ${data.role}`;$('profile-badge').textContent=String(data.name||'User').split(/\s+/).slice(0,2).map(part=>part[0]).join('').toUpperCase();$('dashboard-link').href=destination[data.role]||'/html/portal.html';$('home-link').href=$('dashboard-link').href;}
+  //The navigation bar (logo, Dashboard link, badge) is built by global-pre.js. The badge is
+  //  still written here so it shows the new initials straight after a name change.
+  function render(data){account=data;$('name').value=data.name||'';$('phone').value=String(data.phone||'').trim();$('email').value=data.email||'';$('profile-role').textContent=`Signed in as ${data.role}`;$('profile-badge').textContent=String(data.name||'User').split(/\s+/).slice(0,2).map(part=>part[0]).join('').toUpperCase();}
   try{csrf=await fetch('/api/auth/csrf').then(r=>r.json());render(await api(''));}catch(error){show(error.message,true);}
   $('phone').addEventListener('input',()=>{$('phone').value=$('phone').value.replace(/\D/g,'').slice(0,10);});
   document.querySelectorAll('[data-toggle]').forEach(toggle=>toggle.addEventListener('click',()=>{
