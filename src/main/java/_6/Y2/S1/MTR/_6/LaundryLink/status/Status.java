@@ -1,8 +1,6 @@
 package _6.Y2.S1.MTR._6.LaundryLink.status;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Getter;
 
 @Getter

@@ -1,11 +1,8 @@
 package _6.Y2.S1.MTR._6.LaundryLink.support;
 
+import java.util.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 
 /** Parameterized database access shared by support workflows and their reports. */
 @Repository

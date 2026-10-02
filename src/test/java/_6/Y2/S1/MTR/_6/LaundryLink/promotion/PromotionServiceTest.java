@@ -1,5 +1,6 @@
 package _6.Y2.S1.MTR._6.LaundryLink.promotion;
 
+import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingDetails;
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingLine;
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingRepository;
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingService;

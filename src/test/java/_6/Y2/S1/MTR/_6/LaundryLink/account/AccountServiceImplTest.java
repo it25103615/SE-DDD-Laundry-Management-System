@@ -1,27 +1,17 @@
 package _6.Y2.S1.MTR._6.LaundryLink.account;
 
-import _6.Y2.S1.MTR._6.LaundryLink.account.dto.PasswordChangeRequest;
-import _6.Y2.S1.MTR._6.LaundryLink.account.dto.ProfileUpdateRequest;
-import _6.Y2.S1.MTR._6.LaundryLink.account.dto.RegistrationRequest;
-import _6.Y2.S1.MTR._6.LaundryLink.account.dto.UserResponse;
+import _6.Y2.S1.MTR._6.LaundryLink.account.dto.*;
 import _6.Y2.S1.MTR._6.LaundryLink.common.ApiException;
-import _6.Y2.S1.MTR._6.LaundryLink.user.User;
-import _6.Y2.S1.MTR._6.LaundryLink.user.UserRepository;
-import _6.Y2.S1.MTR._6.LaundryLink.user.UserRole;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import _6.Y2.S1.MTR._6.LaundryLink.user.*;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-
-import java.util.Optional;
-
+import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AccountServiceImplTest {

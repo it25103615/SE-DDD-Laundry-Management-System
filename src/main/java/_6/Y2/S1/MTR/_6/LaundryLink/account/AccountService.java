@@ -2,8 +2,7 @@ package _6.Y2.S1.MTR._6.LaundryLink.account;
 
 import _6.Y2.S1.MTR._6.LaundryLink.account.dto.*;
 import _6.Y2.S1.MTR._6.LaundryLink.user.User;
-
-import java.util.List;
+import java.util.*;
 
 public interface AccountService {
     UserResponse register(RegistrationRequest request);

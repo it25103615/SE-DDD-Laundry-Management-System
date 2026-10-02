@@ -1,16 +1,11 @@
 package _6.Y2.S1.MTR._6.LaundryLink.auth;
 
-import _6.Y2.S1.MTR._6.LaundryLink.user.User;
-import _6.Y2.S1.MTR._6.LaundryLink.user.UserRepository;
-import _6.Y2.S1.MTR._6.LaundryLink.user.UserRole;
+import _6.Y2.S1.MTR._6.LaundryLink.user.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.userdetails.UserDetails;
-
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class DatabaseUserDetailsServiceTest {
     @Test void mapsDatabaseRoleToSpringSecurityAuthority() {

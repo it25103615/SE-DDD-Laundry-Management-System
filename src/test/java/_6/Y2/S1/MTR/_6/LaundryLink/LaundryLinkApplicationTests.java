@@ -1,25 +1,24 @@
 package _6.Y2.S1.MTR._6.LaundryLink;
 
-import _6.Y2.S1.MTR._6.LaundryLink.notification.NotificationService;
-import _6.Y2.S1.MTR._6.LaundryLink.support.AdministrationService;
-import _6.Y2.S1.MTR._6.LaundryLink.support.ReportService;
-import _6.Y2.S1.MTR._6.LaundryLink.support.SupportAccess.Actor;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import _6.Y2.S1.MTR._6.LaundryLink.support.SupportAccess.Actor;
+import _6.Y2.S1.MTR._6.LaundryLink.support.AdministrationService;
+import _6.Y2.S1.MTR._6.LaundryLink.support.ReportService;
+import _6.Y2.S1.MTR._6.LaundryLink.notification.NotificationService;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.springframework.mock.web.MockHttpSession;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
 import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.springframework.transaction.annotation.Transactional;
+import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc

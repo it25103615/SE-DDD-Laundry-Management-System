@@ -1,9 +1,6 @@
 package _6.Y2.S1.MTR._6.LaundryLink.processing;
 
 import _6.Y2.S1.MTR._6.LaundryLink.processing.dto.IssueResponse;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Repository;
-
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -11,6 +8,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Repository;
 
 /**
  * SQL for staff issue reports. An issue is stored only as a support case (a row in

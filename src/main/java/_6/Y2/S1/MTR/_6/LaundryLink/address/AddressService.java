@@ -1,10 +1,7 @@
 package _6.Y2.S1.MTR._6.LaundryLink.address;
 
-import _6.Y2.S1.MTR._6.LaundryLink.address.dto.AddressRequest;
-import _6.Y2.S1.MTR._6.LaundryLink.address.dto.AddressResponse;
-
-import java.util.List;
-
+import _6.Y2.S1.MTR._6.LaundryLink.address.dto.*;
+import java.util.*;
 public interface AddressService {
     List<AddressResponse> getCurrentUserAddresses(String email);
     AddressResponse create(String email, AddressRequest request);

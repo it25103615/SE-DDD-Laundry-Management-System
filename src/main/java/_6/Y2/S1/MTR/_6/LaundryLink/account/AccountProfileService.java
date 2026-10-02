@@ -1,20 +1,16 @@
 package _6.Y2.S1.MTR._6.LaundryLink.account;
 
 import _6.Y2.S1.MTR._6.LaundryLink.account.dto.CustomerRegistrationRequest;
-import _6.Y2.S1.MTR._6.LaundryLink.account.dto.ProfileRequests;
 import _6.Y2.S1.MTR._6.LaundryLink.notification.NotificationService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.*;
 import org.springframework.web.server.ResponseStatusException;
-
-import java.util.LinkedHashMap;
-import java.util.Locale;
-import java.util.Map;
-
 import static org.springframework.http.HttpStatus.*;
+import _6.Y2.S1.MTR._6.LaundryLink.account.dto.ProfileRequests;
 
 @Service
 public class AccountProfileService {

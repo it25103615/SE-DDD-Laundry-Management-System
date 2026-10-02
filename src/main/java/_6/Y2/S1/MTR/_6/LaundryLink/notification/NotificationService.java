@@ -1,13 +1,11 @@
 package _6.Y2.S1.MTR._6.LaundryLink.notification;
 
 import _6.Y2.S1.MTR._6.LaundryLink.support.SupportAccess.Actor;
+import java.util.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
-import java.util.*;
-
 import static org.springframework.http.HttpStatus.CONFLICT;
 
 @Service

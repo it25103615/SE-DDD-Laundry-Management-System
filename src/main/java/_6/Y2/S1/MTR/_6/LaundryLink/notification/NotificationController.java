@@ -1,10 +1,9 @@
 package _6.Y2.S1.MTR._6.LaundryLink.notification;
 
 import _6.Y2.S1.MTR._6.LaundryLink.support.SupportAccess;
+import java.security.Principal;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-
-import java.security.Principal;
 
 @RestController
 @RequestMapping("/api/notifications")
