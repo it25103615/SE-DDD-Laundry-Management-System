@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Comparator;
 import java.util.Set;
@@ -48,11 +49,15 @@ public class OrderService {
         validateCustomer(request.getUserID());
         // Checked before anything is saved, so a bad address never leaves a half-made order.
         validateAddress(request.getAddressID(), request.getUserID());
+        // Also checked before anything is saved: an unknown preference code stops the order here.
+        String preferences = toStoredPreferences(request.getPreferences());
 
         Status initialStatus = statusService.getByLabel(INITIAL_STATUS_LABEL);
         Order order = new Order();
         order.setUserID(request.getUserID());
         order.setStatus(initialStatus);
+        order.setInstructions(trimToNull(request.getInstructions()));
+        order.setPreferences(preferences);
 
         for (var requestedLine : request.getOrderLines()) {
             OrderLine orderLine = orderLineService.createOrderLine(requestedLine);
@@ -197,7 +202,10 @@ public class OrderService {
                 order.getStatus().getStatusLabel(),
                 toOrderLineDetails(order),
                 calculateOrderTotal(order),
-                history);
+                history,
+                order.getInstructions(),
+                // Stored as codes; the pages are given the readable labels.
+                OrderPreference.labelsOf(order.getPreferences()));
     }
 
     private OrderSummaryResponse toOrderSummaryResponse(Order order) {
@@ -239,6 +247,28 @@ public class OrderService {
         if (addressID != null && orderRepository.countAddressesOwnedByCustomer(addressID, userID) == 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pickup address not found for this customer");
         }
+    }
+
+    // Turns the preference codes sent by the form into the string stored in orders.preferences.
+    // Every code must be one of OrderPreference's; anything else is refused with 400 so a typo
+    // or a made-up value is never saved. No preferences at all gives null (the column stays NULL).
+    private String toStoredPreferences(List<String> codes) {
+        if (codes == null) {
+            return null;
+        }
+        List<OrderPreference> preferences = new ArrayList<>();
+        for (String code : codes) {
+            preferences.add(OrderPreference.fromCode(code)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST, "Unknown order preference: " + code)));
+        }
+        // Removes duplicates and puts the codes in a fixed order.
+        return OrderPreference.toStoredValue(preferences);
+    }
+
+    // A note made only of spaces is the same as no note, so it is stored as NULL.
+    private String trimToNull(String text) {
+        return text == null || text.isBlank() ? null : text.trim();
     }
 
     private Integer statusID(Status status) {

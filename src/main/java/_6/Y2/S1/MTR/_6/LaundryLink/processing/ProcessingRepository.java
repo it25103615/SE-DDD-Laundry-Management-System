@@ -28,14 +28,20 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class ProcessingRepository {
 
-    /** Header data for one order: its status, customer and delivery instruction. */
+    /**
+     * Header data for one order: its status, customer and delivery instruction, plus what the
+     * customer asked for when placing the order ({@code instructions} is their note,
+     * {@code preferences} the ticked options as stored, e.g. "fragrance-free,hangers").
+     */
     public record OrderHeader(
             int orderID,
             int statusID,
             String statusLabel,
             int customerID,
             String customerName,
-            String deliveryInstruction) {
+            String deliveryInstruction,
+            String instructions,
+            String preferences) {
     }
 
     /** One order line joined with its item, service and (once received) counted quantity. */
@@ -141,10 +147,14 @@ public class ProcessingRepository {
                 dryCleaningServiceId == null ? -1 : dryCleaningServiceId, statusFilter, statusFilter);
     }
 
-    /** One order with its customer and the delivery instruction from the customer's default address. */
+    /**
+     * One order with its customer, the delivery instruction from the customer's default address,
+     * and the note and preferences saved on the order itself.
+     */
     public Optional<OrderHeader> findOrder(int orderID) {
         return db.query("""
                 SELECT o.orderID, o.statusID, s.statusLabel, o.userID,
+                       o.instructions, o.preferences,
                        CONCAT(u.firstName, ' ', u.lastName) AS customerName,
                        (SELECT TOP 1 a.DeliveryInstructions FROM addresses a
                          WHERE a.userID = o.userID AND a.isDefault = 1
@@ -160,7 +170,9 @@ public class ProcessingRepository {
                         rs.getString("statusLabel"),
                         rs.getInt("userID"),
                         rs.getString("customerName"),
-                        rs.getString("deliveryInstruction")),
+                        rs.getString("deliveryInstruction"),
+                        rs.getString("instructions"),
+                        rs.getString("preferences")),
                 orderID).stream().findFirst();
     }
 

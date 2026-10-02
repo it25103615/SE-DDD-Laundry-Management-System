@@ -18,6 +18,10 @@ public record ProcessingOrderDetail(
         String statusLabel,
         String route,
         String deliveryInstruction,
+        // The note the customer wrote when placing the order; null when there is none.
+        String orderInstructions,
+        // The preferences the customer ticked, as display labels; empty when there are none.
+        List<String> orderPreferences,
         List<Line> lines,
         List<HistoryEntry> history,
         QualityCheck latestQualityCheck,

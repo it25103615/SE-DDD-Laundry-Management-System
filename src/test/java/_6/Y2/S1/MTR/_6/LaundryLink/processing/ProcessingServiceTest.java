@@ -49,7 +49,8 @@ class ProcessingServiceTest {
     /** Puts order #6 at the given status. */
     void orderAt(int statusID, String label) {
         when(repository.findOrder(ORDER)).thenReturn(Optional.of(
-                new OrderHeader(ORDER, statusID, label, 20, "Priya Fernando", "Ring bell twice")));
+                new OrderHeader(ORDER, statusID, label, 20, "Priya Fernando", "Ring bell twice",
+                        "Treat the collar stain", "fragrance-free,hangers")));
     }
 
     /** The TC-LP01 order: Shirt / Blouse x4 and Trousers / Skirt x2 (wash route). */
@@ -76,6 +77,23 @@ class ProcessingServiceTest {
 
     static HttpStatus statusOf(ApiException exception) {
         return exception.status;
+    }
+
+    // ---------------------------------------------------------------- order details
+
+    @Test
+    void orderDetailCarriesTheCustomersNoteAndPreferences() {
+        orderAt(9, "Washing");
+        singleLine(WASH_SERVICE);
+        when(repository.findLatestQualityCheck(ORDER)).thenReturn(Optional.empty());
+
+        var detail = service.getOrder(ORDER);
+
+        // The note is passed on as written; the stored codes become the labels staff read.
+        assertEquals("Treat the collar stain", detail.orderInstructions());
+        assertEquals(List.of("Fragrance-free detergent", "Return shirts on hangers"), detail.orderPreferences());
+        // The address's delivery instruction (TC-LP05) is still reported separately.
+        assertEquals("Ring bell twice", detail.deliveryInstruction());
     }
 
     // ---------------------------------------------------------------- receiving (LP01 - LP04)

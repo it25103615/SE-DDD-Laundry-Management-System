@@ -1,6 +1,7 @@
 package _6.Y2.S1.MTR._6.LaundryLink.processing;
 
 import _6.Y2.S1.MTR._6.LaundryLink.common.ApiException;
+import _6.Y2.S1.MTR._6.LaundryLink.orders.OrderPreference;
 import _6.Y2.S1.MTR._6.LaundryLink.processing.ProcessingRepository.CheckRow;
 import _6.Y2.S1.MTR._6.LaundryLink.processing.ProcessingRepository.LineRow;
 import _6.Y2.S1.MTR._6.LaundryLink.processing.ProcessingRepository.OrderHeader;
@@ -101,6 +102,9 @@ public class ProcessingService {
                 order.statusLabel(),
                 route.name(),
                 order.deliveryInstruction(),
+                order.instructions(),
+                // Stored as codes on the order; staff are shown the readable labels.
+                OrderPreference.labelsOf(order.preferences()),
                 lines.stream().map(line -> new ProcessingOrderDetail.Line(
                         line.orderLineID(), line.itemName(), line.serviceName(), line.quantity(),
                         line.receivedQuantity(), line.itemCondition())).toList(),

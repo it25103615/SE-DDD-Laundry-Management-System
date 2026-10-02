@@ -194,6 +194,12 @@ CREATE TABLE orders(
     orderID INTEGER IDENTITY(1, 1) PRIMARY KEY,
     statusID INTEGER,
     userID INTEGER,
+    -- What the customer asked for on the new-order "Instructions" step (migration 007).
+    -- instructions: the free-text note for the laundry team.
+    -- preferences: the ticked options as a comma-separated list of codes,
+    --              e.g. 'fragrance-free,hangers' (the codes are listed in OrderPreference.java).
+    instructions VARCHAR(500) NULL,
+    preferences VARCHAR(100) NULL,
 
     CONSTRAINT order_status_fk FOREIGN KEY(statusID)
         REFERENCES status(statusID),

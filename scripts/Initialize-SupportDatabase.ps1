@@ -9,11 +9,12 @@ param(
     [switch]$SampleData
 )
 # Fresh database: creates the complete current schema (initialize_database.sql).
-# Existing database: applies migrations 003, 004, 005 and 006 (all safe to re-run).
+# Existing database: applies migrations 003, 004, 005, 006 and 007 (all safe to re-run).
 # Migration 005 runs after the sample data: it creates the laundry processing tables when they
 # are missing and, once the sample data exists, adds the processing test orders after it.
-# Migration 006 runs last: it adds delivery.addressID when missing and fills it in for
+# Migration 006 runs next: it adds delivery.addressID when missing and fills it in for
 # delivery rows that have no address yet.
+# Migration 007 runs last: it adds orders.instructions and orders.preferences when missing.
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 
@@ -66,6 +67,11 @@ try {
     # delivery rows they create are given the customer's default address.
     Invoke-SqlFile $command 'database/migrations/006_delivery_address.sql'
     Write-Output 'Migration 006 applied (delivery address).'
+
+    # 007: orders.instructions and orders.preferences (added when missing). The application
+    # will not start without them, because Hibernate checks the columns at startup.
+    Invoke-SqlFile $command 'database/migrations/007_order_instructions.sql'
+    Write-Output 'Migration 007 applied (order instructions).'
 
     # Report which orders the laundry processing test cases (TC-LP01 to LP10) should use.
     $connection.ChangeDatabase('laundryLinkDB')
