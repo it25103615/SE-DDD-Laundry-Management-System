@@ -15,6 +15,7 @@ import _6.Y2.S1.MTR._6.LaundryLink.status.Status;
 import _6.Y2.S1.MTR._6.LaundryLink.status.StatusService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -24,6 +25,7 @@ import java.util.Optional;
 import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -130,6 +132,71 @@ class OrderServiceTest {
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
         verify(orderRepository, never()).save(any(Order.class));
         verify(orderRepository, never()).createDelivery(any(), any(), any(), any());
+    }
+
+    @Test
+    void storesTheNoteAndPreferencesOnTheOrder() {
+        prepareSuccessfulOrder();
+
+        CreateOrderRequest request = request(1, line(1, 1, 2));
+        request.setInstructions("  Treat the stain on the blue shirt collar.  ");
+        // Sent out of order and with a repeat: stored once each, in the enum's order.
+        request.setPreferences(List.of("hangers", "fragrance-free", "hangers"));
+
+        orderService.createOrder(request);
+
+        Order saved = savedOrder();
+        assertEquals("Treat the stain on the blue shirt collar.", saved.getInstructions());
+        assertEquals("fragrance-free,hangers", saved.getPreferences());
+    }
+
+    @Test
+    void storesNullWhenTheNoteIsBlankAndNothingIsTicked() {
+        prepareSuccessfulOrder();
+
+        CreateOrderRequest request = request(1, line(1, 1, 2));
+        request.setInstructions("   ");
+        request.setPreferences(List.of());
+
+        orderService.createOrder(request);
+
+        Order saved = savedOrder();
+        assertNull(saved.getInstructions());
+        assertNull(saved.getPreferences());
+    }
+
+    @Test
+    void rejectsAnUnknownPreferenceWithoutSavingTheOrder() {
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+
+        CreateOrderRequest request = request(1, line(1, 1, 2));
+        request.setPreferences(List.of("fragrance-free", "extra-starch"));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> orderService.createOrder(request));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(Order.class));
+        verify(orderRepository, never()).createDelivery(any(), any(), any(), any());
+    }
+
+    @Test
+    void returnsTheNoteAndPreferenceLabelsWithTheOrderDetails() {
+        Order order = orderWithLine(10, 1, 1, 1, 2, 360.0);
+        order.setInstructions("Treat the collar stain");
+        order.setPreferences("fragrance-free,hangers");
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        when(orderRepository.findByOrderIDAndUserID(10, 1)).thenReturn(Optional.of(order));
+        when(logService.getLogsByOrder(10)).thenReturn(List.of());
+
+        OrderDetailResponse response = orderService.getCustomerOrder(1, 10);
+
+        assertEquals("Treat the collar stain", response.getInstructions());
+        // The stored codes come back as the labels the pages show.
+        assertEquals(
+                List.of("Fragrance-free detergent", "Return shirts on hangers"),
+                response.getPreferences());
     }
 
     @Test
@@ -387,6 +454,27 @@ class OrderServiceTest {
         Status status = mock(Status.class);
         when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
         when(statusService.getByLabel("Unconfirmed")).thenReturn(status);
+    }
+
+    // Everything createOrder needs to succeed for customer 1 ordering item 1 with service 1.
+    private void prepareSuccessfulOrder() {
+        prepareCustomerAndStatus();
+        when(itemRepository.existsById(1)).thenReturn(true);
+        when(serviceRepository.existsById(1)).thenReturn(true);
+        when(servicePricingRepository.findByItemIDAndServiceID(1, 1))
+                .thenReturn(Optional.of(pricingWithDetails(1, 1, 180.0)));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            order.setOrderID(100);
+            return order;
+        });
+    }
+
+    // The Order object that createOrder handed to the repository to be saved.
+    private Order savedOrder() {
+        ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
+        verify(orderRepository).save(captor.capture());
+        return captor.getValue();
     }
 
     private CreateOrderRequest request(Integer userID, CreateOrderLineRequest... lines) {

@@ -15,4 +15,8 @@ public class OrderDetailResponse {
     private List<OrderLineDetailResponse> orderLines;
     private Double orderTotal;
     private List<OrderHistoryResponse> history;
+    // The customer's note for the laundry team; null when none was written.
+    private String instructions;
+    // The ticked preferences as display labels (e.g. "Fragrance-free detergent"); empty when none.
+    private List<String> preferences;
 }

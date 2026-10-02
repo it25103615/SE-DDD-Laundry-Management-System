@@ -4,7 +4,8 @@
  * Loads one order from GET /api/processing/orders/{id} and draws:
  *  - the timeline for the order's route (wash: Washing -> Drying -> Ironing, or
  *    dry clean: Dry Clean -> Ironing), with completed / current / locked stages;
- *  - the items, the customer's delivery instruction, the status history and issues;
+ *  - the items, the customer's instructions (the order's note and preferences, and the
+ *    address's delivery instruction), the status history and issues;
  *  - the actions the server says are allowed next: move to the next stage, a manual status
  *    change (invalid moves are refused by the server, TC-LP08), the quality check with a
  *    rework stage when it fails (TC-LP09), packing, and "Mark as Ready" (TC-LP10).
@@ -86,9 +87,25 @@
         <td>${line.receivedQuantity ?? '<span class="muted">Not received</span>'}</td>
         <td>${escape(line.itemCondition || "—")}</td></tr>`).join("");
 
-    // TC-LP05: show the instruction exactly as the customer wrote it.
+    // What the customer asked for, in up to three parts:
+    //  - the note written when placing the order (orderInstructions);
+    //  - the preferences ticked when placing the order (orderPreferences, readable labels);
+    //  - TC-LP05: the delivery instruction saved on the customer's address, exactly as written.
+    // Text typed by the customer is escaped; pre-wrap keeps the line breaks of a longer note.
+    const asWritten = (text) => `<span style="white-space:pre-wrap;overflow-wrap:anywhere">${escape(text)}</span>`;
+    const preferences = order.orderPreferences || [];
+    const instructionParts = [];
+    if (order.orderInstructions) instructionParts.push(asWritten(order.orderInstructions));
+    if (preferences.length) {
+      instructionParts.push(`<strong>Preferences</strong><br>${preferences.map((label) => escape(label)).join("<br>")}`);
+    }
+    if (order.deliveryInstruction) {
+      // When the order has no note, say so, so this heading does not sit straight under the box title.
+      if (!order.orderInstructions) instructionParts.unshift('<span class="muted">No note for this order.</span>');
+      instructionParts.push(`<strong>Delivery instruction</strong><br>${asWritten(order.deliveryInstruction)}`);
+    }
     $("instruction").innerHTML = `<strong>Customer instructions</strong><br>${
-      order.deliveryInstruction ? escape(order.deliveryInstruction) : '<span class="muted">No instructions.</span>'}`;
+      instructionParts.length ? instructionParts.join("<br><br>") : '<span class="muted">No instructions.</span>'}`;
 
     $("history-rows").innerHTML = order.history.length
       ? order.history.map((h) => `<tr><td>${escape(h.fromStatus || "—")}</td><td>${escape(h.toStatus)}</td><td>${escape(dateTime(h.changedAt))}</td></tr>`).join("")
