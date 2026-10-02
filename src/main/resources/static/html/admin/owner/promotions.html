@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Promotion Management | LaundryLink</title>
+    <link rel="stylesheet" href="../../../css/global.css" />
+    <link rel="stylesheet" href="../../../css/dashboard.css" />
+    <script src="../../../js/global-pre.js"></script>
+    <script src="../../../js/global-post.js" defer></script>
+    <script src="../../../js/admin/promotion-management.js" defer></script>
+  </head>
+  <body>
+    <nav class="dashboard_nav">
+      <ul class="navigation">
+        <li class="logo">
+          <a href="administration_overview.html"><h3>LaundryLink</h3></a>
+        </li>
+        <li class="nav_right">
+          <a href="administration_overview.html">Dashboard</a
+          ><a href="payments_billing.html">Payments &amp; Billing</a
+          ><a href="promotions.html">Promotions</a
+          ><a href="reports.html">Reports</a
+          ><span class="profile_badge">AD</span>
+        </li>
+      </ul>
+    </nav>
+    <main>
+      <header class="page_header">
+        <div class="subtitle">FINANCE</div>
+        <h1>Promotion Management</h1>
+        <p>Create, update and activate customer billing promotions.</p>
+      </header>
+
+      <section class="grid grid_two" style="align-items: start">
+        <article class="card">
+          <span class="muted small">PROMOTION SETUP</span>
+          <h2 id="promotion-form-title">Create Promotion</h2>
+          <form id="promotion-form">
+            <input id="promotion-id" type="hidden" />
+            <div class="field">
+              <label for="promotion-code">Promotion code</label>
+              <input class="input" id="promotion-code" name="promotionCode" type="text" required />
+            </div>
+            <div class="field">
+              <label for="promotion-name">Promotion name</label>
+              <input class="input" id="promotion-name" name="promotionName" type="text" required />
+            </div>
+            <div class="grid grid_two">
+              <div class="field">
+                <label for="discount-type">Discount type</label>
+                <select class="input" id="discount-type" name="discountType" required>
+                  <option value="PERCENTAGE">PERCENTAGE</option>
+                  <option value="FIXED_AMOUNT">FIXED_AMOUNT</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="discount-value">Discount value</label>
+                <input class="input" id="discount-value" name="discountValue" type="number" min="0.01" step="0.01" required />
+              </div>
+            </div>
+            <div class="field">
+              <label for="minimum-order-amount">Minimum order amount</label>
+              <input class="input" id="minimum-order-amount" name="minimumOrderAmount" type="number" min="0" step="0.01" required />
+            </div>
+            <div class="grid grid_two">
+              <div class="field">
+                <label for="valid-from">Valid from</label>
+                <input class="input" id="valid-from" name="validFrom" type="date" required />
+              </div>
+              <div class="field">
+                <label for="valid-to">Valid to</label>
+                <input class="input" id="valid-to" name="validTo" type="date" required />
+              </div>
+            </div>
+            <label class="check_row">
+              <input id="promotion-active" name="active" type="checkbox" checked />
+              <span>Active promotion</span>
+            </label>
+            <p class="alert alert_success" id="promotion-success" hidden></p>
+            <p class="alert alert_error" id="promotion-error" hidden></p>
+            <div class="actions">
+              <button class="custom_button custom_button_bg" id="save-promotion" type="submit">Create Promotion</button>
+              <button class="custom_button custom_button_nobg" id="reset-promotion-form" type="button">Clear</button>
+            </div>
+          </form>
+        </article>
+
+        <article class="card">
+          <span class="muted small">CONFIGURATION</span>
+          <h2>Supported Promotion Fields</h2>
+          <div class="top_bar">
+            <span>Discount types</span>
+            <strong>PERCENTAGE, FIXED_AMOUNT</strong>
+          </div>
+          <div class="top_bar">
+            <span>Validation</span>
+            <strong>Backend enforced</strong>
+          </div>
+          <div class="top_bar">
+            <span>Activation</span>
+            <strong>Activate / deactivate</strong>
+          </div>
+        </article>
+      </section>
+
+      <div class="table_wrap" style="margin-top: 30px">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>CODE</th>
+              <th>NAME</th>
+              <th>TYPE</th>
+              <th>VALUE</th>
+              <th>MINIMUM</th>
+              <th>VALID</th>
+              <th>STATUS</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="promotion-table">
+            <tr>
+              <td colspan="9">Loading promotions...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </body>
+</html>

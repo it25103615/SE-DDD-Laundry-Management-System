@@ -1,7 +1,7 @@
 package _6.Y2.S1.MTR._6.LaundryLink.orders;
 
 import _6.Y2.S1.MTR._6.LaundryLink.orderlines.OrderLine;
-import _6.Y2.S1.MTR._6.LaundryLink.entity.shared.Status;
+import _6.Y2.S1.MTR._6.LaundryLink.status.Status;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;

@@ -120,12 +120,12 @@
   function lineRow(line, data, selectedServices) {
     const availableItems = data.items.filter((item) => data.pricing.some((price) =>
       price.itemID === item.itemID && selectedServices.includes(price.serviceID)));
-    const itemID = line?.itemID || availableItems[0]?.itemID;
+    const itemID = line?.itemID || null;
     const availableServices = data.services.filter((service) => selectedServices.includes(service.serviceID)
-      && data.pricing.some((price) => price.itemID === itemID && price.serviceID === service.serviceID));
+      && (itemID === null || data.pricing.some((price) => price.itemID === itemID && price.serviceID === service.serviceID)));
     const serviceID = availableServices.some((service) => service.serviceID === line?.serviceID)
       ? line.serviceID : availableServices[0]?.serviceID;
-    return `<div class="card item-row"><div class="grid grid_three"><div class="field"><label>Item</label><select class="input item-name" required>${availableItems.map((item) => `<option value="${item.itemID}" ${item.itemID === itemID ? "selected" : ""}>${escapeHtml(item.itemName)}</option>`).join("")}</select></div><div class="field"><label>Service</label><select class="input item-service" required>${availableServices.map((service) => `<option value="${service.serviceID}" ${service.serviceID === serviceID ? "selected" : ""}>${escapeHtml(service.serviceName)}</option>`).join("")}</select></div><div class="field"><label>Quantity</label><input class="input item-qty" type="number" min="1" value="${Number(line?.quantity || 1)}" required></div></div><div class="top_bar"><button class="link remove-item" type="button">Remove</button><strong class="line-total"></strong></div></div>`;
+    return `<div class="card item-row"><div class="grid grid_three"><div class="field"><label>Item</label><select class="input item-name" required>${itemID === null ? '<option value="" selected disabled>Choose an item</option>' : ""}${availableItems.map((item) => `<option value="${item.itemID}" ${item.itemID === itemID ? "selected" : ""}>${escapeHtml(item.itemName)}</option>`).join("")}</select></div><div class="field"><label>Service</label><select class="input item-service" required>${availableServices.map((service) => `<option value="${service.serviceID}" ${service.serviceID === serviceID ? "selected" : ""}>${escapeHtml(service.serviceName)}</option>`).join("")}</select></div><div class="field"><label>Quantity</label><input class="input item-qty" type="number" min="1" value="${Number(line?.quantity || 1)}" required></div></div><div class="top_bar"><button class="link remove-item" type="button">Remove</button><strong class="line-total"></strong></div></div>`;
   }
 
   function bindLineRows(container, data, selectedServices, onChange) {
@@ -135,11 +135,11 @@
       const serviceSelect = row.querySelector(".item-service");
       const prior = Number(serviceSelect.value);
       const services = data.services.filter((service) => selectedServices.includes(service.serviceID)
-        && priceFor(itemID, service.serviceID));
+        && (!itemID || priceFor(itemID, service.serviceID)));
       serviceSelect.innerHTML = services.map((service) => `<option value="${service.serviceID}" ${service.serviceID === prior ? "selected" : ""}>${escapeHtml(service.serviceName)}</option>`).join("");
       const price = priceFor(itemID, serviceSelect.value);
       const quantity = Number(row.querySelector(".item-qty").value || 0);
-      row.querySelector(".line-total").textContent = price ? money(price.price * quantity) : "Not available";
+      row.querySelector(".line-total").textContent = price ? money(price.price * quantity) : (itemID ? "Not available" : "Choose an item");
       onChange();
     };
     const bind = (row) => {

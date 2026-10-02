@@ -1,7 +1,10 @@
 package _6.Y2.S1.MTR._6.LaundryLink.config;
 
+import _6.Y2.S1.MTR._6.LaundryLink.orders.OrderAccess;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -9,14 +12,25 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.provisioning.JdbcUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import javax.sql.DataSource;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
+    // The {userID} part of /api/orders/customer/{userID}/... as a number, or null when it is
+    // not a number (which then matches no customer, so access is refused).
+    private static Integer customerID(RequestAuthorizationContext context) {
+        try {
+            return Integer.valueOf(context.getVariables().get("userID"));
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, OrderAccess orderAccess) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/html/admin/owner/**").hasAnyRole("OWNER", "ADMIN")
@@ -28,6 +42,23 @@ public class SecurityConfig {
                         .requestMatchers("/api/account/**").authenticated()
                         // Laundry processing: the staff pages and their API are for staff, managers and owners only.
                         .requestMatchers("/api/processing/**", "/html/staff/**").hasAnyRole("STAFF", "MANAGER", "OWNER", "ADMIN")
+                        // Rider pages and the rider API are for rider accounts only (RiderService also checks this).
+                        .requestMatchers("/api/rider/**", "/html/rider/**").hasRole("RIDER")
+                        // Orders. A customer can only see and change their own orders; staff, riders,
+                        // managers and owners can see every order.
+                        //  - /management/**: the all-orders views. Reading is for order staff;
+                        //    changing an order's lines there is for managers and owners.
+                        //  - /customer/{userID}/**: one customer's orders. Reading is for that
+                        //    customer or order staff; changing is for that customer only.
+                        //  - anything else under /api/orders (placing an order) needs a signed-in
+                        //    user; OrderController then checks who the order is for.
+                        .requestMatchers(HttpMethod.GET, "/api/orders/management/**").hasAnyRole("STAFF", "RIDER", "MANAGER", "OWNER", "ADMIN")
+                        .requestMatchers("/api/orders/management/**").hasAnyRole("MANAGER", "OWNER", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/orders/customer/{userID}/**").access((authentication, context) ->
+                                new AuthorizationDecision(orderAccess.canViewOrdersOf(authentication.get(), customerID(context))))
+                        .requestMatchers("/api/orders/customer/{userID}/**").access((authentication, context) ->
+                                new AuthorizationDecision(orderAccess.isOwnAccount(authentication.get(), customerID(context))))
+                        .requestMatchers("/api/orders/**").authenticated()
                         .anyRequest().permitAll()
                 )
                 .exceptionHandling(exceptions -> exceptions

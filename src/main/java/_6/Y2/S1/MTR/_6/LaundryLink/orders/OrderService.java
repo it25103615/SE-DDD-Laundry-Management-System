@@ -2,14 +2,14 @@ package _6.Y2.S1.MTR._6.LaundryLink.orders;
 
 import _6.Y2.S1.MTR._6.LaundryLink.orderlines.OrderLine;
 import _6.Y2.S1.MTR._6.LaundryLink.orderlines.OrderLineService;
-import _6.Y2.S1.MTR._6.LaundryLink.entity.shared.Log;
-import _6.Y2.S1.MTR._6.LaundryLink.service.shared.LogService;
+import _6.Y2.S1.MTR._6.LaundryLink.log.Log;
+import _6.Y2.S1.MTR._6.LaundryLink.log.LogService;
 import _6.Y2.S1.MTR._6.LaundryLink.orders.dto.CreateOrderRequest;
 import _6.Y2.S1.MTR._6.LaundryLink.orders.dto.CreateOrderResponse;
 import _6.Y2.S1.MTR._6.LaundryLink.orders.dto.CreatedOrderLineResponse;
 import _6.Y2.S1.MTR._6.LaundryLink.orders.dto.ModifyOrderRequest;
-import _6.Y2.S1.MTR._6.LaundryLink.entity.shared.Status;
-import _6.Y2.S1.MTR._6.LaundryLink.service.shared.StatusService;
+import _6.Y2.S1.MTR._6.LaundryLink.status.Status;
+import _6.Y2.S1.MTR._6.LaundryLink.status.StatusService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +46,8 @@ public class OrderService {
     @Transactional
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
         validateCustomer(request.getUserID());
+        // Checked before anything is saved, so a bad address never leaves a half-made order.
+        validateAddress(request.getAddressID(), request.getUserID());
 
         Status initialStatus = statusService.getByLabel(INITIAL_STATUS_LABEL);
         Order order = new Order();
@@ -59,6 +61,18 @@ public class OrderService {
         }
 
         Order savedOrder = orderRepository.save(order);
+
+        // The save above has already inserted the order, so its generated orderID is available.
+        // Creating the delivery row in this same @Transactional method means the order, its
+        // lines and its delivery row are either all saved or all rolled back together.
+        // The chosen address goes on the delivery row; when none was chosen the query stores
+        // the customer's default address instead.
+        orderRepository.createDelivery(
+                savedOrder.getOrderID(),
+                savedOrder.getUserID(),
+                request.getPickupScheduled(),
+                request.getAddressID());
+
         return toCreateOrderResponse(savedOrder);
     }
 
@@ -216,6 +230,14 @@ public class OrderService {
     private void validateCustomer(Integer userID) {
         if (orderRepository.countCustomersByUserID(userID) == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found");
+        }
+    }
+
+    // An order may only use one of the customer's own saved addresses. No address at all is
+    // fine: the delivery row then falls back to the customer's default address.
+    private void validateAddress(Integer addressID, Integer userID) {
+        if (addressID != null && orderRepository.countAddressesOwnedByCustomer(addressID, userID) == 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pickup address not found for this customer");
         }
     }
 

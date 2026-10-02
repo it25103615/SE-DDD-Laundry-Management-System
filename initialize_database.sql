@@ -68,12 +68,12 @@ IF OBJECT_ID('dbo.addresses', 'U') IS NOT NULL
     DROP TABLE dbo.addresses;
 IF OBJECT_ID('dbo.status', 'U') IS NOT NULL
     DROP TABLE dbo.status;
+IF OBJECT_ID('dbo.servicePricing', 'U') IS NOT NULL
+    DROP TABLE dbo.servicePricing;
 IF OBJECT_ID('dbo.items', 'U') IS NOT NULL
     DROP TABLE dbo.items;
 IF OBJECT_ID('dbo.services', 'U') IS NOT NULL
     DROP TABLE dbo.services;
-IF OBJECT_ID('dbo.servicePricing', 'U') IS NOT NULL
-    DROP TABLE dbo.servicePricing;
 IF OBJECT_ID('dbo.users', 'U') IS NOT NULL
     DROP TABLE dbo.users;
 
@@ -173,7 +173,10 @@ CREATE TABLE addresses(
     city VARCHAR(30),
     state VARCHAR(30), 
     DeliveryInstructions VARCHAR(250), 
-    isDefault BIT NOT NULL DEFAULT 0, 
+    isDefault BIT NOT NULL DEFAULT 0,
+    -- The customer who owns the address. NULL means the customer deleted it: the
+    -- application keeps the row (with isDefault = 0) so delivery rows that used it
+    -- still show where the order went.
     userID INTEGER,
 
     CONSTRAINT address_user_fk FOREIGN KEY(userID)
@@ -383,10 +386,20 @@ CREATE TABLE delivery(
     pickup_scheduled DATETIME,
     pickup_actual DATETIME,
     delivery_time DATETIME,
+    -- The customer's saved address this order is collected from and returned to
+    -- (chosen on the schedule step). NULL means "use the customer's default address".
+    addressID INTEGER,
 
     CONSTRAINT delivery_orders_fk FOREIGN KEY(orderID)
         REFERENCES orders(orderID),
-        
+
+    -- The application never removes an address row (a deleted address only loses
+    -- its userID), so this link normally stays intact. SET NULL is a safety net for
+    -- a row removed directly in the database: the delivery row is kept and falls
+    -- back to the customer's default address.
+    CONSTRAINT delivery_addresses_fk FOREIGN KEY(addressID)
+        REFERENCES addresses(addressID) ON DELETE SET NULL,
+
     CONSTRAINT delivery_users_fk FOREIGN KEY(userID)
         REFERENCES users(userID),
 

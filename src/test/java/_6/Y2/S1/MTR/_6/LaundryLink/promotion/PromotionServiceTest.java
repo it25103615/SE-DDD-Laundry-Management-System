@@ -5,6 +5,7 @@ import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingLine;
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingRepository;
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingService;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -13,6 +14,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -33,6 +35,86 @@ class PromotionServiceTest {
         assertTrue(response.isValid());
         assertEquals(BigDecimal.valueOf(100.00).setScale(2), response.getDiscountAmount());
         assertEquals(BigDecimal.valueOf(900.00).setScale(2), response.getFinalPayableAmount());
+    }
+
+    @Test
+    void customerValidatesPromotionForOwnOrder() {
+        TestPromotionRepository promotionRepository = new TestPromotionRepository(validPercentagePromotion());
+        PromotionService service = newService(promotionRepository, BigDecimal.valueOf(1000.0), Optional.of(7));
+
+        PromotionValidationResponse response = service.validatePromotionForCustomer("SAVE10", 1, 7);
+
+        assertTrue(response.isValid());
+        assertEquals(BigDecimal.valueOf(100.00).setScale(2), response.getDiscountAmount());
+    }
+
+    @Test
+    void rejectsPromotionValidationForAnotherCustomersOrder() {
+        TestPromotionRepository promotionRepository = new TestPromotionRepository(validPercentagePromotion());
+        PromotionService service = newService(promotionRepository, BigDecimal.valueOf(1000.0), Optional.of(8));
+
+        assertThrows(AccessDeniedException.class, () ->
+                service.validatePromotionForCustomer("SAVE10", 1, 7));
+    }
+
+    @Test
+    void customerAppliesPromotionToOwnOrder() {
+        TestPromotionRepository promotionRepository = new TestPromotionRepository(validPercentagePromotion());
+        PromotionService service = newService(promotionRepository, BigDecimal.valueOf(1000.0), Optional.of(7));
+
+        PromotionApplicationResponse response = service.applyPromotionForCustomer("save10", 1, 7);
+
+        assertEquals(1, response.getOrderID());
+        assertEquals(1, promotionRepository.appliedOrderID);
+        assertEquals(1, promotionRepository.appliedPromotionID);
+        assertEquals(BigDecimal.valueOf(100.00).setScale(2), promotionRepository.appliedDiscountAmount);
+    }
+
+    @Test
+    void rejectsPromotionApplyForAnotherCustomersOrderWithoutChangingOrderPromotions() {
+        TestPromotionRepository promotionRepository = new TestPromotionRepository(validPercentagePromotion());
+        PromotionService service = newService(promotionRepository, BigDecimal.valueOf(1000.0), Optional.of(8));
+
+        assertThrows(AccessDeniedException.class, () ->
+                service.applyPromotionForCustomer("SAVE10", 1, 7));
+
+        assertNull(promotionRepository.appliedOrderID);
+        assertNull(promotionRepository.appliedPromotionID);
+        assertNull(promotionRepository.appliedDiscountAmount);
+    }
+
+    @Test
+    void rejectsPromotionApplyForUnknownOrderWithoutChangingOrderPromotions() {
+        TestPromotionRepository promotionRepository = new TestPromotionRepository(validPercentagePromotion());
+        PromotionService service = newService(promotionRepository, BigDecimal.valueOf(1000.0), Optional.empty());
+
+        assertThrows(NoSuchElementException.class, () ->
+                service.applyPromotionForCustomer("SAVE10", 99, 7));
+
+        assertNull(promotionRepository.appliedOrderID);
+        assertNull(promotionRepository.appliedPromotionID);
+        assertNull(promotionRepository.appliedDiscountAmount);
+    }
+
+    @Test
+    void ownerPromotionCrudStillWorksWithoutCustomerOwnershipCheck() {
+        TestPromotionRepository promotionRepository = new TestPromotionRepository(validPercentagePromotion());
+        PromotionService service = newService(promotionRepository, BigDecimal.valueOf(1000.0), Optional.of(7));
+        PromotionRequest request = validRequest();
+        request.setPromotionCode("FIXED20");
+        request.setPromotionName("Fixed twenty");
+        request.setDiscountType(DiscountType.FIXED_AMOUNT);
+        request.setDiscountValue(BigDecimal.valueOf(20));
+
+        Promotion created = service.createPromotion(request);
+        assertEquals("FIXED20", created.getPromotionCode());
+
+        request.setPromotionName("Fixed twenty updated");
+        Promotion updated = service.updatePromotion(created.getPromotionID(), request);
+        assertEquals("Fixed twenty updated", updated.getPromotionName());
+
+        Promotion inactive = service.setPromotionActive(created.getPromotionID(), false);
+        assertFalse(inactive.isActive());
     }
 
     @Test
@@ -118,8 +200,12 @@ class PromotionServiceTest {
     }
 
     private PromotionService newService(TestPromotionRepository promotionRepository, BigDecimal subtotal) {
-        BillingService billingService = new BillingService(new TestBillingRepository(subtotal));
-        return new PromotionService(promotionRepository, billingService, FIXED_CLOCK);
+        return newService(promotionRepository, subtotal, Optional.of(7));
+    }
+
+    private PromotionService newService(TestPromotionRepository promotionRepository, BigDecimal subtotal, Optional<Integer> userID) {
+        BillingService ownedBillingService = new BillingService(new TestBillingRepository(userID, subtotal));
+        return new PromotionService(promotionRepository, ownedBillingService, FIXED_CLOCK);
     }
 
     private Promotion validPercentagePromotion() {
@@ -229,15 +315,21 @@ class PromotionServiceTest {
     }
 
     private static class TestBillingRepository implements BillingRepository {
+        private final Optional<Integer> userID;
         private final BigDecimal subtotal;
 
         TestBillingRepository(BigDecimal subtotal) {
+            this(Optional.of(7), subtotal);
+        }
+
+        TestBillingRepository(Optional<Integer> userID, BigDecimal subtotal) {
+            this.userID = userID;
             this.subtotal = subtotal;
         }
 
         @Override
         public Optional<Integer> findOrderUserID(Integer orderID) {
-            return Optional.of(7);
+            return userID;
         }
 
         @Override

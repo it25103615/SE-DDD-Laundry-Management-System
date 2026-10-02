@@ -2,6 +2,7 @@ package _6.Y2.S1.MTR._6.LaundryLink.promotion;
 
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingDetails;
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingService;
+import _6.Y2.S1.MTR._6.LaundryLink.payment.PaymentAccessService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,16 +18,31 @@ import java.util.NoSuchElementException;
 public class PromotionService {
     private final PromotionRepository promotionRepository;
     private final BillingService billingService;
+    private final PaymentAccessService paymentAccessService;
     private final Clock clock;
 
     @Autowired
-    public PromotionService(PromotionRepository promotionRepository, BillingService billingService) {
-        this(promotionRepository, billingService, Clock.systemDefaultZone());
+    public PromotionService(
+            PromotionRepository promotionRepository,
+            BillingService billingService,
+            PaymentAccessService paymentAccessService
+    ) {
+        this(promotionRepository, billingService, paymentAccessService, Clock.systemDefaultZone());
     }
 
     PromotionService(PromotionRepository promotionRepository, BillingService billingService, Clock clock) {
+        this(promotionRepository, billingService, null, clock);
+    }
+
+    PromotionService(
+            PromotionRepository promotionRepository,
+            BillingService billingService,
+            PaymentAccessService paymentAccessService,
+            Clock clock
+    ) {
         this.promotionRepository = promotionRepository;
         this.billingService = billingService;
+        this.paymentAccessService = paymentAccessService;
         this.clock = clock;
     }
 
@@ -68,10 +84,39 @@ public class PromotionService {
         return validatePromotionForSubtotal(promotion, billingDetails.getSubtotal());
     }
 
+    public PromotionValidationResponse validatePromotionForCustomer(String promotionCode, Integer orderID, Integer customerID) {
+        Promotion promotion = findByCode(promotionCode);
+        BillingDetails billingDetails = billingService.getBillingDetails(orderID);
+        verifyOrderBelongsToCustomer(billingDetails, customerID);
+        return validatePromotionForSubtotal(promotion, billingDetails.getSubtotal());
+    }
+
     @Transactional
     public PromotionApplicationResponse applyPromotion(String promotionCode, Integer orderID) {
         Promotion promotion = findByCode(promotionCode);
         BillingDetails billingDetails = billingService.getBillingDetails(orderID);
+        PromotionValidationResponse validation = validatePromotionForSubtotal(promotion, billingDetails.getSubtotal());
+
+        if (!validation.isValid()) {
+            throw new IllegalArgumentException(validation.getMessage());
+        }
+
+        promotionRepository.applyPromotion(orderID, promotion.getPromotionID(), validation.getDiscountAmount());
+        return new PromotionApplicationResponse(
+                orderID,
+                promotion.getPromotionID(),
+                promotion.getPromotionCode(),
+                validation.getDiscountAmount(),
+                validation.getFinalPayableAmount(),
+                "Promotion applied successfully"
+        );
+    }
+
+    @Transactional
+    public PromotionApplicationResponse applyPromotionForCustomer(String promotionCode, Integer orderID, Integer customerID) {
+        Promotion promotion = findByCode(promotionCode);
+        BillingDetails billingDetails = billingService.getBillingDetails(orderID);
+        verifyOrderBelongsToCustomer(billingDetails, customerID);
         PromotionValidationResponse validation = validatePromotionForSubtotal(promotion, billingDetails.getSubtotal());
 
         if (!validation.isValid()) {
@@ -144,6 +189,17 @@ public class PromotionService {
             throw new IllegalArgumentException("Promotion code is required");
         }
         return promotionRepository.findByCode(normalizeCode(promotionCode)).orElseThrow(NoSuchElementException::new);
+    }
+
+    private void verifyOrderBelongsToCustomer(BillingDetails billingDetails, Integer customerID) {
+        if (paymentAccessService != null) {
+            paymentAccessService.verifyOrderBelongsToCustomer(billingDetails, customerID);
+            return;
+        }
+
+        if (!billingDetails.getUserID().equals(customerID)) {
+            throw new org.springframework.security.access.AccessDeniedException("Order does not belong to the current customer");
+        }
     }
 
     private Promotion toPromotion(Integer promotionID, PromotionRequest request) {

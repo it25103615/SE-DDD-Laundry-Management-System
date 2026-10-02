@@ -7,14 +7,15 @@ Spring Boot / Java 26 laundry management application.
 ```text
 src/main/java/_6/Y2/S1/MTR/_6/LaundryLink/
   LaundryLinkApplication.java
-  controller/    HTTP endpoints, grouped by module
-  service/       Business rules, grouped by module
-  repository/    Database access, grouped by module
-  entity/        Database models, grouped by module
-  dto/           Request and response objects, grouped by module
-  config/        Spring and security configuration
-  security/      Identity and access checks
-  exception/     API exception handlers
+  account/  address/  user/  auth/                            User and account management
+  orders/  orderlines/  items/  services/  servicepricing/    Order and reservation management
+  processing/                                                 Laundry processing
+  rider/                                                      Pickup and delivery
+  payment/  billing/  promotion/                              Payments, billing and promotions
+  support/                                                    Reporting, administration and support
+  status/  log/  notification/                                Shared statuses, status logs and inbox
+  common/                                                     Shared API exception types
+  config/                                                     Spring and security configuration
 src/main/resources/
   application.properties
   static/        HTML, CSS and JavaScript
@@ -24,9 +25,9 @@ scripts/        Local setup and startup scripts
 Documentation/  Project and evaluation guides
 ```
 
-Each main layer contains module packages for `account`, `order`, `processing`, `rider`, `payment`, and `support`. Common order statuses and logs use `shared` packages. Package documentation reserves locations for work that has not yet been merged; it does not mean those modules are implemented.
+The Java code is organised **package-by-feature**: each feature package holds its own controller, service, repository and entity classes, with request and response types either beside them or in a `dto` sub-package. There are no top-level `controller`, `service`, `repository`, `entity` or `dto` packages.
 
-See [the team structure guide](Documentation/Project-Structure.md) for ownership and where to add files.
+See [the team structure guide](Documentation/Project-Structure.md) for ownership and where to add files. If you are looking for a file that used to live under one of the old layer packages, use the lookup table in [the package restructure record](Documentation/Package-Restructure.md).
 
 ## Run and evaluate
 

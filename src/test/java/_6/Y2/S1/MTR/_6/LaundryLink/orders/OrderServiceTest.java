@@ -2,8 +2,8 @@ package _6.Y2.S1.MTR._6.LaundryLink.orders;
 
 import _6.Y2.S1.MTR._6.LaundryLink.items.ItemRepository;
 import _6.Y2.S1.MTR._6.LaundryLink.orderlines.OrderLineService;
-import _6.Y2.S1.MTR._6.LaundryLink.entity.shared.Log;
-import _6.Y2.S1.MTR._6.LaundryLink.service.shared.LogService;
+import _6.Y2.S1.MTR._6.LaundryLink.log.Log;
+import _6.Y2.S1.MTR._6.LaundryLink.log.LogService;
 import _6.Y2.S1.MTR._6.LaundryLink.orders.dto.CreateOrderLineRequest;
 import _6.Y2.S1.MTR._6.LaundryLink.orders.dto.CreateOrderRequest;
 import _6.Y2.S1.MTR._6.LaundryLink.orders.dto.CreateOrderResponse;
@@ -11,13 +11,14 @@ import _6.Y2.S1.MTR._6.LaundryLink.orders.dto.ModifyOrderRequest;
 import _6.Y2.S1.MTR._6.LaundryLink.servicepricing.ServicePricing;
 import _6.Y2.S1.MTR._6.LaundryLink.servicepricing.ServicePricingRepository;
 import _6.Y2.S1.MTR._6.LaundryLink.services.ServiceRepository;
-import _6.Y2.S1.MTR._6.LaundryLink.entity.shared.Status;
-import _6.Y2.S1.MTR._6.LaundryLink.service.shared.StatusService;
+import _6.Y2.S1.MTR._6.LaundryLink.status.Status;
+import _6.Y2.S1.MTR._6.LaundryLink.status.StatusService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.ArrayList;
@@ -73,12 +74,62 @@ class OrderServiceTest {
             return order;
         });
 
-        CreateOrderResponse response = orderService.createOrder(request(1, line(1, 1, 2)));
+        CreateOrderRequest request = request(1, line(1, 1, 2));
+        LocalDateTime pickup = LocalDateTime.now().plusDays(1).withHour(8).withMinute(0).withSecond(0).withNano(0);
+        request.setPickupScheduled(pickup);
+
+        CreateOrderResponse response = orderService.createOrder(request);
 
         assertEquals(100, response.getOrderID());
         assertEquals("Unconfirmed", response.getStatusLabel());
         assertEquals(360.0, response.getOrderLines().getFirst().getLinePrice());
         verify(orderRepository).save(any(Order.class));
+        // The delivery row must be created for the saved order, with the customer's pickup time.
+        // No address was chosen, so null is passed and the query falls back to the default address.
+        verify(orderRepository).createDelivery(100, 1, pickup, null);
+    }
+
+    @Test
+    void storesTheChosenAddressOnTheDeliveryRow() {
+        ServicePricing pricing = pricingWithDetails(1, 1, 180.0);
+        Status status = mock(Status.class);
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        // Address 7 belongs to customer 1.
+        when(orderRepository.countAddressesOwnedByCustomer(7, 1)).thenReturn(1);
+        when(itemRepository.existsById(1)).thenReturn(true);
+        when(serviceRepository.existsById(1)).thenReturn(true);
+        when(servicePricingRepository.findByItemIDAndServiceID(1, 1)).thenReturn(Optional.of(pricing));
+        when(statusService.getByLabel("Unconfirmed")).thenReturn(status);
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            order.setOrderID(100);
+            return order;
+        });
+
+        CreateOrderRequest request = request(1, line(1, 1, 2));
+        request.setAddressID(7);
+
+        orderService.createOrder(request);
+
+        verify(orderRepository).createDelivery(100, 1, null, 7);
+    }
+
+    @Test
+    void rejectsAnAddressThatBelongsToAnotherCustomerWithoutSavingTheOrder() {
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        // Address 8 is not one of customer 1's addresses.
+        when(orderRepository.countAddressesOwnedByCustomer(8, 1)).thenReturn(0);
+
+        CreateOrderRequest request = request(1, line(1, 1, 2));
+        request.setAddressID(8);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> orderService.createOrder(request));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(Order.class));
+        verify(orderRepository, never()).createDelivery(any(), any(), any(), any());
     }
 
     @Test
@@ -161,6 +212,8 @@ class OrderServiceTest {
                 () -> orderService.createOrder(request(1, line(1, 1, 1), line(99, 1, 1))));
 
         verify(orderRepository, never()).save(any(Order.class));
+        // A failed order must not leave an orphan delivery row behind.
+        verify(orderRepository, never()).createDelivery(any(), any(), any(), any());
     }
 
     @Test

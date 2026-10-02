@@ -12,12 +12,12 @@ import static org.junit.jupiter.api.Assertions.*;
 class BillingServiceTest {
 
     @Test
-    void calculatesLineTotalsSubtotalAndFinalPayableAmount() {
+    void calculatesSubtotalAndFinalPayableAmountFromStoredLineTotals() {
         BillingRepository repository = new TestBillingRepository(
                 Optional.of(7),
                 List.of(
-                        new BillingLine(1, 1, 1, 5, BigDecimal.valueOf(180.0)),
-                        new BillingLine(2, 2, 2, 3, BigDecimal.valueOf(150.0))
+                        new BillingLine(1, 1, 1, 5, BigDecimal.valueOf(900.0)),
+                        new BillingLine(2, 2, 2, 3, BigDecimal.valueOf(450.0))
                 ),
                 BigDecimal.ZERO
         );
@@ -50,7 +50,7 @@ class BillingServiceTest {
     void reflectsAppliedDiscountInFinalPayableAmount() {
         BillingRepository repository = new TestBillingRepository(
                 Optional.of(7),
-                List.of(new BillingLine(1, 1, 1, 5, BigDecimal.valueOf(180.0))),
+                List.of(new BillingLine(1, 1, 1, 5, BigDecimal.valueOf(900.0))),
                 BigDecimal.valueOf(150.0)
         );
         BillingService service = new BillingService(repository);

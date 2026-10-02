@@ -28,8 +28,21 @@
     else window.alert(`${title}${detail ? `\n${detail}` : ""}`);
   }
 
-  async function api(path, options) {
-    const response = await fetch(`${API}${path}`, options);
+  async function api(path, options = {}) {
+    const headers = new Headers(options.headers);
+    headers.set("Accept", "application/json");
+    if (!["GET", "HEAD", "OPTIONS"].includes((options.method || "GET").toUpperCase())) {
+      const csrf = await api("/auth/csrf");
+      headers.set(csrf.headerName, csrf.token);
+    }
+    const response = await fetch(`${API}${path}`, { ...options, headers, credentials: "same-origin" });
+    if (response.redirected) {
+      throw new Error("The order request was redirected. Refresh the page and check your sign-in before trying again.");
+    }
+    const isJson = /\bapplication\/(?:[\w.-]+\+)?json\b/i.test(response.headers.get("Content-Type") || "");
+    if (response.status !== 204 && !isJson) {
+      throw new Error(`The order API returned an unexpected response (HTTP ${response.status}). Please refresh and try again.`);
+    }
     if (!response.ok) {
       let message = "Please review the entered order information and try again.";
       try {
@@ -39,6 +52,42 @@
       throw new Error(message);
     }
     return response.status === 204 ? null : response.json();
+  }
+
+  // Turns the schedule step's date ("2026-10-02") and time window ("8:00 AM – 11:00 AM") into
+  // the start of that window as a local date-time ("2026-10-02T08:00:00"), which the API stores
+  // as the delivery row's pickup_scheduled. Returns null when no pickup slot has been chosen.
+  function pickupDateTime(schedule) {
+    const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)/i.exec(schedule?.time || "");
+    if (!schedule?.date || !match) return null;
+    let hours = Number(match[1]) % 12;
+    if (match[3].toUpperCase() === "PM") hours += 12;
+    return `${schedule.date}T${String(hours).padStart(2, "0")}:${match[2]}:00`;
+  }
+
+  // The schedule step saves the chosen saved address as its addressID (a number, kept as text
+  // in the draft). Returns that number so the API can store it on the delivery row, or null
+  // when no saved address was picked ("Use another address", or nothing chosen); the server
+  // then uses the customer's default address.
+  function pickupAddressID(schedule) {
+    const id = Number(schedule?.address);
+    return Number.isInteger(id) && id > 0 ? id : null;
+  }
+
+  // The signed-in customer's userID, asked from the server once per page (GET
+  // /api/account/profile knows who is logged in from the session). The customer never types
+  // it. It is also written into the order draft, replacing any ID left there by a different
+  // customer who used this browser tab earlier.
+  let signedInUserID = null;
+  async function currentUserID() {
+    if (!signedInUserID) {
+      const profile = await api("/account/profile");
+      signedInUserID = Number(profile.id) || null;
+      if (!signedInUserID) throw new Error("Your account could not be identified. Please sign in again.");
+      const draft = getDraft();
+      if (draft.userID !== signedInUserID) saveDraft({ ...draft, userID: signedInUserID });
+    }
+    return signedInUserID;
   }
 
   async function catalog() {
@@ -73,17 +122,21 @@
         }).join("") || "<tr><td colspan=\"2\">No current prices available.</td></tr>";
         return `<article class="card"><div class="top_bar"><div><span class="status status_info">SERVICE</span><h2>${escapeHtml(service.serviceName)}</h2></div><label><input type="checkbox" class="catalog-service" value="${service.serviceID}" ${selected.has(service.serviceID) ? "checked" : ""}> Select</label></div><table><tbody>${rows}</tbody></table></article>`;
       }).join("");
-      form.insertAdjacentHTML("afterbegin", `<div class="card" style="margin-bottom:22px"><div class="field"><label for="order-user-id">Customer account ID</label><input class="input" id="order-user-id" type="number" min="1" required value="${draft.userID || ""}" placeholder="Enter your customer ID"></div></div>`);
-      form.addEventListener("submit", (event) => {
+      form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        const userID = Number(document.getElementById("order-user-id").value);
         const serviceIDs = Array.from(document.querySelectorAll(".catalog-service:checked"), (input) => Number(input.value));
-        if (!userID || serviceIDs.length === 0 || !form.reportValidity()) {
-          toast("Choose a customer and at least one service", "Both are required to continue.");
+        if (serviceIDs.length === 0 || !form.reportValidity()) {
+          toast("Choose at least one service", "Select a service to continue.");
           return;
         }
-        saveDraft({ ...getDraft(), userID, services: serviceIDs });
-        window.location.href = "new_order_items.html";
+        try {
+          // The order is placed for whoever is signed in; there is no ID field to fill in.
+          const userID = await currentUserID();
+          saveDraft({ ...getDraft(), userID, services: serviceIDs });
+          window.location.href = "new_order_items.html";
+        } catch (error) {
+          toast("Unable to continue", error.message);
+        }
       });
     } catch (error) {
       section.innerHTML = `<div class="alert" style="background:#fff0f0;color:#9a2727;border-left-color:#e05252">Unable to load the service catalogue: ${escapeHtml(error.message)}</div>`;
@@ -232,20 +285,35 @@
       const total = lines.reduce((sum, line) => sum + (data.pricing.find((price) => price.itemID === line.itemID && price.serviceID === line.serviceID)?.price || 0) * line.quantity, 0);
       main.innerHTML = `<header class="page_header"><div class="subtitle">NEW ORDER · REVIEW</div><h1>Review your order</h1></header><ol class="step_list"><li class="done">1 Services</li><li class="done">2 Items</li><li class="done">3 Schedule</li><li class="done">4 Instructions</li><li class="active">5 Review</li></ol><section class="card"><h2>Items and services</h2>${lines.map((line) => { const item = data.items.find((entry) => entry.itemID === line.itemID); const service = data.services.find((entry) => entry.serviceID === line.serviceID); const price = data.pricing.find((entry) => entry.itemID === line.itemID && entry.serviceID === line.serviceID); return `<div class="activity_item"><span class="activity_dot"></span><div><strong>${line.quantity} × ${escapeHtml(item?.itemName || "Unknown item")}</strong><p class="muted small">${escapeHtml(service?.serviceName || "Unknown service")}</p></div><strong>${money((price?.price || 0) * line.quantity)}</strong></div>`; }).join("") || "<p class=\"muted\">No items have been selected.</p>"}<div class="top_bar"><h3>Order total</h3><h2>${money(total)}</h2></div></section><form id="confirm-order-form" style="margin-top:20px"><label class="check_row"><input type="checkbox" required>I confirm the item and service selections are correct.</label><div class="actions"><a class="custom_button custom_button_nobg" href="new_order_items.html">Edit items</a><button class="custom_button custom_button_bg" type="submit">Confirm order</button></div></form>`;
       const form = document.getElementById("confirm-order-form");
+      let submitting = false;
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        if (!draft.userID || lines.length === 0
+        if (submitting) return;
+        if (lines.length === 0
           || (draft.services || []).some((serviceID) => !lines.some((line) => line.serviceID === serviceID))
           || !form.reportValidity()) {
           toast("Order details are incomplete", "Return to services and items before confirming.");
           return;
         }
+        const button = form.querySelector('button[type="submit"]');
+        submitting = true;
+        button.disabled = true;
         try {
-          const created = await api("/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userID: draft.userID, orderLines: lines }) });
-          saveDraft({ ...draft, lastOrderID: created.orderID, lines: [] });
+          // QUESTION: only the pickup time is sent here. draft.schedule.deliveryDate/deliveryTime from
+          // the schedule step are never sent, and CreateOrderRequest has no field for them. Should
+          // delivery scheduling be removed from the order creation process, or added to the API?
+          // The order's customer is the signed-in user, asked from the server at this point
+          // (not whatever ID an older draft may hold).
+          const userID = await currentUserID();
+          const created = await api("/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userID, orderLines: lines, pickupScheduled: pickupDateTime(draft.schedule), addressID: pickupAddressID(draft.schedule) }) });
+          saveDraft({ ...draft, userID, lastOrderID: created.orderID, lines: [] });
           toast("Order created", `Order #${created.orderID} is ${created.statusLabel}.`);
           window.location.href = `upcoming_order_details.html?userID=${created.userID}&orderID=${created.orderID}`;
-        } catch (error) { toast("Order could not be created", error.message); }
+        } catch (error) {
+          submitting = false;
+          button.disabled = false;
+          toast("Order could not be created", error.message);
+        }
       });
     } catch (error) { main.insertAdjacentHTML("beforeend", `<div class="alert">Unable to review this order: ${escapeHtml(error.message)}</div>`); }
   }
@@ -270,7 +338,15 @@
       } catch (error) { tbody.innerHTML = `<tr><td colspan="6">Unable to load orders: ${escapeHtml(error.message)}</td></tr>`; }
     };
     customerSelector(main, load);
-    const userID = Number(getDraft().userID || 0);
+    // Open on the signed-in customer's own orders. The server now refuses a customer who asks
+    // for another account's orders, so an ID left in the draft by someone else must not be used.
+    let userID = 0;
+    try {
+      userID = await currentUserID();
+      document.getElementById("orders-user-id").value = userID;
+    } catch (_) {
+      userID = Number(getDraft().userID || 0);
+    }
     if (userID) load(userID); else tbody.innerHTML = "<tr><td colspan=\"6\">Enter a customer account ID to load orders.</td></tr>";
   }
 
@@ -285,7 +361,7 @@
     const lines = order.orderLines.map((line) => `<div class="activity_item"><span class="activity_dot"></span><div><strong>${line.quantity} × ${escapeHtml(line.itemName)}</strong><p class="muted small">${escapeHtml(line.serviceName)}</p></div><strong>${money(line.linePrice)}</strong></div>`).join("");
     const history = order.history.length ? order.history.map((entry) => `<div class="activity_item"><span class="activity_dot"></span><div><strong>${escapeHtml(entry.statusAfterLabel || "Status updated")}</strong><p class="muted small">${escapeHtml(entry.statusBeforeLabel || "Initial status")} → ${escapeHtml(entry.statusAfterLabel || "")}</p></div><small>${escapeHtml(entry.logDate || "")} ${escapeHtml(entry.logTime || "")}</small></div>`).join("") : "<p class=\"muted\">No status-history entries have been recorded yet.</p>";
     const eligible = ELIGIBLE_STATUSES.has(order.statusLabel);
-    return `<header class="welcome_banner" style="margin-top:34px"><div class="top_bar"><div><div class="subtitle">CUSTOMER ORDER</div><h1>Order #${order.orderID}</h1></div><span class="status">${escapeHtml(order.statusLabel)}</span></div></header><section class="grid grid_two" style="margin-top:22px"><article class="card"><h2>Items and services</h2>${lines}<div class="top_bar"><h3>Order total</h3><h2>${money(order.orderTotal)}</h2></div></article><aside class="card"><h2>Order information</h2><p><strong>Customer ID</strong><br><span class="muted">${order.userID}</span></p><p><strong>Status</strong><br><span class="muted">${escapeHtml(order.statusLabel)}</span></p></aside></section>${includeActions ? `<div class="actions" style="margin-top:20px">${eligible ? `<a class="custom_button custom_button_bg" href="modify_order.html?userID=${order.userID}&orderID=${order.orderID}">Modify order</a>` : ""}<a class="custom_button custom_button_nobg" href="my_orders.html">My Orders</a></div>` : ""}<section class="card" style="margin-top:22px"><h2>Order history</h2>${history}</section>`;
+    return `<header class="welcome_banner" style="margin-top:34px"><div class="top_bar"><div><div class="subtitle">CUSTOMER ORDER</div><h1>Order #${order.orderID}</h1></div><span class="status">${escapeHtml(order.statusLabel)}</span></div></header><section class="grid grid_two" style="margin-top:22px"><article class="card"><h2>Items and services</h2>${lines}<div class="top_bar"><h3>Order total</h3><h2>${money(order.orderTotal)}</h2></div></article><aside class="card"><h2>Order information</h2><p><strong>Customer ID</strong><br><span class="muted">${order.userID}</span></p><p><strong>Status</strong><br><span class="muted">${escapeHtml(order.statusLabel)}</span></p></aside></section>${includeActions ? `<div class="actions" style="margin-top:20px">${eligible ? `<a class="custom_button custom_button_bg" href="modify_order.html?userID=${order.userID}&orderID=${order.orderID}">Modify order</a>` : ""}<a class="custom_button custom_button_border" href="payments.html?orderID=${order.orderID}">Pay Now</a><a class="custom_button custom_button_nobg" href="my_orders.html">My Orders</a></div>` : ""}<section class="card" style="margin-top:22px"><h2>Order history</h2>${history}</section>`;
   }
 
   async function initDetails(upcoming) {

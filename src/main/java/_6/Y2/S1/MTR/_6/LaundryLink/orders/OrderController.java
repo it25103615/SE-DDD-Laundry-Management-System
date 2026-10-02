@@ -6,6 +6,7 @@ import _6.Y2.S1.MTR._6.LaundryLink.orders.dto.ModifyOrderRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -21,13 +23,23 @@ import java.util.List;
 @RequestMapping("/api/orders")
 public class OrderController {
     private final OrderService service;
+    private final OrderAccess orderAccess;
 
-    public OrderController(OrderService service) {
+    public OrderController(OrderService service, OrderAccess orderAccess) {
         this.service = service;
+        this.orderAccess = orderAccess;
     }
 
+    // The customer the order is for arrives in the request body, where the URL-based rules in
+    // SecurityConfig cannot see it, so it is checked here: a customer may only place an order
+    // for their own account.
     @PostMapping
-    public ResponseEntity<CreateOrderResponse> createOrder(@Valid @RequestBody CreateOrderRequest request) {
+    public ResponseEntity<CreateOrderResponse> createOrder(
+            Authentication authentication,
+            @Valid @RequestBody CreateOrderRequest request) {
+        if (!orderAccess.canPlaceOrderFor(authentication, request.getUserID())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only place orders for your own account.");
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createOrder(request));
     }
 
