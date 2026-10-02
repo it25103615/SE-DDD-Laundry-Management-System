@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="../../css/dashboard.css" />
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
+    <script src="../../js/customer/order-management.js" defer></script>
   </head>
   <body>
     <nav class="dashboard_nav">
@@ -214,5 +215,17 @@
         </div>
       </form>
     </main>
+    <script>
+      document.getElementById("service-form").addEventListener("submit", function (event) {
+        const customer = document.getElementById("order-user-id");
+        if (customer && customer.checkValidity() && Number(customer.value) > 0
+            && !document.querySelector(".catalog-service:checked")) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          if (window.connectedToast) window.connectedToast("Select at least one service");
+          else window.alert("Select at least one service");
+        }
+      }, true);
+    </script>
   </body>
 </html>

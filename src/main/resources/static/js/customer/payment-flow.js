@@ -1,0 +1,538 @@
+(function () {
+  const ORDER_DRAFT_KEY = "laundryLink.orderDraft";
+  const page = document.body.dataset.paymentPage;
+  let authenticatedCustomerPromise = null;
+
+  function params() {
+    return new URLSearchParams(window.location.search);
+  }
+
+  function readOrderDraft() {
+    try {
+      return JSON.parse(sessionStorage.getItem(ORDER_DRAFT_KEY)) || {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function saveOrderDraft(draft) {
+    sessionStorage.setItem(ORDER_DRAFT_KEY, JSON.stringify(draft || {}));
+  }
+
+  function storedCustomerID() {
+    const draft = readOrderDraft();
+    return sessionStorage.getItem("laundrylinkCustomerID") || params().get("userID") || draft.userID || "";
+  }
+
+  async function authenticatedCustomerID() {
+    if (!authenticatedCustomerPromise) {
+      authenticatedCustomerPromise = fetch("/api/account/profile", {
+        headers: { "Accept": "application/json" },
+        credentials: "same-origin",
+      }).then(async (response) => {
+        if (!response.ok) return "";
+        const profile = await response.json();
+        const id = profile && profile.id ? String(profile.id) : "";
+        if (id) {
+          sessionStorage.setItem("laundrylinkCustomerID", id);
+          const draft = readOrderDraft();
+          if (String(draft.userID || "") !== id) {
+            saveOrderDraft({ ...draft, userID: Number(id) || id });
+          }
+        }
+        return id;
+      }).catch(() => "");
+    }
+    return authenticatedCustomerPromise;
+  }
+
+  async function customerID() {
+    return await authenticatedCustomerID() || storedCustomerID();
+  }
+
+  function orderID() {
+    const queryOrderID = params().get("orderID");
+    const draft = readOrderDraft();
+    if (queryOrderID) {
+      if (String(draft.lastOrderID || "") !== queryOrderID) {
+        saveOrderDraft({ ...draft, lastOrderID: Number(queryOrderID) || queryOrderID });
+      }
+      return queryOrderID;
+    }
+    return draft.lastOrderID ? String(draft.lastOrderID) : "";
+  }
+
+  function money(value) {
+    const number = Number(value || 0);
+    return `LKR ${number.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  }
+
+  function displayOutstanding(status) {
+    return Number(status.outstandingAmount || 0);
+  }
+
+  function paymentFlowUrl(pageName, id, extra = {}) {
+    const search = new URLSearchParams();
+    search.set("orderID", id);
+    const urlCustomerID = params().get("userID");
+    if (urlCustomerID) search.set("userID", urlCustomerID);
+    Object.entries(extra).forEach(([key, value]) => {
+      if (value) search.set(key, value);
+    });
+    return `${pageName}?${search.toString()}`;
+  }
+
+  function methodLabel(method) {
+    return method === "CASH" ? "Cash" : "Credit/Debit Card";
+  }
+
+  function statusLabel(status) {
+    return String(status || "Unknown").replaceAll("_", " ");
+  }
+
+  async function api(path, options) {
+    const headers = {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      ...(options && options.headers ? options.headers : {}),
+    };
+    const resolvedCustomerID = await customerID();
+    if (resolvedCustomerID) {
+      headers["X-User-ID"] = resolvedCustomerID;
+    }
+
+    return fetch(path, {
+      ...options,
+      headers,
+      credentials: "same-origin",
+    }).then(async (response) => {
+      if (!response.ok) {
+        const error = new Error(`Request failed with status ${response.status}`);
+        error.status = response.status;
+        try {
+          error.body = await response.json();
+        } catch (ignore) {
+          error.body = null;
+        }
+        throw error;
+      }
+      if (response.status === 204) return null;
+      return response.json();
+    });
+  }
+
+  function showError(element, message) {
+    if (!element) return;
+    element.textContent = message;
+    element.hidden = !message;
+  }
+
+  function showMessage(element, message, success) {
+    if (!element) return;
+    element.textContent = message || "";
+    element.hidden = !message;
+    element.className = `alert ${success ? "alert_success" : "alert_error"}`;
+  }
+
+  function setText(id, value) {
+    const element = document.getElementById(id);
+    if (element) element.textContent = value;
+  }
+
+  async function getStatus(id) {
+    return api(`/api/payments/orders/${id}/status`);
+  }
+
+  async function getInvoice(id) {
+    return api(`/api/billing/orders/${id}/invoice`);
+  }
+
+  function displayInvoice(invoice) {
+    setText("billing-order-label", `Order #${invoice.orderID}`);
+    setText("billing-subtotal", money(invoice.subtotal));
+    setText("billing-discount", `- ${money(invoice.discountAmount)}`);
+    setText("billing-final", money(invoice.finalPayableAmount));
+    const appliedCode = sessionStorage.getItem(`laundrylinkPromotionCode:${invoice.orderID}`);
+    const hasDiscount = Number(invoice.discountAmount || 0) > 0;
+    setText("billing-promotion-label", hasDiscount && appliedCode ? `Promotion discount (${appliedCode})` : "Promotion discount");
+  }
+
+  async function refreshBillingAndStatus(id) {
+    const [invoice, status] = await Promise.all([getInvoice(id), getStatus(id)]);
+    displayInvoice(invoice);
+    return { invoice, status };
+  }
+
+  function displayPaymentStatus(id, status, payLink) {
+    const outstandingAmount = displayOutstanding(status);
+    setText("outstanding-amount", money(outstandingAmount));
+    setText("payment-order-line", `Order #${id} · ${status.status.replaceAll("_", " ")}`);
+    if (payLink) {
+      payLink.href = paymentFlowUrl("payment_method.html", id);
+      if (outstandingAmount <= 0) {
+        payLink.textContent = "Paid";
+        payLink.setAttribute("aria-disabled", "true");
+      } else {
+        payLink.textContent = "Pay now";
+        payLink.removeAttribute("aria-disabled");
+      }
+    }
+  }
+
+  function promotionMessageForError(error) {
+    if (error.status === 404) return "Promotion code does not exist.";
+    if (error.status === 400) return "Promotion could not be applied to this order.";
+    return "Promotion could not be checked. Please try again.";
+  }
+
+  async function applyPromotion(id, code) {
+    const validation = await api(`/api/promotions/${encodeURIComponent(code)}/orders/${id}/validate`);
+    if (!validation.valid) {
+      return validation.message || "Promotion is not valid for this order.";
+    }
+
+    await api(`/api/promotions/${encodeURIComponent(code)}/orders/${id}/apply`, { method: "POST" });
+    sessionStorage.setItem(`laundrylinkPromotionCode:${id}`, code.toUpperCase());
+    await refreshBillingAndStatus(id);
+    return "";
+  }
+
+  async function loadPaymentsPage() {
+    const id = orderID();
+    const historyBody = document.getElementById("payment-history-body");
+    const payLink = document.getElementById("pay-now-link");
+    const promotionForm = document.getElementById("promotion-form");
+    const promotionInput = document.getElementById("promotion-code");
+    const promotionMessage = document.getElementById("promotion-message");
+    const applyButton = document.getElementById("apply-promotion-button");
+
+    if (!id) {
+      setText("outstanding-amount", "Unavailable");
+      setText("payment-order-line", "Open an order before reviewing payment.");
+      setText("billing-order-label", "Invoice");
+      setText("billing-subtotal", "Unavailable");
+      setText("billing-discount", "Unavailable");
+      setText("billing-final", "Unavailable");
+      showMessage(promotionMessage, "CROSS-MODULE CHANGE REQUIRED: this page needs a real orderID from Order Management navigation.", false);
+      if (payLink) {
+        payLink.setAttribute("aria-disabled", "true");
+        payLink.removeAttribute("href");
+      }
+    } else {
+      try {
+        const invoice = await getInvoice(id);
+        displayInvoice(invoice);
+      } catch (error) {
+        setText("billing-order-label", "Invoice");
+        setText("billing-subtotal", "Unavailable");
+        setText("billing-discount", "Unavailable");
+        setText("billing-final", "Unavailable");
+      }
+
+      try {
+        const status = await getStatus(id);
+        displayPaymentStatus(id, status, payLink);
+      } catch (error) {
+        setText("outstanding-amount", "Unavailable");
+        setText("payment-order-line", "Could not load outstanding balance");
+        if (payLink) {
+          payLink.setAttribute("aria-disabled", "true");
+          payLink.removeAttribute("href");
+        }
+      }
+    }
+
+    if (promotionForm) {
+      promotionForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const code = promotionInput ? promotionInput.value.trim() : "";
+        showMessage(promotionMessage, "", false);
+        if (!id) {
+          showMessage(promotionMessage, "Open an order before applying a promotion.", false);
+          return;
+        }
+        if (!code) {
+          showMessage(promotionMessage, "Enter a promotion code.", false);
+          return;
+        }
+
+        if (applyButton) applyButton.disabled = true;
+        try {
+          const validationMessage = await applyPromotion(id, code);
+          if (validationMessage) {
+            showMessage(promotionMessage, validationMessage, false);
+          } else {
+            showMessage(promotionMessage, "Promotion applied successfully.", true);
+          }
+        } catch (error) {
+          showMessage(promotionMessage, promotionMessageForError(error), false);
+        } finally {
+          if (applyButton) applyButton.disabled = false;
+        }
+      });
+    }
+
+    try {
+      const history = await api("/api/payments/history");
+      if (!historyBody) return;
+      if (!Array.isArray(history)) {
+        historyBody.innerHTML = '<tr><td colspan="5">Payment history could not be loaded.</td></tr>';
+        return;
+      }
+      if (!history.length) {
+        historyBody.innerHTML = '<tr><td colspan="5">No payment history available.</td></tr>';
+        return;
+      }
+      historyBody.innerHTML = history
+        .filter((payment) => payment && payment.paymentID && payment.orderID)
+        .map((payment) => {
+          const receiptUrl = `receipt.html?paymentID=${encodeURIComponent(payment.paymentID)}&orderID=${encodeURIComponent(payment.orderID)}`;
+          return `
+            <tr>
+              <td>Payment #${payment.paymentID}</td>
+              <td>#${payment.orderID}</td>
+              <td>${statusLabel(payment.paymentStatus)}${payment.orderStatus ? ` · ${payment.orderStatus}` : ""}</td>
+              <td>${money(payment.amount)}</td>
+              <td><a class="link" href="${receiptUrl}">View Receipt</a></td>
+            </tr>`;
+        })
+        .join("");
+      if (!historyBody.innerHTML) {
+        historyBody.innerHTML = '<tr><td colspan="5">Payment history could not be loaded.</td></tr>';
+      }
+    } catch (error) {
+      if (historyBody) historyBody.innerHTML = '<tr><td colspan="5">Payment history could not be loaded.</td></tr>';
+    }
+  }
+
+  async function loadMethodPage() {
+    const id = orderID();
+    const form = document.getElementById("payment-method-form");
+    const errorBox = document.getElementById("method-error");
+    const backLink = document.getElementById("method-back-link");
+    const continueButton = form ? form.querySelector('button[type="submit"]') : null;
+    setText("method-order-title", id ? `Order #${id}` : "Order not selected");
+    if (!id) {
+      showError(errorBox, "Open an order before selecting a payment method.");
+      setText("method-amount", "Unavailable");
+      if (continueButton) continueButton.disabled = true;
+      return;
+    }
+
+    if (backLink) backLink.href = paymentFlowUrl("payments.html", id);
+    if (continueButton) continueButton.disabled = true;
+    try {
+      const { status } = await refreshBillingAndStatus(id);
+      const outstandingAmount = displayOutstanding(status);
+      setText("method-amount", money(outstandingAmount));
+      if (outstandingAmount <= 0) {
+        showError(errorBox, "This order does not have an outstanding balance.");
+      } else if (continueButton) {
+        continueButton.disabled = false;
+      }
+    } catch (error) {
+      showError(errorBox, "Could not load payment amount for this order.");
+    }
+
+    if (!form) return;
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const selected = form.querySelector('input[name="paymentMethod"]:checked');
+      if (!selected) {
+        showError(errorBox, "Please select a payment method.");
+        return;
+      }
+      window.location.href = paymentFlowUrl("payment_checkout.html", id, { method: selected.value });
+    });
+  }
+
+  function clearFieldErrors() {
+    document.querySelectorAll("[data-error-for]").forEach((element) => {
+      element.textContent = "";
+    });
+  }
+
+  function fieldError(id, message) {
+    const element = document.querySelector(`[data-error-for="${id}"]`);
+    if (element) element.textContent = message;
+  }
+
+  function validExpiry(value) {
+    const match = /^(\d{2})\/(\d{2})$/.exec(value.trim());
+    if (!match) return false;
+    const month = Number(match[1]);
+    const year = Number(`20${match[2]}`);
+    if (month < 1 || month > 12) return false;
+    const expiry = new Date(year, month, 0, 23, 59, 59);
+    return expiry >= new Date();
+  }
+
+  function validateCard() {
+    clearFieldErrors();
+    let valid = true;
+    const name = document.getElementById("cardholder-name").value.trim();
+    const number = document.getElementById("card-number").value.replace(/\D/g, "");
+    const expiry = document.getElementById("expiry-date").value.trim();
+    const cvv = document.getElementById("cvv").value.trim();
+
+    if (!name) {
+      fieldError("cardholder-name", "Cardholder name is required.");
+      valid = false;
+    }
+    if (!/^\d{13,19}$/.test(number)) {
+      fieldError("card-number", "Enter a valid card number.");
+      valid = false;
+    }
+    if (!validExpiry(expiry)) {
+      fieldError("expiry-date", "Use a valid future date in MM/YY format.");
+      valid = false;
+    }
+    if (!/^\d{3,4}$/.test(cvv)) {
+      fieldError("cvv", "CVV must be 3 or 4 digits.");
+      valid = false;
+    }
+
+    return { valid, masked: number ? `Card **** ${number.slice(-4)}` : "Credit/Debit Card" };
+  }
+
+  async function loadCheckoutPage() {
+    const id = orderID();
+    const method = params().get("method");
+    const form = document.getElementById("payment-checkout-form");
+    const errorBox = document.getElementById("checkout-error");
+    const button = document.getElementById("final-pay-button");
+    const cardFields = document.getElementById("card-fields");
+    const cashFields = document.getElementById("cash-fields");
+    const backLink = document.getElementById("checkout-back-link");
+    const cancelLink = document.getElementById("checkout-cancel-link");
+    let amount = null;
+
+    if (!id) {
+      setText("summary-order", "Order not selected");
+      setText("summary-amount", "Unavailable");
+      showError(errorBox, "Open an order before checkout.");
+      if (button) button.disabled = true;
+      return;
+    }
+
+    if (method !== "CARD" && method !== "CASH") {
+      setText("summary-order", `Order #${id}`);
+      setText("summary-amount", "Unavailable");
+      showError(errorBox, "Select a payment method before checkout.");
+      if (button) button.disabled = true;
+      if (backLink) backLink.href = paymentFlowUrl("payment_method.html", id);
+      if (cancelLink) cancelLink.href = paymentFlowUrl("payments.html", id);
+      return;
+    }
+
+    if (button) button.disabled = true;
+    if (backLink) backLink.href = paymentFlowUrl("payment_method.html", id);
+    if (cancelLink) cancelLink.href = paymentFlowUrl("payments.html", id);
+    setText("summary-method", methodLabel(method));
+    setText("summary-order", `Order #${id}`);
+    setText("checkout-subtitle", `Complete payment for order #${id}.`);
+    if (method === "CASH") {
+      cardFields.hidden = true;
+      cashFields.hidden = false;
+      setText("checkout-title", "Confirm cash payment");
+    }
+
+    try {
+      const { status } = await refreshBillingAndStatus(id);
+      amount = displayOutstanding(status);
+      setText("summary-amount", money(amount));
+      setText("checkout-title", method === "CASH" ? `Confirm ${money(amount)}` : `Pay ${money(amount)}`);
+      if (amount <= 0) {
+        showError(errorBox, "This order does not have an outstanding balance.");
+      } else if (button) {
+        button.disabled = false;
+      }
+    } catch (error) {
+      setText("summary-amount", "Unavailable");
+      showError(errorBox, "Could not load the outstanding payment amount.");
+    }
+
+    if (!form) return;
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      showError(errorBox, "");
+      if (amount === null || amount <= 0) {
+        showError(errorBox, "Payment amount is not valid.");
+        return;
+      }
+
+      let displayMethod = methodLabel(method);
+      if (method === "CARD") {
+        const card = validateCard();
+        if (!card.valid) return;
+        displayMethod = card.masked;
+      }
+
+      button.disabled = true;
+      setText("summary-status", "Submitting");
+      try {
+        const result = await api(`/api/payments/orders/${id}`, {
+          method: "POST",
+          body: JSON.stringify({ paymentMethod: method, amount }),
+        });
+        window.location.href = `receipt.html?paymentID=${result.paymentID}&orderID=${id}`;
+      } catch (error) {
+        button.disabled = false;
+        setText("summary-status", "Failed");
+        const message = error.status === 409
+          ? "This order is already paid or cannot accept this payment."
+          : "Payment failed. Please check the details and try again.";
+        showError(errorBox, message);
+      }
+    });
+  }
+
+  async function loadReceiptPage() {
+    const queryPaymentID = params().get("paymentID");
+    const queryOrderID = params().get("orderID");
+    const paymentsLink = document.getElementById("receipt-payments-link");
+    if (paymentsLink && queryOrderID) paymentsLink.href = paymentFlowUrl("payments.html", queryOrderID);
+
+    if (!queryPaymentID || !queryOrderID) {
+      setText("receipt-title", "Receipt unavailable");
+      setText("receipt-reference", "Missing payment or order reference");
+      setText("receipt-order", queryOrderID ? `Order #${queryOrderID}` : "Order not selected");
+      setText("receipt-amount", "Unavailable");
+      setText("receipt-subtotal", "Unavailable");
+      setText("receipt-discount", "Unavailable");
+      setText("receipt-status", "Status: Unavailable");
+      setText("receipt-method", "Method: Not recorded");
+      setText("receipt-time", "Date/time: Not recorded");
+      return;
+    }
+
+    try {
+      const receipt = await api(`/api/payments/${queryPaymentID}/receipt?orderID=${encodeURIComponent(queryOrderID)}`);
+      setText("receipt-title", "Payment receipt");
+      setText("receipt-reference", `Receipt #LL-${receipt.orderID}-${receipt.paymentID}`);
+      setText("receipt-order", `Order #${receipt.orderID}`);
+      setText("receipt-amount", money(receipt.amountPaid));
+      setText("receipt-subtotal", money(receipt.subtotal));
+      setText("receipt-discount", `- ${money(receipt.discountAmount)}`);
+      setText("receipt-status", `Status: ${String(receipt.paymentStatus || "Unknown").replaceAll("_", " ")}`);
+      setText("receipt-method", "Method: Not recorded");
+      setText("receipt-time", "Date/time: Not recorded");
+      if (paymentsLink) paymentsLink.href = paymentFlowUrl("payments.html", receipt.orderID);
+    } catch (error) {
+      setText("receipt-title", "Receipt unavailable");
+      setText("receipt-reference", error.status === 403 ? "You do not have access to this receipt" : "Receipt could not be loaded");
+      setText("receipt-order", `Order #${queryOrderID}`);
+      setText("receipt-amount", "Unavailable");
+      setText("receipt-subtotal", "Unavailable");
+      setText("receipt-discount", "Unavailable");
+      setText("receipt-status", "Status: Unavailable");
+      setText("receipt-method", "Method: Not recorded");
+      setText("receipt-time", "Date/time: Not recorded");
+    }
+  }
+
+  if (page === "payments") loadPaymentsPage();
+  if (page === "method") loadMethodPage();
+  if (page === "checkout") loadCheckoutPage();
+  if (page === "receipt") loadReceiptPage();
+})();

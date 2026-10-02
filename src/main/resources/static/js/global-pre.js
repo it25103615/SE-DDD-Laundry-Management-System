@@ -1,3 +1,12 @@
+// Authentication and API calls require Spring Boot. If a project HTML file is
+// opened directly from Explorer, move it to the equivalent local server URL.
+if (location.protocol === "file:") {
+  const normalizedPath = decodeURIComponent(location.pathname).replaceAll("\\", "/");
+  const htmlPath = normalizedPath.match(/\/(html\/.*)$/i);
+  const targetPath = htmlPath ? `/${htmlPath[1]}` : "/";
+  location.replace(`http://localhost:8080${targetPath}`);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   //Get the url path
   const path = location.pathname.toLowerCase();
@@ -29,6 +38,65 @@ document.addEventListener("DOMContentLoaded", () => {
 
   //Add the tags to the end of the html body tag
   document.body.append(one, two);
+
+  // Shared authenticated notification bell used by every role page.
+  const navRight = document.querySelector(".nav_right");
+  if (navRight) {
+    const shell = document.createElement("div");
+    shell.className = "notification_center";
+    shell.hidden = true;
+    shell.innerHTML = `
+      <button class="notification_button" type="button" aria-label="Open notifications" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+        <span class="notification_count" hidden>0</span>
+      </button>
+      <section class="notification_panel" aria-label="Notifications" hidden>
+        <header><div><strong>Notifications</strong><small class="notification_summary"></small></div><button class="notification_read_all" type="button">Mark all read</button></header>
+        <div class="notification_list"><p class="notification_empty">Loading…</p></div>
+      </section>`;
+    navRight.prepend(shell);
+    const button=shell.querySelector(".notification_button");
+    const panel=shell.querySelector(".notification_panel");
+    const list=shell.querySelector(".notification_list");
+    const badge=shell.querySelector(".notification_count");
+    const summary=shell.querySelector(".notification_summary");
+    let csrf;
+    const api=async(path,method="GET")=>{
+      const headers={Accept:"application/json"};
+      if(method!=="GET") {
+        csrf ||= await fetch("/api/auth/csrf").then(r=>r.ok?r.json():Promise.reject(new Error("Unable to verify this action.")));
+        headers[csrf.headerName]=csrf.token;
+      }
+      const response=await fetch("/api/notifications"+path,{method,headers});
+      if(!response.ok) throw new Error("Unable to load notifications.");
+      return response.status===204?null:response.json();
+    };
+    const time=value=>{
+      const parsed=new Date(value),seconds=Math.max(0,Math.floor((Date.now()-parsed.getTime())/1000));
+      if(seconds<60)return "Just now";if(seconds<3600)return Math.floor(seconds/60)+"m ago";if(seconds<86400)return Math.floor(seconds/3600)+"h ago";
+      return parsed.toLocaleDateString("en-LK",{day:"numeric",month:"short"});
+    };
+    const render=data=>{
+      shell.hidden=false;badge.textContent=data.unread;badge.hidden=!data.unread;summary.textContent=data.unread?data.unread+" unread":"All caught up";
+      list.replaceChildren();
+      if(!data.items.length){const empty=document.createElement("p");empty.className="notification_empty";empty.textContent="No notifications yet.";list.append(empty);return;}
+      data.items.forEach(item=>{
+        const row=document.createElement("button");row.type="button";row.className="notification_item"+(item.isRead?"":" unread");row.dataset.id=item.id;row.dataset.link=item.link;
+        const dot=document.createElement("span");dot.className="notification_dot";
+        const copy=document.createElement("span");copy.className="notification_copy";
+        const title=document.createElement("strong");title.textContent=item.title;
+        const message=document.createElement("span");message.textContent=item.message;
+        const meta=document.createElement("small");meta.textContent=item.category+" · "+time(item.createdAt);
+        copy.append(title,message,meta);row.append(dot,copy);list.append(row);
+      });
+    };
+    const load=()=>api("").then(render).catch(()=>{shell.hidden=true;});
+    button.addEventListener("click",async event=>{event.stopPropagation();panel.hidden=!panel.hidden;button.setAttribute("aria-expanded",String(!panel.hidden));if(!panel.hidden)await load();});
+    list.addEventListener("click",async event=>{const row=event.target.closest(".notification_item");if(!row)return;try{if(row.classList.contains("unread"))await api("/"+row.dataset.id+"/read","PATCH");if(row.dataset.link)location.href=row.dataset.link;}catch(error){summary.textContent=error.message;}});
+    shell.querySelector(".notification_read_all").addEventListener("click",async()=>{try{await api("/read-all","PATCH");await load();}catch(error){summary.textContent=error.message;}});
+    document.addEventListener("click",event=>{if(!shell.contains(event.target)){panel.hidden=true;button.setAttribute("aria-expanded","false");}});
+    load();setInterval(load,30000);
+  }
 
   //"intersecting" indicates that an entry (html tag) is intersecting with the viewport (is now on screen (visible))
   //the IntersectionObserver is a browser API that lets us watch when an element scrolls into view

@@ -8,8 +8,9 @@
     <link rel="stylesheet" href="../../../css/dashboard.css" />
     <script src="../../../js/global-pre.js"></script>
     <script src="../../../js/global-post.js" defer></script>
+    <script src="../../../js/admin/payment-management.js" defer></script>
   </head>
-  <body>
+  <body data-payment-admin-page="list">
     <nav class="dashboard_nav">
       <ul class="navigation">
         <li class="logo">
@@ -18,6 +19,7 @@
         <li class="nav_right">
           <a href="administration_overview.html">Dashboard</a
           ><a href="payments_billing.html">Payments &amp; Billing</a
+          ><a href="promotions.html">Promotions</a
           ><a href="reports.html">Reports</a
           ><span class="profile_badge">AD</span>
         </li>
@@ -31,51 +33,66 @@
       </header>
       <section class="grid grid_three">
         <article class="card metric">
-          <span class="muted small">COLLECTED TODAY</span
-          ><strong>LKR 86,400</strong>
+          <span class="muted small">TOTAL COLLECTED</span
+          ><strong id="collected-total">Loading...</strong>
         </article>
         <article class="card metric">
           <span class="muted small">OUTSTANDING</span
-          ><strong>LKR 24,180</strong>
+          ><strong id="outstanding-total">Loading...</strong>
         </article>
         <article class="card metric">
-          <span class="muted small">FAILED PAYMENTS</span><strong>2</strong>
+          <span class="muted small">FAILED PAYMENTS</span><strong id="failed-total">Loading...</strong>
         </article>
       </section>
+      <form id="payment-filters" class="card" style="margin-top: 30px">
+        <div class="grid grid_two">
+          <div class="field">
+            <label for="payment-search">Search</label>
+            <input class="input" id="payment-search" name="search" type="search" placeholder="Payment, order, customer or status" />
+          </div>
+          <div class="field">
+            <label for="payment-status-filter">Payment status</label>
+            <select class="input" id="payment-status-filter" name="status">
+              <option value="">All statuses</option>
+              <option value="UNPAID">UNPAID</option>
+              <option value="PARTIALLY_PAID">PARTIALLY_PAID</option>
+              <option value="PAID">PAID</option>
+              <option value="VERIFIED">VERIFIED</option>
+              <option value="REJECTED">REJECTED</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid_two">
+          <div class="field">
+            <label for="order-id-filter">Order ID</label>
+            <input class="input" id="order-id-filter" name="orderID" type="number" min="1" step="1" />
+          </div>
+          <div class="field">
+            <label for="customer-id-filter">Customer ID</label>
+            <input class="input" id="customer-id-filter" name="customerID" type="number" min="1" step="1" />
+          </div>
+        </div>
+        <div class="actions">
+          <button class="custom_button custom_button_bg" type="submit">Search</button>
+          <button class="custom_button custom_button_nobg" id="clear-payment-filters" type="button">Clear</button>
+        </div>
+      </form>
       <div class="table_wrap" style="margin-top: 30px">
         <table>
           <thead>
             <tr>
+              <th>PAYMENT</th>
               <th>ORDER</th>
               <th>CUSTOMER</th>
-              <th>METHOD</th>
               <th>AMOUNT</th>
               <th>STATUS</th>
+              <th>ORDER STATUS</th>
               <th></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="manager-payment-table">
             <tr>
-              <td>#1042</td>
-              <td>Priya Fernando</td>
-              <td>Card</td>
-              <td>LKR 2,480</td>
-              <td>Pending</td>
-              <td>
-                <a class="link" href="../../customer/payment_checkout.html"
-                  >View</a
-                >
-              </td>
-            </tr>
-            <tr>
-              <td>#1040</td>
-              <td>Kasun B.</td>
-              <td>Cash</td>
-              <td>LKR 1,700</td>
-              <td><span class="status">PAID</span></td>
-              <td>
-                <a class="link" href="../../customer/receipt.html">Receipt</a>
-              </td>
+              <td colspan="7">Loading payment records...</td>
             </tr>
           </tbody>
         </table>

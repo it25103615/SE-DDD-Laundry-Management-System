@@ -10,7 +10,7 @@
 
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
-    <script src="../../js/rider/rider.js" defer></script>
+    <script src="../../js/rider/riderAll.js" defer></script>
   </head>
   <body>
     <nav class="dashboard_nav">
@@ -19,24 +19,22 @@
           <a href="dashboard.html"><h3>LaundryLink</h3></a>
         </li>
         <li class="nav_right">
-          <a href="dashboard.html">Dashboard</a
-          ><a href="task_list.html">Task List</a
-          ><span class="profile_badge">RK</span>
+          <a href="dashboard.html">Dashboard</a>
+          <a href="task_list.html">Task List</a>
+          <span class="profile_badge" id="profile_badge">R</span>
         </li>
       </ul>
     </nav>
+
     <main>
       <header class="page_header">
         <div class="subtitle">TODAY'S ROUTE</div>
         <h1>Task List</h1>
-        <p id="remaining_text">Friday, 14 August · 3 tasks remaining</p>
+        <p id="remaining_text">Loading available tasks...</p>
       </header>
+
       <div class="grid grid_two">
-        <section
-          class="task_section pickup_section"
-          data-role="pool"
-          aria-labelledby="pickup_tasks_heading"
-        >
+        <section class="task_section pickup_section" data-role="pool" aria-labelledby="pickup_tasks_heading">
           <div class="task_section_header">
             <div>
               <span class="task_icon" aria-hidden="true">↑</span>
@@ -45,12 +43,10 @@
                 <h2 id="pickup_tasks_heading">Pickup Tasks</h2>
               </div>
             </div>
-            <span class="task_count">2 pickups</span>
+            <span class="task_count" data-count>0 pickups</span>
           </div>
-          <div
-            class="table_wrap"
-            style="max-height: 420px; overflow-y: auto; overflow-x: auto"
-          >
+
+          <div class="table_wrap" style="max-height: 420px; overflow-y: auto; overflow-x: auto">
             <table>
               <thead>
                 <tr>
@@ -61,50 +57,12 @@
                   <th></th>
                 </tr>
               </thead>
-              <tbody>
-                <tr
-                  data-order="1052"
-                  data-time="11:00 AM"
-                  data-type="pickup"
-                  data-name="Priya Fernando"
-                  data-address="24 Flower Road, Colombo 07"
-                  data-phone="+94 77 123 4567"
-                  data-bags="2"
-                  data-note="Call when you arrive at the gate."
-                  data-status="Pending"
-                >
-                  <td>11:00 AM</td>
-                  <td>#1052</td>
-                  <td>24 Flower Road, Colombo 07</td>
-                  <td><span class="status">Pending</span></td>
-                  <td><button type="button" class="link">Accept</button></td>
-                </tr>
-                <tr
-                  data-order="1054"
-                  data-time="1:30 PM"
-                  data-type="pickup"
-                  data-name="Nadeesha Perera"
-                  data-address="44 Station Road, Dehiwala"
-                  data-phone="+94 76 554 2201"
-                  data-bags="3"
-                  data-note="Leave with the security guard if unavailable."
-                  data-status="Pending"
-                >
-                  <td>1:30 PM</td>
-                  <td>#1054</td>
-                  <td>44 Station Road, Dehiwala</td>
-                  <td><span class="status">Pending</span></td>
-                  <td><button type="button" class="link">Accept</button></td>
-                </tr>
-              </tbody>
+              <tbody id="available_pickups"></tbody>
             </table>
           </div>
         </section>
-        <section
-          class="task_section delivery_section"
-          data-role="pool"
-          aria-labelledby="delivery_tasks_heading"
-        >
+
+        <section class="task_section delivery_section" data-role="pool" aria-labelledby="delivery_tasks_heading">
           <div class="task_section_header">
             <div>
               <span class="task_icon" aria-hidden="true">↓</span>
@@ -113,56 +71,33 @@
                 <h2 id="delivery_tasks_heading">Delivery Tasks</h2>
               </div>
             </div>
-            <span class="task_count">1 delivery</span>
+            <span class="task_count" data-count>0 deliveries</span>
           </div>
-          <div
-            class="table_wrap"
-            style="max-height: 420px; overflow-y: auto; overflow-x: auto"
-          >
+
+          <div class="table_wrap" style="max-height: 420px; overflow-y: auto; overflow-x: auto">
             <table>
               <thead>
                 <tr>
-                  <th>TIME</th>
                   <th>ORDER</th>
                   <th>ADDRESS</th>
                   <th>STATUS</th>
                   <th></th>
                 </tr>
               </thead>
-              <tbody>
-                <tr
-                  data-order="1042"
-                  data-time="12:00 PM"
-                  data-type="delivery"
-                  data-name="Ishara De Silva"
-                  data-address="8 Ward Place, Colombo 07"
-                  data-phone="+94 71 987 6543"
-                  data-bags="1"
-                  data-note="Ring the doorbell twice; leave with security if unavailable."
-                  data-status="Pending"
-                >
-                  <td>12:00 PM</td>
-                  <td>#1042</td>
-                  <td>8 Ward Place, Colombo 07</td>
-                  <td><span class="status">Pending</span></td>
-                  <td><button type="button" class="link">Accept</button></td>
-                </tr>
-              </tbody>
+              <tbody id="available_deliveries"></tbody>
             </table>
           </div>
         </section>
       </div>
+
       <header class="page_header" style="margin-top: 44px">
         <div class="subtitle">ASSIGNED TO YOU</div>
         <h1>My Work</h1>
         <p>Tasks you've accepted for today.</p>
       </header>
+
       <div class="grid grid_two">
-        <section
-          class="task_section pickup_section"
-          data-role="mine"
-          aria-labelledby="my_pickup_heading"
-        >
+        <section class="task_section pickup_section" data-role="mine" aria-labelledby="my_pickup_heading">
           <div class="task_section_header">
             <div>
               <span class="task_icon" aria-hidden="true">↑</span>
@@ -171,12 +106,10 @@
                 <h2 id="my_pickup_heading">Pickup Tasks</h2>
               </div>
             </div>
-            <span class="task_count">0 pickups</span>
+            <span class="task_count" data-count>0 pickups</span>
           </div>
-          <div
-            class="table_wrap"
-            style="max-height: 420px; overflow-y: auto; overflow-x: auto"
-          >
+
+          <div class="table_wrap" style="max-height: 420px; overflow-y: auto; overflow-x: auto">
             <table>
               <thead>
                 <tr>
@@ -187,25 +120,12 @@
                   <th></th>
                 </tr>
               </thead>
-              <tbody>
-                <tr class="empty_row">
-                  <td
-                    colspan="5"
-                    class="muted small"
-                    style="text-align: center; padding: 26px 12px"
-                  >
-                    No pickups accepted yet — accept one above.
-                  </td>
-                </tr>
-              </tbody>
+              <tbody id="my_pickups"></tbody>
             </table>
           </div>
         </section>
-        <section
-          class="task_section delivery_section"
-          data-role="mine"
-          aria-labelledby="my_delivery_heading"
-        >
+
+        <section class="task_section delivery_section" data-role="mine" aria-labelledby="my_delivery_heading">
           <div class="task_section_header">
             <div>
               <span class="task_icon" aria-hidden="true">↓</span>
@@ -214,53 +134,30 @@
                 <h2 id="my_delivery_heading">Delivery Tasks</h2>
               </div>
             </div>
-            <span class="task_count">0 deliveries</span>
+            <span class="task_count" data-count>0 deliveries</span>
           </div>
-          <div
-            class="table_wrap"
-            style="max-height: 420px; overflow-y: auto; overflow-x: auto"
-          >
+
+          <div class="table_wrap" style="max-height: 420px; overflow-y: auto; overflow-x: auto">
             <table>
               <thead>
                 <tr>
-                  <th>TIME</th>
                   <th>ORDER</th>
                   <th>ADDRESS</th>
                   <th>STATUS</th>
                   <th></th>
                 </tr>
               </thead>
-              <tbody>
-                <tr class="empty_row">
-                  <td
-                    colspan="5"
-                    class="muted small"
-                    style="text-align: center; padding: 26px 12px"
-                  >
-                    No deliveries accepted yet — accept one above.
-                  </td>
-                </tr>
-              </tbody>
+              <tbody id="my_deliveries"></tbody>
             </table>
           </div>
         </section>
       </div>
     </main>
+
     <div class="modal_overlay" id="task_modal" hidden>
-      <div
-        class="modal_box"
-        id="task_modal_box"
-        role="dialog"
-        aria-modal="true"
-      >
-        <button
-          type="button"
-          class="modal_close_x"
-          aria-label="Close"
-          data-modal-close
-        >
-          ×
-        </button>
+      <div class="modal_box" id="task_modal_box" role="dialog" aria-modal="true">
+        <button type="button" class="modal_close_x" aria-label="Close" data-modal-close>×</button>
+        <div id="modal_content"></div>
       </div>
     </div>
   </body>

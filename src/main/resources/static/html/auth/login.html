@@ -33,7 +33,7 @@
         >
           We could not log you in. Check your email and password.
         </div>
-        <form action="../portal.html" method="get">
+        <form action="/login" method="post">
           <div class="field">
             <label for="email">Email</label
             ><input
@@ -66,6 +66,7 @@
           <button class="custom_button custom_button_bg" type="submit">
             Log In
           </button>
+          <input type="hidden" name="_csrf" id="csrf-token" />
         </form>
         <p class="auth_prompt">
           New to LaundryLink?
@@ -74,5 +75,18 @@
       </section>
     </main>
     <footer class="footer"><p>© 2026 LaundryLink</p></footer>
+    <script>
+      fetch("/api/auth/csrf")
+        .then((response) => response.json())
+        .then((csrf) => {
+          const field = document.getElementById("csrf-token");
+          field.name = csrf.parameterName;
+          field.value = csrf.token;
+        });
+      const query = new URLSearchParams(location.search);
+      document.getElementById("login-error").style.display = query.has("error")
+        ? "block"
+        : "none";
+    </script>
   </body>
 </html>

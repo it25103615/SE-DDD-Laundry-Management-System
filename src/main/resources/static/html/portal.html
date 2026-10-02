@@ -1,57 +1,9 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Workspace Portal | LaundryLink</title>
-    <link rel="stylesheet" href="../css/global.css" />
-    <link rel="stylesheet" href="../css/dashboard.css" />
-    <script src="../js/global-pre.js"></script>
-    <script src="../js/global-post.js" defer></script>
-  </head>
-  <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="../index.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="../index.html">Home</a><a href="auth/login.html">Log Out</a>
-        </li>
-      </ul>
-    </nav>
-    <main>
-      <header class="welcome_banner" style="margin-top: 34px">
-        <div class="subtitle">CONNECTED UI PORTAL</div>
-        <h1>Choose your workspace</h1>
-        <p class="muted">
-          Open any LaundryLink role to demonstrate its connected workflow.
-        </p>
-      </header>
-      <div class="grid grid_three" style="margin-top: 24px">
-        <a class="card" href="customer/dashboard.html"
-          ><h2>Customer</h2>
-          <p>Book, edit and track orders.</p></a
-        ><a class="card" href="staff/dashboard.html"
-          ><h2>Facility Staff</h2>
-          <p>Receive and process items.</p></a
-        ><a class="card" href="rider/dashboard.html"
-          ><h2>Rider</h2>
-          <p>Manage pickups and deliveries.</p></a
-        ><a class="card" href="admin/manager/dashboard.html"
-          ><h2>Manager</h2>
-          <p>Monitor shop operations.</p></a
-        ><a class="card" href="admin/owner/dashboard.html"
-          ><h2>Owner</h2>
-          <p>Review business performance.</p></a
-        ><a class="card" href="admin/customer-service-manager/dashboard.html"
-          ><h2>Customer Service Manager</h2>
-          <p>Resolve customer cases and manage service support.</p></a
-        ><a class="card" href="admin/owner/administration_overview.html"
-          ><h2>Owner Administration</h2>
-          <p>Manage platform access, billing and reports.</p></a
-        >
-      </div>
-    </main>
-  </body>
-</html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Opening workspace | LaundryLink</title><link rel="stylesheet" href="../css/global.css"></head>
+<body><main><section class="card" style="max-width:560px;margin:80px auto"><h1>Opening your workspace…</h1><p>Checking your signed-in account.</p></section></main>
+<script>
+fetch('/api/support/context').then(r=>{if(!r.ok)throw new Error();return r.json()}).then(({actor})=>{
+ const destinations={CUSTOMER:'/html/customer/dashboard.html',RIDER:'/html/rider/dashboard.html',STAFF:'/html/staff/dashboard.html',MANAGER:'/html/admin/manager/dashboard.html',CSM:'/html/admin/customer-service-manager/dashboard.html',CUSTOMER_SERVICE_MANAGER:'/html/admin/customer-service-manager/dashboard.html',OWNER:'/html/admin/owner/dashboard.html',ADMIN:'/html/admin/owner/dashboard.html'};
+ location.replace(destinations[actor.role]||'/');
+}).catch(()=>location.replace('/html/auth/login.html'));
+</script></body></html>

@@ -8,6 +8,10 @@
     <link rel="stylesheet" href="../../css/dashboard.css" />
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
+    <script src="../../js/account/dashboard-identity.js" defer></script>
+    <!-- Live data: processing orders and issues (see staff-dashboard.js). -->
+    <script src="../../js/staff/processing-api.js" defer></script>
+    <script src="../../js/staff/staff-dashboard.js" defer></script>
     <style></style>
   </head>
   <body>
@@ -21,31 +25,34 @@
           ><a href="processing_board.html">Processing Board</a
           ><a href="receive_items.html">Receive Items</a
           ><a href="issue_reports.html">Issue Reports</a
-          ><span class="profile_badge">NS</span>
+          ><a href="../admin/customer-service-manager/complaints.html">Assigned Complaints</a
+          ><a href="../account/profile.html">My profile</a>
+          ><span class="profile_badge" id="dashboard-badge">S</span>
         </li>
       </ul>
     </nav>
     <main>
       <header class="page_header">
         <div class="subtitle">STAFF DASHBOARD</div>
-        <h1>Good morning, Nimal</h1>
+        <h1 id="dashboard-greeting">Welcome back</h1>
         <p>Here is what needs attention at the facility today.</p>
       </header>
+      <div id="notice" class="alert" hidden style="margin-bottom: 22px"></div>
       <section class="grid grid_three">
         <article class="card metric">
-          <span class="muted small">ARRIVING TODAY</span><strong>12</strong
+          <span class="muted small">WAITING TO BE RECEIVED</span><strong id="metric-receive">–</strong
           ><a class="link" href="receive_items.html">Receive items →</a>
         </article>
         <article class="card metric">
-          <span class="muted small">IN PROCESS</span><strong>28</strong
+          <span class="muted small">IN PROCESS</span><strong id="metric-process">–</strong
           ><a class="link" href="processing_board.html">Open board →</a>
         </article>
         <article class="card metric">
-          <span class="muted small">ISSUES OPEN</span><strong>3</strong
+          <span class="muted small">ISSUES OPEN</span><strong id="metric-issues">–</strong
           ><a class="link" href="issue_reports.html">Review issues →</a>
         </article>
       </section>
-      <section class="page_header"><h2>Priority today</h2></section>
+      <section class="page_header"><h2>Priority today</h2><p class="muted">Orders waiting longest since their last status change come first.</p></section>
       <div class="table_wrap">
         <table>
           <thead>
@@ -53,25 +60,12 @@
               <th>ORDER</th>
               <th>CUSTOMER</th>
               <th>CURRENT STAGE</th>
-              <th>DUE</th>
+              <th>LAST UPDATE</th>
               <th></th>
             </tr>
           </thead>
-          <tbody>
-            <tr>
-              <td>#1042</td>
-              <td>Priya Fernando</td>
-              <td><span class="status">Cleaning</span></td>
-              <td>Today, 4:00 PM</td>
-              <td><a class="link" href="order_processing.html">Open</a></td>
-            </tr>
-            <tr>
-              <td>#1044</td>
-              <td>Anjali Silva</td>
-              <td>Drying</td>
-              <td>Today, 5:00 PM</td>
-              <td><a class="link" href="order_processing.html">Open</a></td>
-            </tr>
+          <tbody id="priority-rows">
+            <tr><td colspan="5" class="muted">Loading…</td></tr>
           </tbody>
         </table>
       </div>
