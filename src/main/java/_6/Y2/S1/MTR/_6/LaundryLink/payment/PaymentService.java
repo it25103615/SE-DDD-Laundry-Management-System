@@ -2,9 +2,7 @@ package _6.Y2.S1.MTR._6.LaundryLink.payment;
 
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingDetails;
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingService;
-import _6.Y2.S1.MTR._6.LaundryLink.log.Log;
 import _6.Y2.S1.MTR._6.LaundryLink.status.Status;
-import _6.Y2.S1.MTR._6.LaundryLink.log.LogService;
 import _6.Y2.S1.MTR._6.LaundryLink.status.StatusService;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -27,22 +25,19 @@ public class PaymentService {
     private final BillingService billingService;
     private final PaymentAccessService paymentAccessService;
     private final StatusService statusService;
-    private final LogService logService;
 
     public PaymentService(
             PaymentRepository paymentRepository,
             PaymentManagementRepository paymentManagementRepository,
             BillingService billingService,
             PaymentAccessService paymentAccessService,
-            StatusService statusService,
-            LogService logService
+            StatusService statusService
     ) {
         this.paymentRepository = paymentRepository;
         this.paymentManagementRepository = paymentManagementRepository;
         this.billingService = billingService;
         this.paymentAccessService = paymentAccessService;
         this.statusService = statusService;
-        this.logService = logService;
     }
 
     public PaymentAmountResponse getAmountDue(Integer orderID, Integer customerID) {
@@ -240,19 +235,21 @@ public class PaymentService {
         LocalDate verificationDate = LocalDate.now();
         LocalTime verificationTime = LocalTime.now();
 
+        // No log row is written here. Each status update below fires the database trigger
+        // dbo.trg_order_status_log, which adds the dbo.logs row (status before and after, date,
+        // time) in the same transaction. Writing one here as well would log every step twice.
         paymentManagementRepository.updateOrderStatus(payment.getOrderID(), updatedStatus.getStatusID());
-        recordVerificationLog(previousOrderStatus, updatedStatus, payment.getOrderID(), verificationDate, verificationTime);
 
         // Once the payment is verified the order is released for pickup straight away.
         // Nothing else moves an order from "Payment Verified" to "Awaiting Pickup", and the rider
         // module only offers pickups for orders at "Awaiting Pickup", so without this step a paid
-        // order would never reach a rider. Both moves are logged, so the history still shows
-        // Unconfirmed -> Payment Verified -> Awaiting Pickup (and the customer is notified of each).
+        // order would never reach a rider. The two moves are two separate updates, so the trigger
+        // logs both and the history still shows Unconfirmed -> Payment Verified -> Awaiting Pickup
+        // (and the customer is notified of each).
         Status finalStatus = updatedStatus;
         if (approved) {
             finalStatus = statusService.getByLabel(AWAITING_PICKUP);
             paymentManagementRepository.updateOrderStatus(payment.getOrderID(), finalStatus.getStatusID());
-            recordStatusLog(updatedStatus, finalStatus, payment.getOrderID(), verificationDate, verificationTime);
         }
 
         return new PaymentVerificationResponse(
@@ -375,34 +372,6 @@ public class PaymentService {
                 status.getStatus(),
                 orderStatus.getStatusLabel()
         );
-    }
-
-    private void recordVerificationLog(
-            PaymentOrderStatus previousOrderStatus,
-            Status updatedStatus,
-            Integer orderID,
-            LocalDate verificationDate,
-            LocalTime verificationTime
-    ) {
-        recordStatusLog(statusService.getById(previousOrderStatus.getStatusID()), updatedStatus,
-                orderID, verificationDate, verificationTime);
-    }
-
-    private void recordStatusLog(
-            Status statusBefore,
-            Status statusAfter,
-            Integer orderID,
-            LocalDate verificationDate,
-            LocalTime verificationTime
-    ) {
-        Log log = new Log();
-        log.setStatusBefore(statusBefore);
-        log.setStatusAfter(statusAfter);
-        log.setLogDate(verificationDate);
-        log.setLogTime(verificationTime);
-        log.setOrderID(orderID);
-
-        logService.logChange(log);
     }
 
     private void verifyCanViewPaymentRecord(Integer requesterID, Payment payment) {

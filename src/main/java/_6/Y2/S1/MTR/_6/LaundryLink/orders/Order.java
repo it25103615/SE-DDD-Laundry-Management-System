@@ -3,6 +3,7 @@ package _6.Y2.S1.MTR._6.LaundryLink.orders;
 import _6.Y2.S1.MTR._6.LaundryLink.orderlines.OrderLine;
 import _6.Y2.S1.MTR._6.LaundryLink.status.Status;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -35,6 +36,15 @@ public class Order {
 
     // User Management owns the users entity; retain its foreign-key column without duplicating that module's domain model.
     private Integer userID;
+
+    // The customer's free-text note from the "Instructions" step. NULL when nothing was written.
+    @Column(length = 500)
+    private String instructions;
+
+    // The ticked preferences as a comma-separated list of OrderPreference codes,
+    // e.g. "fragrance-free,hangers". NULL when nothing was ticked.
+    @Column(length = 100)
+    private String preferences;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderLine> orderLines = new ArrayList<>();

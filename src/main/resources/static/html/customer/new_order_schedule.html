@@ -37,7 +37,6 @@
       </ol>
       <form action="new_order_instructions.html" method="get">
         <div class="grid grid_two">
-          <div>
           <section class="card">
             <h2>Pickup time</h2>
             <div class="field">
@@ -66,45 +65,6 @@
               </select>
             </div>
           </section>
-          <section class="card" style="margin-top: 22px">
-            <h2>Delivery time</h2>
-            <p class="muted small">
-              Delivery must be at least 24 hours after your pickup time.
-            </p>
-            <!--
-              QUESTION: the delivery date and time window chosen here are only kept in the browser's
-              order draft (shown on the review page). They are NOT sent to POST /api/orders, and the
-              delivery table has no column for a planned delivery time (delivery_time records when the
-              delivery actually happened). Should this delivery section be removed from the order
-              creation process, or should the backend be extended to store it?
-            -->
-            <div class="field">
-              <label for="delivery-date">Date</label
-              ><input
-                class="input"
-                id="delivery-date"
-                name="delivery_date"
-                type="date"
-                required
-              />
-            </div>
-            <div class="field">
-              <label for="delivery-time">Time window</label
-              ><select
-                class="input"
-                id="delivery-time"
-                name="delivery_time"
-                required
-              >
-                <option value="">Choose a time</option>
-                <option>8:00 AM – 11:00 AM</option>
-                <option>11:00 AM – 2:00 PM</option>
-                <option>2:00 PM – 5:00 PM</option>
-                <option>5:00 PM – 8:00 PM</option>
-              </select>
-            </div>
-          </section>
-          </div>
           <section class="card">
             <h2>Pickup address</h2>
             <!--
@@ -140,14 +100,15 @@
         const key = "laundryLink.orderDraft";
         const form = document.querySelector("main form");
         const error = document.getElementById("schedule-error");
-        const fields = ["pickup-date", "pickup-time", "delivery-date", "delivery-time"].map(id => document.getElementById(id));
-        const [pickupDate, pickupTime, deliveryDate, deliveryTime] = fields;
+        // The two fields this step validates: the pickup date and the pickup time window.
+        const fields = ["pickup-date", "pickup-time"].map(id => document.getElementById(id));
+        const [pickupDate, pickupTime] = fields;
         const readDraft = () => {
           try { return JSON.parse(sessionStorage.getItem(key)) || {}; }
           catch (_) { return {}; }
         };
         const schedule = readDraft().schedule || {};
-        fields.forEach((field, index) => { field.value = schedule[["date", "time", "deliveryDate", "deliveryTime"][index]] || ""; });
+        fields.forEach((field, index) => { field.value = schedule[["date", "time"][index]] || ""; });
         // Tick the address remembered in the order draft, if there is one. Runs now for the
         // "Use another address" row and again once the saved addresses have been loaded.
         function restoreAddressChoice() {
@@ -210,9 +171,11 @@
           });
         function save() {
           const draft = readDraft();
+          // This step no longer asks for a delivery time. A draft started before that change
+          // may still hold one, so it is left out of the schedule that is saved back.
+          const { deliveryDate, deliveryTime, ...keptSchedule } = draft.schedule || {};
           sessionStorage.setItem(key, JSON.stringify({ ...draft, schedule: {
-            ...draft.schedule, date: pickupDate.value, time: pickupTime.value,
-            deliveryDate: deliveryDate.value, deliveryTime: deliveryTime.value,
+            ...keptSchedule, date: pickupDate.value, time: pickupTime.value,
             address: form.querySelector("input[name=address]:checked")?.value
           } }));
         }
@@ -238,30 +201,6 @@
           if (pickupTime.selectedOptions[0]?.disabled) pickupTime.value = "";
           return anyOpenToday;
         }
-        // Delivery must start at least 24 hours after the pickup window starts. Every day has the
-        // same windows, so that means: never on or before the pickup date, and on the day after
-        // pickup only windows starting at or after the pickup window's start time (which are
-        // exactly 24+ hours later). Earlier windows on that day are greyed out, and any date from
-        // two days after pickup onward keeps all windows. Returns the earliest allowed delivery date.
-        function limitDeliverySlots(today) {
-          const pickupOption = pickupTime.selectedOptions[0];
-          const pickupStart = pickupOption ? slotStart(pickupOption) : null;
-          if (!pickupDate.value || pickupStart === null) {
-            // No pickup chosen yet, so there is nothing to measure 24 hours from.
-            Array.from(deliveryTime.options).forEach(option => { option.disabled = false; });
-            return today;
-          }
-          // Built from date parts (not by adding milliseconds) so daylight-saving changes cannot shift it.
-          const [year, month, day] = pickupDate.value.split("-").map(Number);
-          const dayAfterPickup = isoDate(new Date(year, month - 1, day + 1));
-          Array.from(deliveryTime.options).forEach(option => {
-            const start = slotStart(option);
-            if (start === null) return; // the "Choose a time" placeholder
-            option.disabled = deliveryDate.value === dayAfterPickup && start < pickupStart;
-          });
-          if (deliveryTime.selectedOptions[0]?.disabled) deliveryTime.value = "";
-          return dayAfterPickup;
-        }
         function validate(showMissing) {
           const now = new Date();
           const today = isoDate(now);
@@ -269,10 +208,8 @@
           const nowMinutes = now.getHours() * 60 + now.getMinutes();
           // Once every pickup window for today has started, today can no longer be chosen at all.
           pickupDate.min = limitPickupSlots(today, nowMinutes) ? today : tomorrow;
-          // Runs after the pickup check so it measures from a pickup window that is still valid.
-          deliveryDate.min = limitDeliverySlots(today);
           fields.forEach(field => field.setCustomValidity(""));
-          const labels = ["pickup date", "pickup time window", "delivery date", "delivery time window"];
+          const labels = ["pickup date", "pickup time window"];
           fields.forEach((field, index) => {
             if (!field.value) field.setCustomValidity(`Please select a ${labels[index]}.`);
           });
@@ -280,11 +217,6 @@
             pickupDate.setCustomValidity(pickupDate.min === today
               ? "Please choose today or a future date."
               : "We will not be doing any more pickups for today. Please choose tomorrow or a later date.");
-          }
-          if (deliveryDate.value && deliveryDate.value < deliveryDate.min) {
-            deliveryDate.setCustomValidity(pickupDate.value
-              ? "Delivery must be at least 24 hours after pickup. Please choose a later date."
-              : "Please choose today or a future date.");
           }
           const invalid = fields.find(field => !field.validity.valid && (showMissing || field.value));
           error.textContent = invalid ? invalid.validationMessage : "";

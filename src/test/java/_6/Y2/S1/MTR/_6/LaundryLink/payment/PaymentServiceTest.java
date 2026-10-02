@@ -2,14 +2,11 @@ package _6.Y2.S1.MTR._6.LaundryLink.payment;
 
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingDetails;
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingService;
-import _6.Y2.S1.MTR._6.LaundryLink.log.Log;
 import _6.Y2.S1.MTR._6.LaundryLink.status.Status;
-import _6.Y2.S1.MTR._6.LaundryLink.log.LogService;
 import _6.Y2.S1.MTR._6.LaundryLink.status.StatusService;
 import _6.Y2.S1.MTR._6.LaundryLink.user.User;
 import _6.Y2.S1.MTR._6.LaundryLink.user.UserRepository;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.springframework.security.access.AccessDeniedException;
@@ -443,15 +440,13 @@ class PaymentServiceTest {
         BillingService billingService = Mockito.mock(BillingService.class);
         PaymentManagementRepository managementRepository = Mockito.mock(PaymentManagementRepository.class);
         StatusService statusService = Mockito.mock(StatusService.class);
-        LogService logService = Mockito.mock(LogService.class);
         PaymentAccessService accessService = new PaymentAccessService(managementRepository, userRepository(11));
         PaymentService service = new PaymentService(
                 paymentRepository,
                 managementRepository,
                 billingService,
                 accessService,
-                statusService,
-                logService
+                statusService
         );
         Payment payment = new Payment(1350.0, 1);
         payment.setPaymentID(4);
@@ -469,7 +464,6 @@ class PaymentServiceTest {
         when(statusService.getByLabel("Payment Verified")).thenReturn(verified);
         when(statusService.getByLabel("Awaiting Pickup")).thenReturn(awaitingPickup);
         when(statusService.getById(1)).thenReturn(unconfirmed);
-        when(logService.logChange(Mockito.any(Log.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         PaymentVerificationResponse response = service.verifyPayment(11, 4, request);
 
@@ -482,12 +476,10 @@ class PaymentServiceTest {
         InOrder statusChanges = Mockito.inOrder(managementRepository);
         statusChanges.verify(managementRepository).updateOrderStatus(1, 2);
         statusChanges.verify(managementRepository).updateOrderStatus(1, 3);
-        // Both moves are logged: Unconfirmed -> Payment Verified, then Payment Verified -> Awaiting Pickup.
-        ArgumentCaptor<Log> logs = ArgumentCaptor.forClass(Log.class);
-        Mockito.verify(logService, Mockito.times(2)).logChange(logs.capture());
-        assertEquals(verified, logs.getAllValues().get(0).getStatusAfter());
-        assertEquals(verified, logs.getAllValues().get(1).getStatusBefore());
-        assertEquals(awaitingPickup, logs.getAllValues().get(1).getStatusAfter());
+        // The two moves are two separate status updates. The database trigger
+        // dbo.trg_order_status_log logs each one (Unconfirmed -> Payment Verified, then
+        // Payment Verified -> Awaiting Pickup), so the service writes no log rows itself.
+        Mockito.verify(managementRepository, Mockito.times(2)).updateOrderStatus(Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -517,9 +509,8 @@ class PaymentServiceTest {
         BillingService billingService = Mockito.mock(BillingService.class);
         PaymentManagementRepository managementRepository = Mockito.mock(PaymentManagementRepository.class);
         StatusService statusService = Mockito.mock(StatusService.class);
-        LogService logService = Mockito.mock(LogService.class);
         PaymentService service = new PaymentService(paymentRepository, managementRepository, billingService,
-                new PaymentAccessService(managementRepository, userRepository(11)), statusService, logService);
+                new PaymentAccessService(managementRepository, userRepository(11)), statusService);
         Payment payment = new Payment(1350.0, 1);
         payment.setPaymentID(4);
         Status unconfirmed = status(1, "Unconfirmed");
@@ -546,14 +537,12 @@ class PaymentServiceTest {
         BillingService billingService = Mockito.mock(BillingService.class);
         PaymentManagementRepository managementRepository = Mockito.mock(PaymentManagementRepository.class);
         StatusService statusService = Mockito.mock(StatusService.class);
-        LogService logService = Mockito.mock(LogService.class);
         PaymentService service = new PaymentService(
                 paymentRepository,
                 managementRepository,
                 billingService,
                 new PaymentAccessService(managementRepository, userRepository(11)),
-                statusService,
-                logService
+                statusService
         );
         Payment payment = new Payment(1350.0, 1);
         payment.setPaymentID(4);
@@ -569,7 +558,6 @@ class PaymentServiceTest {
         when(managementRepository.findOrderStatus(1)).thenReturn(Optional.of(new PaymentOrderStatus(1, "Unconfirmed")));
         when(statusService.getByLabel("Payment Failed")).thenReturn(failed);
         when(statusService.getById(1)).thenReturn(unconfirmed);
-        when(logService.logChange(Mockito.any(Log.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         PaymentVerificationResponse response = service.verifyPayment(11, 4, request);
 
@@ -618,8 +606,7 @@ class PaymentServiceTest {
                 managementRepository,
                 billingService,
                 new PaymentAccessService(managementRepository, userRepository(7)),
-                Mockito.mock(StatusService.class),
-                Mockito.mock(LogService.class)
+                Mockito.mock(StatusService.class)
         );
     }
 

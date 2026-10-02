@@ -46,6 +46,9 @@ GO
 
 /* PART E 3/6 — PROCESSING PROCEDURE
    Changes an order's workflow status and records the transition in dbo.logs.
+   The log row is written by the dbo.trg_order_status_log trigger (migration 008), which the
+   UPDATE below fires; the procedure does not insert it itself, or each step would be logged
+   twice. Run migration 008 after this one so the trigger exists.
    For the screenshot, run demo section 3 in ddd_assignment2_procedure_trigger_demo.sql.
 */
 CREATE OR ALTER PROCEDURE dbo.sp_UpdateProcessingStatus
@@ -66,8 +69,6 @@ BEGIN
         IF @PreviousStatusID=@NewStatusID
             THROW 51112, 'The order already has the requested processing status.', 1;
         UPDATE dbo.orders SET statusID=@NewStatusID WHERE orderID=@OrderID;
-        INSERT dbo.logs(status_before,status_after,logDate,logTime,orderID)
-        VALUES(@PreviousStatusID,@NewStatusID,CONVERT(date,SYSDATETIME()),CONVERT(time,SYSDATETIME()),@OrderID);
         COMMIT TRANSACTION;
         SELECT @OrderID AS orderID, @PreviousStatusID AS statusBefore, @NewStatusID AS statusAfter;
     END TRY
