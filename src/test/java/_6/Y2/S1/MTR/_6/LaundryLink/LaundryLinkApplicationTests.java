@@ -15,7 +15,10 @@ import org.springframework.mock.web.MockHttpSession;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
 import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.unauthenticated;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.transaction.annotation.Transactional;
 import static org.junit.jupiter.api.Assertions.*;
@@ -90,6 +93,27 @@ class LaundryLinkApplicationTests {
 		mvc.perform(get("/html/admin/customer-service-manager/complaints.html").session(session)).andExpect(status().isOk());
 		mvc.perform(get("/html/admin/owner/reports.html").session(session))
 			.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
+	}
+
+	// The Log out button in global-pre.js relies on this contract: POST /logout with a CSRF
+	// token ends the session and redirects to the login page. Without the token it is refused,
+	// and SecurityConfig's access-denied handler turns that refusal into a redirect to the
+	// portal (not a 403), which is why the button checks where the response ended up.
+	@Test
+	void logoutEndsTheSessionAndRequiresACsrfToken() throws Exception {
+		var login = mvc.perform(formLogin("/login").userParameter("email").user("anna@customer.com").password("Anna1234"))
+			.andExpect(authenticated().withUsername("anna@customer.com"))
+			.andReturn();
+		var session = (MockHttpSession) login.getRequest().getSession(false);
+
+		mvc.perform(post("/logout").session(session))
+			.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
+		assertFalse(session.isInvalid(), "A rejected logout must leave the session signed in");
+
+		mvc.perform(post("/logout").session(session).with(csrf()))
+			.andExpect(redirectedUrl("/html/auth/login.html?logout=true"))
+			.andExpect(unauthenticated());
+		assertTrue(session.isInvalid(), "Logout should invalidate the session");
 	}
 
 	@Test

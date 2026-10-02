@@ -61,6 +61,46 @@ document.addEventListener("DOMContentLoaded", () => {
     const badge=shell.querySelector(".notification_count");
     const summary=shell.querySelector(".notification_summary");
     let csrf;
+
+    //Log out button, shown at the far right of the navigation bar on every page.
+    //It starts hidden and is only revealed once the notifications request below
+    //  succeeds, because that request only works for a signed-in user.
+    const logoutButton = document.createElement("button");
+    logoutButton.type = "button";
+    logoutButton.className = "logout_button";
+    logoutButton.textContent = "Log out";
+    logoutButton.hidden = true;
+    navRight.append(logoutButton);
+
+    //When the log out button is clicked:
+    //  Disable it so a second click cannot send the request twice
+    //  Get the CSRF token (Spring Security rejects a POST /logout without it)
+    //  Ask the server to end the session
+    //  Go to the login page, which shows a "signed out" message for ?logout
+    //If anything fails, re-enable the button and tell the user
+    logoutButton.addEventListener("click", async () => {
+      logoutButton.disabled = true;
+      try {
+        csrf ||= await fetch("/api/auth/csrf").then(r=>r.ok?r.json():Promise.reject(new Error("Unable to verify this action.")));
+        const response = await fetch("/logout", {
+          method: "POST",
+          headers: { [csrf.headerName]: csrf.token },
+        });
+        //A successful logout redirects to the login page. A refused one (for example
+        //  a stale CSRF token) is redirected elsewhere by the access-denied handler,
+        //  so the final address is what tells the two apart, not the status code.
+        const loginPage = "/html/auth/login.html";
+        if (!response.ok || new URL(response.url).pathname !== loginPage)
+          throw new Error("Unable to log out. Please try again.");
+        location.href = loginPage + "?logout=true";
+      } catch (error) {
+        logoutButton.disabled = false;
+        //connectedToast comes from global-post.js, which not every page loads
+        if (window.connectedToast) window.connectedToast("Log out failed", error.message);
+        else alert(error.message);
+      }
+    });
+
     const api=async(path,method="GET")=>{
       const headers={Accept:"application/json"};
       if(method!=="GET") {
@@ -77,6 +117,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return parsed.toLocaleDateString("en-LK",{day:"numeric",month:"short"});
     };
     const render=data=>{
+      //The inbox loaded, so the user is signed in: show the bell and the log out button
+      logoutButton.hidden=false;
       shell.hidden=false;badge.textContent=data.unread;badge.hidden=!data.unread;summary.textContent=data.unread?data.unread+" unread":"All caught up";
       list.replaceChildren();
       if(!data.items.length){const empty=document.createElement("p");empty.className="notification_empty";empty.textContent="No notifications yet.";list.append(empty);return;}

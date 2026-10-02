@@ -33,6 +33,14 @@
         >
           We could not log you in. Check your email and password.
         </div>
+        <!-- Shown after the Log out button redirects here with ?logout=true -->
+        <div
+          id="logout-message"
+          class="alert alert_success form_message"
+          role="status"
+        >
+          You have been signed out.
+        </div>
         <form action="/login" method="post">
           <div class="field">
             <label for="email">Email</label
@@ -87,6 +95,9 @@
       document.getElementById("login-error").style.display = query.has("error")
         ? "block"
         : "none";
+      // Confirm a sign-out, unless a failed login attempt is being reported instead
+      document.getElementById("logout-message").style.display =
+        query.has("logout") && !query.has("error") ? "block" : "none";
     </script>
   </body>
 </html>
