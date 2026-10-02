@@ -85,7 +85,51 @@ class OrderServiceTest {
         assertEquals(360.0, response.getOrderLines().getFirst().getLinePrice());
         verify(orderRepository).save(any(Order.class));
         // The delivery row must be created for the saved order, with the customer's pickup time.
-        verify(orderRepository).createDelivery(100, 1, pickup);
+        // No address was chosen, so null is passed and the query falls back to the default address.
+        verify(orderRepository).createDelivery(100, 1, pickup, null);
+    }
+
+    @Test
+    void storesTheChosenAddressOnTheDeliveryRow() {
+        ServicePricing pricing = pricingWithDetails(1, 1, 180.0);
+        Status status = mock(Status.class);
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        // Address 7 belongs to customer 1.
+        when(orderRepository.countAddressesOwnedByCustomer(7, 1)).thenReturn(1);
+        when(itemRepository.existsById(1)).thenReturn(true);
+        when(serviceRepository.existsById(1)).thenReturn(true);
+        when(servicePricingRepository.findByItemIDAndServiceID(1, 1)).thenReturn(Optional.of(pricing));
+        when(statusService.getByLabel("Unconfirmed")).thenReturn(status);
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            order.setOrderID(100);
+            return order;
+        });
+
+        CreateOrderRequest request = request(1, line(1, 1, 2));
+        request.setAddressID(7);
+
+        orderService.createOrder(request);
+
+        verify(orderRepository).createDelivery(100, 1, null, 7);
+    }
+
+    @Test
+    void rejectsAnAddressThatBelongsToAnotherCustomerWithoutSavingTheOrder() {
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        // Address 8 is not one of customer 1's addresses.
+        when(orderRepository.countAddressesOwnedByCustomer(8, 1)).thenReturn(0);
+
+        CreateOrderRequest request = request(1, line(1, 1, 2));
+        request.setAddressID(8);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> orderService.createOrder(request));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(Order.class));
+        verify(orderRepository, never()).createDelivery(any(), any(), any(), any());
     }
 
     @Test
@@ -169,7 +213,7 @@ class OrderServiceTest {
 
         verify(orderRepository, never()).save(any(Order.class));
         // A failed order must not leave an orphan delivery row behind.
-        verify(orderRepository, never()).createDelivery(any(), any(), any());
+        verify(orderRepository, never()).createDelivery(any(), any(), any(), any());
     }
 
     @Test

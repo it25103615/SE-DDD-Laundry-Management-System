@@ -1054,7 +1054,35 @@ tbody td:last-child {
 .notification_copy span { color:#405563; overflow-wrap:anywhere; }
 .notification_empty { margin:0; padding:35px 20px; color:#687a87; text-align:center; }
 @media(max-width:520px){.notification_center{order:-1}.notification_panel{position:fixed;top:68px;right:14px;left:14px;width:auto}.notification_button{width:42px;height:42px}}
-@keyframes badge-pulse {
+
+/* Log out button injected into .nav_right by global-pre.js for signed-in users.
+   Styled to match the navigation links beside it rather than a filled button. */
+.logout_button {
+  flex: 0 0 auto;
+  margin: 0 10px;
+  padding: 14px 16px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.logout_button:hover {
+  background-color: var(--secondary-color);
+}
+.logout_button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+/* Same tighter spacing the navigation links get on narrow screens. Unlike those
+   links it is not hidden below 520px, so signing out stays possible on a phone. */
+@media (max-width: 800px) {
+  .logout_button {
+    margin: 2px;
+    padding: 10px;
+  }
+}@keyframes badge-pulse {
   50% {
     box-shadow: 0 0 0 7px rgba(255, 159, 67, 0);
   }

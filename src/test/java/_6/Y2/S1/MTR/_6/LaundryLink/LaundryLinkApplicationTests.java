@@ -15,7 +15,10 @@ import org.springframework.mock.web.MockHttpSession;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
 import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.unauthenticated;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.transaction.annotation.Transactional;
 import static org.junit.jupiter.api.Assertions.*;
@@ -90,6 +93,58 @@ class LaundryLinkApplicationTests {
 		mvc.perform(get("/html/admin/customer-service-manager/complaints.html").session(session)).andExpect(status().isOk());
 		mvc.perform(get("/html/admin/owner/reports.html").session(session))
 			.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
+	}
+
+	// The Log out button in global-pre.js relies on this contract: POST /logout with a CSRF
+	// token ends the session and redirects to the login page. Without the token it is refused,
+	// and SecurityConfig's access-denied handler turns that refusal into a redirect to the
+	// portal (not a 403), which is why the button checks where the response ended up.
+	@Test
+	void logoutEndsTheSessionAndRequiresACsrfToken() throws Exception {
+		var login = mvc.perform(formLogin("/login").userParameter("email").user("anna@customer.com").password("Anna1234"))
+			.andExpect(authenticated().withUsername("anna@customer.com"))
+			.andReturn();
+		var session = (MockHttpSession) login.getRequest().getSession(false);
+
+		mvc.perform(post("/logout").session(session))
+			.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
+		assertFalse(session.isInvalid(), "A rejected logout must leave the session signed in");
+
+		mvc.perform(post("/logout").session(session).with(csrf()))
+			.andExpect(redirectedUrl("/html/auth/login.html?logout=true"))
+			.andExpect(unauthenticated());
+		assertTrue(session.isInvalid(), "Logout should invalidate the session");
+	}
+
+	// The /api/orders rules in SecurityConfig, tried through the real filter chain.
+	// A refused request is redirected to the portal by the access-denied handler.
+	@Test
+	void customersReachOnlyTheirOwnOrdersWhileStaffCanSeeEveryCustomers() throws Exception {
+		int anna = db.queryForObject("SELECT userID FROM users WHERE email='anna@customer.com'", Integer.class);
+		int otherCustomer = db.queryForObject("SELECT TOP 1 userID FROM users WHERE UPPER(type)='CUSTOMER' AND userID<>? ORDER BY userID", Integer.class, anna);
+
+		// Not signed in: sent to the login page.
+		mvc.perform(get("/api/orders/customer/" + anna)).andExpect(status().is3xxRedirection());
+
+		var customer = (MockHttpSession) mvc.perform(formLogin("/login").userParameter("email").user("anna@customer.com").password("Anna1234"))
+			.andReturn().getRequest().getSession(false);
+		mvc.perform(get("/api/orders/customer/" + anna).session(customer)).andExpect(status().isOk());
+		mvc.perform(get("/api/orders/customer/" + otherCustomer).session(customer))
+			.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
+		mvc.perform(get("/api/orders/management").session(customer))
+			.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
+		// Placing an order for someone else is refused by OrderController.
+		mvc.perform(post("/api/orders").session(customer).with(csrf())
+				.contentType("application/json")
+				.content("{\"userID\":" + otherCustomer + ",\"orderLines\":[{\"itemID\":1,\"serviceID\":1,\"quantity\":1}]}"))
+			.andExpect(status().isForbidden());
+
+		for (String[] account : new String[][]{{"sam@staff.com", "Sam1234"}, {"ravi@rider.com", "Ravi1234"}, {"maya@manager.com", "Maya1234"}, {"oliver@owner.com", "Oliver1234"}}) {
+			var session = (MockHttpSession) mvc.perform(formLogin("/login").userParameter("email").user(account[0]).password(account[1]))
+				.andReturn().getRequest().getSession(false);
+			mvc.perform(get("/api/orders/customer/" + otherCustomer).session(session)).andExpect(status().isOk());
+			mvc.perform(get("/api/orders/management").session(session)).andExpect(status().isOk());
+		}
 	}
 
 	@Test

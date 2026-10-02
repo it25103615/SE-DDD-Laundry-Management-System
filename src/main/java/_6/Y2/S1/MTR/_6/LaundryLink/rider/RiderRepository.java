@@ -52,10 +52,14 @@ public class RiderRepository {
                     ORDER BY l.logDate DESC, l.logTime DESC, l.logID DESC
                 ) awaitingDelivery
                 OUTER APPLY (
+                    -- The address the customer chose for this order (delivery.addressID). It is
+                    -- matched by ID only, because an address the customer deleted later is kept
+                    -- with userID NULL so the order still knows where to go.
+                    -- Orders without one fall back to the customer's default address.
                     SELECT TOP 1 a2.street, a2.city, a2.state
                     FROM addresses a2
-                    WHERE a2.userID = o.userID
-                      AND a2.isDefault = 1
+                    WHERE a2.addressID = d.addressID
+                       OR (d.addressID IS NULL AND a2.userID = o.userID AND a2.isDefault = 1)
                     ORDER BY a2.addressID DESC
                 ) a
                 WHERE
@@ -105,10 +109,14 @@ public class RiderRepository {
                     ORDER BY l.logDate DESC, l.logTime DESC, l.logID DESC
                 ) awaitingDelivery
                 OUTER APPLY (
+                    -- The address the customer chose for this order (delivery.addressID). It is
+                    -- matched by ID only, because an address the customer deleted later is kept
+                    -- with userID NULL so the order still knows where to go.
+                    -- Orders without one fall back to the customer's default address.
                     SELECT TOP 1 a2.street, a2.city, a2.state
                     FROM addresses a2
-                    WHERE a2.userID = o.userID
-                      AND a2.isDefault = 1
+                    WHERE a2.addressID = d.addressID
+                       OR (d.addressID IS NULL AND a2.userID = o.userID AND a2.isDefault = 1)
                     ORDER BY a2.addressID DESC
                 ) a
                 WHERE
