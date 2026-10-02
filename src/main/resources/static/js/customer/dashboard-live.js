@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const data = await response.json();
     const name = String(data.name || 'Customer').trim();
     byId('welcome').textContent = `Welcome back, ${name} 👋`;
-    byId('profile-badge').textContent = name.split(/\s+/).slice(0,2).map(part=>part[0]).join('').toUpperCase();
+    //The profile badge is filled in by the shared navigation bar (global-pre.js)
     byId('total-orders').textContent = data.orders;
     byId('support-count').textContent = data.openSupport;
     const latest = data.latestOrder;

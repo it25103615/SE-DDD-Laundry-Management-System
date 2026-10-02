@@ -780,15 +780,13 @@
     }
 
     /**
-     * Loads the signed-in rider's profile and updates the badge and greeting.
+     * Loads the signed-in rider's profile and updates the greeting.
+     * The profile badge is filled in by the shared navigation bar (global-pre.js).
      * The greeting is always "Good morning"; use new Date().getHours() if time of day matters.
      */
     async function loadCurrentRider() {
         try {
             const rider = await api("/me");
-            const badge = document.getElementById("profile_badge");
-            if (badge) badge.textContent = rider.initials || "R";
-
             const greeting = document.getElementById("greeting");
             if (greeting && rider.firstName) {
                 greeting.textContent = `Good morning, ${rider.firstName}`;
