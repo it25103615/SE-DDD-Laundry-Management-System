@@ -65,6 +65,15 @@
     return `${schedule.date}T${String(hours).padStart(2, "0")}:${match[2]}:00`;
   }
 
+  // The schedule step saves the chosen saved address as its addressID (a number, kept as text
+  // in the draft). Returns that number so the API can store it on the delivery row, or null
+  // when no saved address was picked ("Use another address", or nothing chosen); the server
+  // then uses the customer's default address.
+  function pickupAddressID(schedule) {
+    const id = Number(schedule?.address);
+    return Number.isInteger(id) && id > 0 ? id : null;
+  }
+
   async function catalog() {
     const [items, services, pricing] = await Promise.all([
       api("/items"), api("/services"), api("/service-pricing")
@@ -273,7 +282,7 @@
           // QUESTION: only the pickup time is sent here. draft.schedule.deliveryDate/deliveryTime from
           // the schedule step are never sent, and CreateOrderRequest has no field for them. Should
           // delivery scheduling be removed from the order creation process, or added to the API?
-          const created = await api("/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userID: draft.userID, orderLines: lines, pickupScheduled: pickupDateTime(draft.schedule) }) });
+          const created = await api("/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userID: draft.userID, orderLines: lines, pickupScheduled: pickupDateTime(draft.schedule), addressID: pickupAddressID(draft.schedule) }) });
           saveDraft({ ...draft, lastOrderID: created.orderID, lines: [] });
           toast("Order created", `Order #${created.orderID} is ${created.statusLabel}.`);
           window.location.href = `upcoming_order_details.html?userID=${created.userID}&orderID=${created.orderID}`;

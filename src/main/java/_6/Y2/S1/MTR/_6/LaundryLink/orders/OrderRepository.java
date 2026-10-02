@@ -48,17 +48,32 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
     @Query(value = "SELECT COUNT(*) FROM users WHERE userID = :userID AND type = 'CUSTOMER'", nativeQuery = true)
     int countCustomersByUserID(@Param("userID") Integer userID);
 
+    // 1 when the address exists and belongs to this customer, otherwise 0. Used to stop an
+    // order being placed against someone else's address.
+    @Query(value = "SELECT COUNT(*) FROM addresses WHERE addressID = :addressID AND userID = :userID", nativeQuery = true)
+    int countAddressesOwnedByCustomer(@Param("addressID") Integer addressID, @Param("userID") Integer userID);
+
     // Every order needs a matching delivery row so the Rider module can assign pickup and
-    // delivery riders to it later. Only the order, customer and requested pickup time are
-    // known when the order is placed; the rider columns, pickup_actual and delivery_time
-    // stay NULL until the rider workflow fills them in.
+    // delivery riders to it later. Only the order, customer, requested pickup time and
+    // address are known when the order is placed; the rider columns, pickup_actual and
+    // delivery_time stay NULL until the rider workflow fills them in.
+    //
+    // addressID is the saved address the customer chose. When none was chosen (NULL), the
+    // customer's default address is stored instead, so the row records where the rider is
+    // actually sent; it only stays NULL when the customer has no default address.
+    // The CAST tells SQL Server the parameter is a number even when NULL is passed.
     @Modifying
     @Query(value = """
-            INSERT INTO delivery(orderID, userID, pickup_scheduled)
-            VALUES (:orderID, :userID, :pickupScheduled)
+            INSERT INTO delivery(orderID, userID, pickup_scheduled, addressID)
+            VALUES (:orderID, :userID, :pickupScheduled,
+                    COALESCE(CAST(:addressID AS INT),
+                             (SELECT TOP 1 a.addressID FROM addresses a
+                               WHERE a.userID = :userID AND a.isDefault = 1
+                               ORDER BY a.addressID DESC)))
             """, nativeQuery = true)
     void createDelivery(
             @Param("orderID") Integer orderID,
             @Param("userID") Integer userID,
-            @Param("pickupScheduled") LocalDateTime pickupScheduled);
+            @Param("pickupScheduled") LocalDateTime pickupScheduled,
+            @Param("addressID") Integer addressID);
 }

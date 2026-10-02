@@ -3,7 +3,7 @@
 <title>My profile | LaundryLink</title>
 <link rel="stylesheet" href="../../css/global.css"><link rel="stylesheet" href="../../css/dashboard.css">
 <link rel="stylesheet" href="../../css/account/profile-live.css">
-<script src="../../js/global-pre.js" defer></script><script src="../../js/account/profile-live.js" defer></script>
+<script src="../../js/global-pre.js" defer></script><script src="../../js/account/profile-live.js" defer></script><script src="../../js/account/profile-addresses.js" defer></script>
 </head><body>
 <nav class="dashboard_nav"><ul class="navigation"><li class="logo"><a id="home-link" href="/html/portal.html"><h3>LaundryLink</h3></a></li><li class="nav_right"><a id="dashboard-link" href="/html/portal.html">Dashboard</a><span class="profile_badge" id="profile-badge">U</span></li></ul></nav>
 <main class="account-profile"><header class="page_header"><div class="subtitle">YOUR ACCOUNT</div><h1>My profile</h1><p>Your saved details appear here and update as soon as you save them.</p></header>
@@ -13,6 +13,57 @@
 <div class="field"><label for="phone">Phone number</label><input class="input" id="phone" required inputmode="numeric" pattern="[0-9]{10}" maxlength="10" placeholder="0771234567"></div></div>
 <div class="field"><label for="email">Email</label><input class="input" id="email" type="email" required maxlength="100"></div>
 <button class="custom_button custom_button_bg" type="submit">Save changes</button></form></section>
+
+<!--
+  Saved addresses. Shown to customers only: js/account/profile-addresses.js unhides this
+  section after checking the signed-in user's role, then fills the list from
+  GET /api/account/addresses. The same form is used to add an address and to edit one.
+-->
+<section class="card" id="addresses-section" hidden>
+  <div class="top_bar">
+    <div>
+      <h2>Saved addresses</h2>
+      <p class="muted">Where we collect and return your laundry. Your default address is selected for you on new orders.</p>
+    </div>
+    <button class="custom_button custom_button_bg" type="button" id="add-address-button">+ Add address</button>
+  </div>
+  <p id="address-message" class="profile-message" role="status" hidden></p>
+  <div id="address-list" class="address-list"><p class="muted">Loading your addresses…</p></div>
+
+  <form id="address-form" class="address-form" hidden>
+    <h3 id="address-form-title">Add a new address</h3>
+    <div class="grid grid_two">
+      <div class="field"><label for="address-nickname">Name for this address</label><input class="input" id="address-nickname" required maxlength="50" placeholder="Home, Office…"></div>
+      <div class="field"><label for="address-street">Street address</label><input class="input" id="address-street" required maxlength="100" placeholder="18 Temple Road"></div>
+    </div>
+    <div class="grid grid_two">
+      <div class="field"><label for="address-city">City</label><input class="input" id="address-city" required maxlength="30" placeholder="Colombo 05"></div>
+      <div class="field"><label for="address-state">Province</label><input class="input" id="address-state" required maxlength="30" placeholder="Western"></div>
+    </div>
+    <div class="field"><label for="address-instructions">Delivery instructions (optional)</label><input class="input" id="address-instructions" maxlength="250" placeholder="For example: call at the gate"></div>
+    <label class="check_row"><input type="checkbox" id="address-default"><span id="address-default-label">Make this my default address</span></label>
+    <div class="actions">
+      <button class="custom_button custom_button_bg" type="submit" id="address-save-button">Save address</button>
+      <button class="custom_button custom_button_nobg" type="button" id="address-cancel-button">Cancel</button>
+    </div>
+  </form>
+
+  <!--
+    One pop-up reused for every question about deleting an address: a plain confirmation,
+    "pick a new default first", and "this is your only address". The script sets the text,
+    the choices and which buttons are shown each time it opens.
+  -->
+  <dialog id="address-dialog" class="address-dialog" aria-labelledby="address-dialog-title">
+    <h3 id="address-dialog-title"></h3>
+    <p id="address-dialog-message"></p>
+    <div id="address-dialog-choices"></div>
+    <div class="actions">
+      <button class="custom_button custom_button_bg" type="button" id="address-dialog-confirm"></button>
+      <button class="custom_button custom_button_nobg" type="button" id="address-dialog-cancel">Cancel</button>
+    </div>
+  </dialog>
+</section>
+
 <section class="card"><h2>Change password</h2><p class="muted">Enter your current password to protect your account.</p>
 <form id="password-form"><div class="field"><label for="current-password">Current password</label><div class="password-control"><input class="input" id="current-password" type="password" required autocomplete="current-password"><button type="button" class="password-toggle" data-toggle="current-password" aria-label="Show current password" aria-pressed="false">Show</button></div></div>
 <div class="grid grid_two"><div class="field"><label for="new-password">New password</label><div class="password-control"><input class="input" id="new-password" type="password" required minlength="8" maxlength="72" autocomplete="new-password"><button type="button" class="password-toggle" data-toggle="new-password" aria-label="Show new password" aria-pressed="false">Show</button></div></div>
