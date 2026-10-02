@@ -18,11 +18,18 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-// WHY: Only a signed-in RIDER account may use the rider module. Every public method starts by
-//      resolving the current rider (currentRider()/getCurrentRiderId()), so a request from
-//      anyone else is rejected before any task is read or changed: 401 when nobody is signed
-//      in, 403 when the signed-in account is not a rider. RiderController only calls this
-//      service, so the same rule covers every /api/rider endpoint.
+/**
+ * Business rules for the rider module.
+ *
+ * <p>Only a signed-in RIDER account may use it. Every public method starts by resolving the
+ * current rider ({@link #currentRider()} / {@link #getCurrentRiderId()}), so a request from
+ * anyone else is rejected before any task is read or changed: 401 when nobody is signed in,
+ * 403 when the signed-in account is not a rider. {@code RiderController} only calls this
+ * service, so the same rule covers every {@code /api/rider} endpoint.
+ *
+ * <p>Every write method is {@code @Transactional}, so multi-step updates commit or roll back
+ * together.
+ */
 @Service
 public class RiderService {
 
@@ -34,16 +41,29 @@ public class RiderService {
         this.users = users;
     }
 
-    /** The signed-in rider's user ID (see currentRider() for the checks). */
+    /**
+     * Returns the signed-in rider's user ID. The single entry point for the rider check, so
+     * every public method starts with it.
+     *
+     * @return the rider's {@code userID}
+     * @throws ResponseStatusException see {@link #currentRider()}
+     */
     public Integer getCurrentRiderId() {
         return currentRider().getUserID();
     }
 
-    // WHY: Replaces the fixed test rider ID. The rider is whoever is signed in.
-    // HOW: Spring Security stores the login email as the authentication name; the account is
-    //      looked up with UserRepository.findByEmailIgnoreCase and must have type RIDER.
-    //      An unauthenticated request carries an AnonymousAuthenticationToken (which reports
-    //      isAuthenticated() == true), so it is checked for explicitly.
+    /**
+     * Resolves the signed-in user and confirms they are a RIDER.
+     *
+     * <p>Spring Security stores the login email as the authentication name; the account is
+     * found with {@code UserRepository.findByEmailIgnoreCase}. An anonymous request carries an
+     * {@code AnonymousAuthenticationToken} (which still reports {@code isAuthenticated() == true}),
+     * so it is checked explicitly.
+     *
+     * @return the rider's {@link User}
+     * @throws ResponseStatusException 401 if not signed in, 404 if no account exists for the
+     *                                 email, 403 if the account is not a RIDER
+     */
     private User currentRider() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
@@ -64,17 +84,32 @@ public class RiderService {
         return user;
     }
 
+    /**
+     * Returns the open pool of pickups and deliveries. Any rider may see all of it.
+     *
+     * @return available tasks, oldest first
+     */
     public List<RiderTaskDTO> getAvailableTasks() {
         getCurrentRiderId(); // the open task pool is for riders only
         return repository.findAvailableTasks().stream().map(this::mapRow).toList();
     }
 
+    /**
+     * Returns only this rider's active assignments (see {@code RiderRepository.findMyWork}).
+     *
+     * @return the rider's active tasks
+     */
     public List<RiderTaskDTO> getMyWork() {
         return repository.findMyWork(getCurrentRiderId()).stream().map(this::mapRow).toList();
     }
 
-    // WHY: Returns the six database-backed dashboard metrics.
-    // HOW: Rider ID is needed only for completed and remaining work.
+    /**
+     * Builds the six database-backed dashboard metrics: available, completed and remaining
+     * work for pickup and delivery. The rider ID is needed only for completed and remaining.
+     *
+     * @return map with keys {@code availablePickup, availableDelivery, completedPickup,
+     *         completedDelivery, remainingPickup, remainingDelivery}
+     */
     public Map<String, Object> getDashboardSummary() {
         Integer riderId = getCurrentRiderId();
 
@@ -88,8 +123,13 @@ public class RiderService {
         );
     }
 
-    // WHY: Backs GET /me (profile badge and greeting).
-    // HOW: Uses the signed-in rider's account directly, so no second users query is needed.
+    /**
+     * Backs {@code GET /me} (profile badge and greeting). Uses the signed-in rider's account
+     * directly, so no second users query is needed. Initials are the first letters of the
+     * first and last name, upper-cased.
+     *
+     * @return map with {@code userID, firstName, lastName, initials}
+     */
     public java.util.Map<String, Object> getCurrentRider() {
         User rider = currentRider();
         String firstName = rider.getFirstName() == null ? "" : rider.getFirstName();
@@ -104,6 +144,20 @@ public class RiderService {
         );
     }
 
+    /**
+     * A rider takes a task from the pool.
+     *
+     * <p>Looks up the task, claims it, then moves it to "en route". Both steps are in one
+     * transaction, so a rider is never left assigned to a task that is still at "awaiting".
+     *
+     * <p><b>Note:</b> {@code findTask()} can return a {@code NULL} type for statuses outside the
+     * rider flow (for example 1, 2, 8); {@code task[2].toString()} would then fail with a 500
+     * instead of a 409.
+     *
+     * @param deliverId the task to accept
+     * @throws ResponseStatusException 404 if not found; 409 if someone else claimed it first
+     *                                 or it could not be moved to en route
+     */
     @Transactional
     public void accept(Integer deliverId) {
         Integer riderId = getCurrentRiderId();
@@ -125,11 +179,24 @@ public class RiderService {
         }
     }
 
+    /**
+     * Thin wrapper so {@link #accept} reads the same for pickups and deliveries. The rider ID
+     * has already been assigned, so this is a direct status update.
+     */
     private int setDeliveryEnRoute(Integer deliverId, Integer riderId) {
         // Uses a direct status update because the rider ID has already been assigned.
         return repository.updateDeliveryToEnRoute(deliverId, riderId);
     }
 
+    /**
+     * Rider collected the laundry (pickup at status 4 to 6).
+     * {@link #requireCurrentTask} checks type and status first; the repository update then
+     * checks ownership.
+     *
+     * @param deliverId the pickup task
+     * @throws ResponseStatusException 409 if the task is not a pickup at status 4 or the
+     *                                 update affected no row
+     */
     @Transactional
     public void pickedUp(Integer deliverId) {
         Integer riderId = getCurrentRiderId();
@@ -139,6 +206,13 @@ public class RiderService {
         }
     }
 
+    /**
+     * Rider handed the laundry to the shop (pickup at status 6 to 7, In Shop).
+     *
+     * @param deliverId the pickup task
+     * @throws ResponseStatusException 409 if the task is not a pickup at status 6 or the
+     *                                 update affected no row
+     */
     @Transactional
     public void pickupDelivered(Integer deliverId) {
         Integer riderId = getCurrentRiderId();
@@ -148,6 +222,15 @@ public class RiderService {
         }
     }
 
+    /**
+     * Pickup attempt failed (status 4). The trimmed note is stored and the task returns to
+     * the open pool.
+     *
+     * @param deliverId the pickup task
+     * @param request   the failure note
+     * @throws ResponseStatusException 409 if the task is not a pickup at status 4 or the
+     *                                 update affected no row
+     */
     @Transactional
     public void pickupFailed(Integer deliverId, FailureRequest request) {
         Integer riderId = getCurrentRiderId();
@@ -157,6 +240,13 @@ public class RiderService {
         }
     }
 
+    /**
+     * Rider delivered to the customer (delivery at status 13 to 15, Completed).
+     *
+     * @param deliverId the delivery task
+     * @throws ResponseStatusException 409 if the task is not a delivery at status 13 or the
+     *                                 update affected no row
+     */
     @Transactional
     public void deliveryDelivered(Integer deliverId) {
         Integer riderId = getCurrentRiderId();
@@ -166,6 +256,15 @@ public class RiderService {
         }
     }
 
+    /**
+     * Delivery attempt failed (status 13). The trimmed note is stored and the task returns
+     * to the open pool.
+     *
+     * @param deliverId the delivery task
+     * @param request   the failure note
+     * @throws ResponseStatusException 409 if the task is not a delivery at status 13 or the
+     *                                 update affected no row
+     */
     @Transactional
     public void deliveryFailed(Integer deliverId, FailureRequest request) {
         Integer riderId = getCurrentRiderId();
@@ -175,6 +274,16 @@ public class RiderService {
         }
     }
 
+    /**
+     * The rider releases a task they accepted but have not completed.
+     *
+     * <p>Allowed only for a pickup at status 4 or a delivery at status 13. Status 6 cannot be
+     * cancelled because the rider already holds the items.
+     *
+     * @param deliverId the task to release
+     * @throws ResponseStatusException 409 if the status does not allow cancelling or the
+     *                                 update affected no row
+     */
     @Transactional
     public void cancel(Integer deliverId) {
         Integer riderId = getCurrentRiderId();
@@ -195,11 +304,27 @@ public class RiderService {
         }
     }
 
+    /**
+     * Loads the task row.
+     *
+     * @param deliverId the task ID
+     * @return the raw row (see {@code RiderRepository.findTaskById})
+     * @throws ResponseStatusException 404 if it does not exist
+     */
     private Object[] findTask(Integer deliverId) {
         return repository.findTaskById(deliverId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Delivery assignment not found."));
     }
 
+    /**
+     * Guards an action by checking the task's type and status match what the action expects.
+     * Ownership is not checked here; the repository's UPDATE does it.
+     *
+     * @param deliverId the task ID
+     * @param type      expected type ({@code "pickup"} or {@code "delivery"})
+     * @param statusId  expected status ID
+     * @throws ResponseStatusException 404 if not found; 409 if type or status differ
+     */
     private void requireCurrentTask(Integer deliverId, String type, int statusId) {
         Object[] task = findTask(deliverId);
         if (!type.equals(task[2].toString()) || ((Number) task[3]).intValue() != statusId) {
@@ -208,6 +333,13 @@ public class RiderService {
         // Assignment ownership is checked by the update query itself.
     }
 
+    /**
+     * Converts a native-query row into a DTO. The column order must match the SELECT in
+     * {@code RiderRepository}. Null text fields become {@code ""}.
+     *
+     * @param row one result row
+     * @return the DTO
+     */
     private RiderTaskDTO mapRow(Object[] row) {
         return new RiderTaskDTO(
                 ((Number) row[0]).intValue(),
@@ -223,6 +355,13 @@ public class RiderService {
         );
     }
 
+    /**
+     * Normalises the different date/time types a native query may return.
+     *
+     * @param value a {@code Timestamp}, {@code java.sql.Date}, {@code LocalDateTime}, or
+     *              date string; may be null
+     * @return the value as {@code LocalDateTime}, or null
+     */
     private LocalDateTime toLocalDateTime(Object value) {
         if (value == null) return null;
         if (value instanceof Timestamp timestamp) return timestamp.toLocalDateTime();
