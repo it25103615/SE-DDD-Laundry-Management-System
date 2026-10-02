@@ -11,10 +11,11 @@
 
     // ---------- Small helpers ----------
 
-    // Converts user/API data into safe HTML text.
-    // Prevents special characters from being interpreted as HTML when
-    // task information is inserted into dynamically generated elements.
-
+    /**
+     * Converts API data into HTML-safe text so special characters are not interpreted as markup.
+     * @param {*} value Any value; null/undefined become "".
+     * @returns {string} The escaped string.
+     */
     function escapeHtml(value) {
         return String(value ?? "")
             .replaceAll("&", "&amp;")
@@ -24,10 +25,12 @@
             .replaceAll("'", "&#039;");
     }
 
-    // Formats API date/time values for display in the rider UI.
-    // Keeps the original timestamp unchanged and only changes its visual format
-    // to DD/MM/YY hh:mm AM/PM.
-
+    /**
+     * Formats an API date/time for display as DD/MM/YY h:mm AM/PM. The original value is
+     * not changed, only its appearance.
+     * @param {string|null} value An ISO date-time string.
+     * @returns {string} The formatted text, the original value if unparsable, or "—" if empty.
+     */
     function formatTime(value) {
         if (!value) return "—";
 
@@ -47,17 +50,22 @@
         return `${day}/${month}/${year} ${time}`;
     }
 
-    // Updates an element's text when that element exists on the current page.
-    // Used for dashboard counts and other values supplied by the API.
-
+    /**
+     * Sets an element's text if it exists on the current page (dashboard counts etc.).
+     * @param {string} id Element ID.
+     * @param {*} value Text to show; null/undefined become 0.
+     */
     function setText(id, value) {
         const el = document.getElementById(id);
         if (el) el.textContent = value ?? 0;
     }
 
-    // Determines the existing CSS status class from the status label.
-    // This keeps the status appearance consistent without creating new CSS.
-
+    /**
+     * Maps a status label to an existing CSS class so appearance stays consistent without
+     * new CSS.
+     * @param {string} status The status label.
+     * @returns {string} One of status_error, status_warning, status_success, status_info.
+     */
     function statusClass(status) {
         const s = String(status || "").toLowerCase();
         if (s.includes("failed") || s.includes("cancel")) return "status_error";
@@ -66,10 +74,12 @@
         return "status_info";
     }
 
-    // Displays a temporary success or error message to the rider.
-    // Uses the shared toast component when available; otherwise creates a
-    // small temporary notification and removes it after three seconds.
-
+    /**
+     * Shows a temporary message. Uses the shared toast component when available; otherwise
+     * creates a small notification and removes it after three seconds.
+     * @param {string} message Main text.
+     * @param {string} [detail] Secondary text.
+     */
     function toast(message, detail = "") {
         if (typeof window.connectedToast === "function") {
             window.connectedToast(message, detail);
@@ -86,10 +96,16 @@
         setTimeout(() => el.remove(), 3000);
     }
 
-    // Sends requests to the Rider API and centralizes response/error handling.
-    // It adds the API base path, checks HTTP errors, extracts backend error
-    // messages, and returns the JSON response to the calling function.
-
+    /**
+     * Sends a request to the Rider API and centralises response/error handling.
+     *
+     * Handles Spring redirects (login page or portal for a wrong role), 401 (back to login),
+     * 403 (not a rider), other HTTP errors (extracts the backend message), and returns JSON.
+     * @param {string} path Path after /api/rider.
+     * @param {RequestInit} [options] Fetch options.
+     * @returns {Promise<*>} Parsed JSON, or null for 204.
+     * @throws {Error} With a user-readable message on any failure.
+     */
     async function api(path, options = {}) {
         const response = await fetch(`${API}${path}`, {
             ...options,
@@ -132,10 +148,15 @@
     const modal = document.getElementById("task_modal");
     const modalContent = document.getElementById("modal_content");
 
-    // Opens the shared task modal with the supplied title, task details,
-    // and action buttons. The same modal is reused for available tasks,
-    // My Work details, and failure-note entry
-
+    /**
+     * Opens the shared task modal. Reused for available tasks, My Work details and the
+     * failure-note form.
+     * @param {{orderID: (number|string)}} task Provides the "Order #" title; an empty orderID
+     *        hides the title (used by the failure form).
+     * @param {string} title Small subtitle above the heading.
+     * @param {string} bodyHtml Main content (must already be escaped).
+     * @param {string} [buttonsHtml] Action buttons.
+     */
     function openModal(task, title, bodyHtml, buttonsHtml = "") {
         if (!modal || !modalContent) return;
         modalContent.innerHTML = `
@@ -152,10 +173,10 @@
         modal.hidden = false;
     }
 
-    // Closes and clears the shared modal.
-    // Clearing the content prevents buttons and task details from a previous
-    // task from remaining when the modal is opened again.
-
+    /**
+     * Closes the modal and clears its content so buttons and details from the previous task
+     * do not remain.
+     */
     function closeModal() {
         if (!modal || !modalContent) return;
         modal.hidden = true;
@@ -178,10 +199,12 @@
         });
     }
 
-    // Builds the common task-details section shown inside the modal.
-    // Pickup tasks also display their scheduled pickup time, while delivery
-    // tasks omit it because they do not have a customer-scheduled delivery time.
-
+    /**
+     * Builds the task-details table (customer, address, phone, status). Pickup tasks also
+     * show the scheduled pickup time; deliveries do not have one.
+     * @param {Object} task A RiderTaskDTO.
+     * @returns {string} HTML.
+     */
     function detailBody(task) {
         const schedule = task.type === "pickup"
             ? `<p><strong>Pickup scheduled</strong><br><span class="muted">${escapeHtml(
@@ -208,9 +231,12 @@
             </div>`;
     }
 
-    // Connects Accept buttons to the assignment API.
-    // Event propagation is stopped so clicking Accept does not also trigger
-    // the task-row or modal click behaviour.
+    /**
+     * Binds every .rider-accept button inside a container to acceptTask().
+     * stopPropagation() stops the click from also opening the row's detail popup.
+     * @param {HTMLElement} container Row or modal element.
+     * @param {Object} task The task to accept.
+     */
     function wireActionButtons(container, task) {
         container.querySelectorAll(".rider-accept").forEach((btn) =>
             btn.addEventListener("click", (e) => {
@@ -220,10 +246,16 @@
         );
     }
 
-    // Connects Accept buttons to the assignment API.
-    // Event propagation is stopped so clicking Accept does not also trigger
-    // the task-row or modal click behaviour.
-
+    /**
+     * Returns the actions a rider may take for a task's type and status.
+     *
+     * pickup@4: picked-up / pickup-failed / cancel. pickup@6: pickup-delivered.
+     * delivery@13: delivery-delivered / delivery-failed / cancel. Anything else: none.
+     * Single source of truth for the row dropdown and the popup buttons, so the UI never
+     * offers an action the backend would reject.
+     * @param {Object} task A RiderTaskDTO.
+     * @returns {Array<[string, string]>} [endpointSuffix, buttonLabel] pairs.
+     */
     function getStatusActions(task) {
         if (task.type === "pickup" && task.statusID === 4) {
             return [
@@ -250,9 +282,12 @@
         return [];
     }
 
-    // Builds the valid status-action buttons for the My Work details popup.
-    // The available buttons are determined by getStatusActions(), so the popup
-    // cannot offer actions that are invalid for the task's current status.
+    /**
+     * Builds the My Work popup buttons from getStatusActions(). Failure and cancel actions get
+     * the bordered style.
+     * @param {Object} task A RiderTaskDTO.
+     * @returns {string} HTML.
+     */
     function popupStatusButtons(task) {
         return getStatusActions(task)
             .map(([action, label]) => `
@@ -270,10 +305,13 @@
             .join("");
     }
 
-    // Opens the task-details popup for either an available task or a My Work task.
-    // Available tasks receive an Accept button, while My Work tasks receive only
-    // the status actions valid for their current workflow state.
-
+    /**
+     * Opens the details popup. Available tasks get an Accept button; My Work tasks get only the
+     * status actions valid for their state. Popup action buttons call handleStatusChange(),
+     * the same handler as the row dropdown, so both controls behave identically.
+     * @param {Object} task A RiderTaskDTO.
+     * @param {"available"|"mine"} mode Which list the task came from.
+     */
     function openTaskDetails(task, mode) {
         const closeButton = `
         <button
@@ -346,10 +384,12 @@
         });
     }
 
-    // Opens the failure-note form for a pickup or delivery failure.
-    // A note is required before the corresponding failure endpoint is called,
-    // and the task list is refreshed after the backend records the failure.
-
+    /**
+     * Opens the failure-note form. A note is required before the *-failed endpoint is called;
+     * the lists are refreshed after the backend records the failure.
+     * @param {number} deliverId The task ID.
+     * @param {"pickup"|"delivery"} type Which failure endpoint to call.
+     */
     function openFailureModal(deliverId, type) {
         const label = type === "pickup" ? "Pickup Failed" : "Delivery Failed";
         openModal(
@@ -393,18 +433,24 @@
 
     // ---------- Row rendering ----------
 
-    // Updates the task-count label for a pickup or delivery section.
-    // Automatically chooses the singular or plural label based on the count.
-
+    /**
+     * Updates a section's count label, choosing singular or plural automatically.
+     * @param {Element|null} section Element containing [data-count].
+     * @param {number} count Number of tasks.
+     * @param {string} singular Label for 1.
+     * @param {string} plural Label otherwise.
+     */
     function setCount(section, count, singular, plural) {
         const el = section?.querySelector("[data-count]");
         if (el) el.textContent = `${count} ${count === 1 ? singular : plural}`;
     }
 
-    // Creates the status control used in My Work rows.
-    // It shows the current status as the default option and adds only the valid
-    // next actions returned by getStatusActions().
-
+    /**
+     * Builds the status control for My Work rows: a dropdown showing the current status plus
+     * only the valid next actions, or a plain badge if there are none.
+     * @param {Object} task A RiderTaskDTO.
+     * @returns {string} HTML.
+     */
     function statusControl(task) {
         const options = getStatusActions(task);
 
@@ -431,10 +477,14 @@
     `;
     }
 
-    // Generates the table rows for available tasks or My Work tasks.
-    // The columns differ between pickup and delivery according to the UI design,
-    // while row clicks, Accept buttons, and status controls are wired afterward.
-
+    /**
+     * Renders table rows for available or My Work tasks and wires row click, Accept and the
+     * status dropdown. Columns follow the UI design: pickups show a TIME column, deliveries do
+     * not. An empty-state row is shown when there are no tasks.
+     * @param {HTMLElement|null} tbody Target table body.
+     * @param {Object[]} tasks RiderTaskDTO list.
+     * @param {"available"|"mine"} mode Which table is being rendered.
+     */
     function renderRows(tbody, tasks, mode) {
         if (!tbody) return;
 
@@ -534,10 +584,11 @@
 
     // ---------- Actions (map 1:1 to RiderController endpoints) ----------
 
-    // Accepts an available rider task through the backend.
-    // The backend assigns the rider and advances the task to its next workflow
-    // status; the UI is then refreshed so the task moves to My Work.
-
+    /**
+     * Accepts an available task. The backend assigns the rider and advances the task to en
+     * route; the UI is then refreshed so the task moves to My Work.
+     * @param {number} deliverId The task ID.
+     */
     async function acceptTask(deliverId) {
         try {
             await api(`/tasks/${deliverId}/accept`, { method: "PUT" });
@@ -549,10 +600,13 @@
         }
     }
 
-    // Handles every status action selected from a My Work control.
-    // Failure actions open the note form, cancellation uses its confirmation,
-    // and normal status changes are sent directly to their API endpoints.
-
+    /**
+     * Handles every action chosen from a My Work control. Failure actions open the note form,
+     * cancel uses its confirmation, and normal changes call their endpoint directly. On error
+     * the lists are still refreshed, because the usual cause is that the task changed (409).
+     * @param {Object} task A RiderTaskDTO.
+     * @param {string} action Endpoint suffix from getStatusActions(); empty is ignored.
+     */
     async function handleStatusChange(task, action) {
         if (!action) return;
 
@@ -578,10 +632,11 @@
         }
     }
 
-    // Cancels the rider's current assignment after confirmation.
-    // The backend releases the rider assignment and returns the task to the
-    // available pool, after which the UI is refreshed.
-
+    /**
+     * Cancels the rider's assignment after confirmation. The backend releases it and returns
+     * it to the available pool.
+     * @param {number} deliverId The task ID.
+     */
     async function cancelTask(deliverId) {
         if (!window.confirm("Cancel this assignment and return it to the task list?")) return;
         try {
@@ -612,10 +667,12 @@
     );
     const hasSummaryCounts = !!document.getElementById("available_pickup_count");
 
-    // Loads the rider's active assignments from the backend and separates them
-    // into pickup and delivery tasks. The same function is reused by both the
-    // task-list page and dashboard to avoid duplicating My Work loading logic.
-
+    /**
+     * Loads the rider's active assignments, splits them into pickups and deliveries and renders
+     * them. Shared by the task-list page and the dashboard.
+     * @param {string} pickupId tbody ID for pickups.
+     * @param {string} deliveryId tbody ID for deliveries.
+     */
     async function loadMyWork(pickupId, deliveryId) {
         const myWork = await api("/my-work");
 
@@ -640,10 +697,10 @@
         );
     }
 
-    // Loads the task-list page's available task pool and the rider's My Work.
-    // Available tasks come from /tasks, while the rider's active assignments
-    // are loaded through loadMyWork(). The UI is refreshed after the data arrives.
-
+    /**
+     * Task-list page loader: the available pool (/tasks) plus My Work.
+     * Errors are shown with toast("Could not load tasks", error.message).
+     */
     async function loadAvailableAndMine() {
         try {
             const tasks = await api("/tasks");
@@ -688,10 +745,9 @@
         }
     }
 
-    // Loads only the rider's active My Work for the dashboard.
-    // It reuses loadMyWork() because the dashboard does not need the available
-    // task pool, only the rider's current assignments.
-
+    /**
+     * Dashboard loader: only the rider's My Work, not the available pool.
+     */
     async function loadDashboardWork() {
         try {
             await loadMyWork(
@@ -704,10 +760,10 @@
         }
     }
 
-    // Loads the six dashboard summary metrics from the backend.
-    // The values come from the Rider API rather than counting rows in the DOM,
-    // because completed tasks may no longer be displayed in My Work.
-
+    /**
+     * Loads the six summary metrics from the API. They come from the backend rather than
+     * counting DOM rows, because completed tasks are no longer shown in My Work.
+     */
     async function loadSummary() {
         try {
             const summary = await api("/summary");
@@ -723,10 +779,10 @@
         }
     }
 
-    // Loads the currently authenticated rider's basic profile information.
-    // The returned initials and first name are used to update the dashboard
-    // profile badge and greeting.
-
+    /**
+     * Loads the signed-in rider's profile and updates the badge and greeting.
+     * The greeting is always "Good morning"; use new Date().getHours() if time of day matters.
+     */
     async function loadCurrentRider() {
         try {
             const rider = await api("/me");
@@ -742,10 +798,10 @@
         }
     }
 
-    // Refreshes every section required by the current page.
-    // Status actions can move tasks between sections and change dashboard counts,
-    // so all relevant data is reloaded after an assignment or status change.
-
+    /**
+     * Reloads every section the current page needs. Status actions can move tasks between
+     * sections and change dashboard counts, so all relevant data is refreshed.
+     */
     async function refreshAll() {
         const jobs = [];
         if (hasTaskListPage || hasMyWorkOnTaskList) jobs.push(loadAvailableAndMine());

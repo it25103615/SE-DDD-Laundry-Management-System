@@ -15,6 +15,10 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import javax.sql.DataSource;
 
+/**
+ * Spring Security setup: URL access rules, form login/logout, CSRF settings, the
+ * database-backed user lookup and the password encoder.
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
