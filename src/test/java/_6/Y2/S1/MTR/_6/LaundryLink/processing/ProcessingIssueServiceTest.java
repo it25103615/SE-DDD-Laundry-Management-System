@@ -3,7 +3,7 @@ package _6.Y2.S1.MTR._6.LaundryLink.processing;
 import _6.Y2.S1.MTR._6.LaundryLink.common.ApiException;
 import _6.Y2.S1.MTR._6.LaundryLink.processing.dto.IssueRequest;
 import _6.Y2.S1.MTR._6.LaundryLink.processing.dto.IssueResponse;
-import _6.Y2.S1.MTR._6.LaundryLink.service.shared.NotificationService;
+import _6.Y2.S1.MTR._6.LaundryLink.notification.NotificationService;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.Set;

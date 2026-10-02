@@ -2,14 +2,14 @@ package _6.Y2.S1.MTR._6.LaundryLink.orders;
 
 import _6.Y2.S1.MTR._6.LaundryLink.orderlines.OrderLine;
 import _6.Y2.S1.MTR._6.LaundryLink.orderlines.OrderLineService;
-import _6.Y2.S1.MTR._6.LaundryLink.entity.shared.Log;
-import _6.Y2.S1.MTR._6.LaundryLink.service.shared.LogService;
+import _6.Y2.S1.MTR._6.LaundryLink.log.Log;
+import _6.Y2.S1.MTR._6.LaundryLink.log.LogService;
 import _6.Y2.S1.MTR._6.LaundryLink.orders.dto.CreateOrderRequest;
 import _6.Y2.S1.MTR._6.LaundryLink.orders.dto.CreateOrderResponse;
 import _6.Y2.S1.MTR._6.LaundryLink.orders.dto.CreatedOrderLineResponse;
 import _6.Y2.S1.MTR._6.LaundryLink.orders.dto.ModifyOrderRequest;
-import _6.Y2.S1.MTR._6.LaundryLink.entity.shared.Status;
-import _6.Y2.S1.MTR._6.LaundryLink.service.shared.StatusService;
+import _6.Y2.S1.MTR._6.LaundryLink.status.Status;
+import _6.Y2.S1.MTR._6.LaundryLink.status.StatusService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
