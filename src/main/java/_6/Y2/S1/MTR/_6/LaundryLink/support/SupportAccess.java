@@ -1,12 +1,15 @@
 package _6.Y2.S1.MTR._6.LaundryLink.support;
 
-import java.security.Principal;
-import java.util.List;
-import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-import static org.springframework.http.HttpStatus.*;
+
+import java.security.Principal;
+import java.util.List;
+import java.util.Set;
+
+import static org.springframework.http.HttpStatus.FORBIDDEN;
+import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 /** Resolves the signed-in database user and their support-workflow permissions. */
 @Service

@@ -3,8 +3,6 @@ package _6.Y2.S1.MTR._6.LaundryLink.processing;
 import _6.Y2.S1.MTR._6.LaundryLink.common.ApiException;
 import _6.Y2.S1.MTR._6.LaundryLink.common.ApiExceptionHandler;
 import _6.Y2.S1.MTR._6.LaundryLink.processing.dto.ReceiveResult;
-import java.security.Principal;
-import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -13,10 +11,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.security.Principal;
+import java.util.List;
+
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Web-layer tests for ProcessingController: request validation, HTTP status codes and the JSON

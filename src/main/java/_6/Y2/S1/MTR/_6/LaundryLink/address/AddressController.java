@@ -1,12 +1,15 @@
 package _6.Y2.S1.MTR._6.LaundryLink.address;
 
-import _6.Y2.S1.MTR._6.LaundryLink.address.dto.*;
+import _6.Y2.S1.MTR._6.LaundryLink.address.dto.AddressRequest;
+import _6.Y2.S1.MTR._6.LaundryLink.address.dto.AddressResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import java.util.*;
+
+import java.util.List;
 
 @RestController @RequestMapping("/api/account/addresses") @RequiredArgsConstructor
 public class AddressController {

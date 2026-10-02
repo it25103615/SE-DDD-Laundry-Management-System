@@ -2,7 +2,8 @@ package _6.Y2.S1.MTR._6.LaundryLink.account.dto;
 
 import jakarta.validation.Validation;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProfilePasswordTest {
     @Test void validPasswordPassesAndWeakPasswordGetsReadableMessage() {

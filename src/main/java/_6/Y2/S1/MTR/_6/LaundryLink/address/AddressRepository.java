@@ -1,8 +1,12 @@
 package _6.Y2.S1.MTR._6.LaundryLink.address;
 
-import org.springframework.data.jpa.repository.*;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import java.util.*;
+
+import java.util.List;
+import java.util.Optional;
 
 public interface AddressRepository extends JpaRepository<Address, Integer> {
     List<Address> findByUserUserIDOrderByIsDefaultDescAddressIDAsc(Integer userID);

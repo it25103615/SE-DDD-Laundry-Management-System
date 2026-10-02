@@ -1,14 +1,16 @@
 package _6.Y2.S1.MTR._6.LaundryLink.address;
 
 import _6.Y2.S1.MTR._6.LaundryLink.account.AccountService;
-import _6.Y2.S1.MTR._6.LaundryLink.address.dto.*;
+import _6.Y2.S1.MTR._6.LaundryLink.address.dto.AddressRequest;
+import _6.Y2.S1.MTR._6.LaundryLink.address.dto.AddressResponse;
 import _6.Y2.S1.MTR._6.LaundryLink.common.ApiException;
 import _6.Y2.S1.MTR._6.LaundryLink.user.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.*;
+
+import java.util.List;
 
 @Service @RequiredArgsConstructor @Transactional
 public class AddressServiceImpl implements AddressService {
