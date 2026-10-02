@@ -116,6 +116,37 @@ class LaundryLinkApplicationTests {
 		assertTrue(session.isInvalid(), "Logout should invalidate the session");
 	}
 
+	// The /api/orders rules in SecurityConfig, tried through the real filter chain.
+	// A refused request is redirected to the portal by the access-denied handler.
+	@Test
+	void customersReachOnlyTheirOwnOrdersWhileStaffCanSeeEveryCustomers() throws Exception {
+		int anna = db.queryForObject("SELECT userID FROM users WHERE email='anna@customer.com'", Integer.class);
+		int otherCustomer = db.queryForObject("SELECT TOP 1 userID FROM users WHERE UPPER(type)='CUSTOMER' AND userID<>? ORDER BY userID", Integer.class, anna);
+
+		// Not signed in: sent to the login page.
+		mvc.perform(get("/api/orders/customer/" + anna)).andExpect(status().is3xxRedirection());
+
+		var customer = (MockHttpSession) mvc.perform(formLogin("/login").userParameter("email").user("anna@customer.com").password("Anna1234"))
+			.andReturn().getRequest().getSession(false);
+		mvc.perform(get("/api/orders/customer/" + anna).session(customer)).andExpect(status().isOk());
+		mvc.perform(get("/api/orders/customer/" + otherCustomer).session(customer))
+			.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
+		mvc.perform(get("/api/orders/management").session(customer))
+			.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
+		// Placing an order for someone else is refused by OrderController.
+		mvc.perform(post("/api/orders").session(customer).with(csrf())
+				.contentType("application/json")
+				.content("{\"userID\":" + otherCustomer + ",\"orderLines\":[{\"itemID\":1,\"serviceID\":1,\"quantity\":1}]}"))
+			.andExpect(status().isForbidden());
+
+		for (String[] account : new String[][]{{"sam@staff.com", "Sam1234"}, {"ravi@rider.com", "Ravi1234"}, {"maya@manager.com", "Maya1234"}, {"oliver@owner.com", "Oliver1234"}}) {
+			var session = (MockHttpSession) mvc.perform(formLogin("/login").userParameter("email").user(account[0]).password(account[1]))
+				.andReturn().getRequest().getSession(false);
+			mvc.perform(get("/api/orders/customer/" + otherCustomer).session(session)).andExpect(status().isOk());
+			mvc.perform(get("/api/orders/management").session(session)).andExpect(status().isOk());
+		}
+	}
+
 	@Test
 	void administrationAndReportsReadTheLiveSchema() {
 		var owner = new Actor(0, "Integration owner", "OWNER", false);
