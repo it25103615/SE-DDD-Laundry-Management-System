@@ -262,8 +262,9 @@ public class ProcessingRepository {
     }
 
     /**
-     * Changes the order's status through dbo.sp_UpdateProcessingStatus, which updates the order and
-     * writes its log row (status before/after, date, time) in one transaction. The procedure
+     * Changes the order's status through dbo.sp_UpdateProcessingStatus, which updates the order in
+     * one transaction. That update fires the dbo.trg_order_status_log trigger, which writes the
+     * log row (status before/after, date, time) in the same transaction. The procedure
      * returns one row, so it is called as a query. Its THROW numbers are turned into API errors.
      */
     public void updateStatus(int orderID, int newStatusID) {

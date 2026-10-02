@@ -344,6 +344,9 @@ public class RiderRepository {
         return setStatusByDeliveryId(deliverId, 12);
     }
 
+    // WHY: Every rider step ends here or in setStatusByDeliveryId, and neither writes a log row.
+    // HOW: The database trigger dbo.trg_order_status_log adds the dbo.logs row whenever
+    //      orders.statusID changes, so the rider's steps appear in the order's status history.
     private int updateStatus(Integer deliverId, Integer riderId, String riderColumn,
                              int expectedStatus, int nextStatus) {
         String sql = """

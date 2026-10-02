@@ -132,6 +132,28 @@ class ProcessingIntegrationTest {
                 """, Integer.class, order, order) > 0);
     }
 
+    /**
+     * The status history is written by the dbo.trg_order_status_log trigger (migration 008), not
+     * by the code that changes the status. A plain UPDATE of orders.statusID, which is how the
+     * rider module moves an order, must therefore leave exactly one log row behind.
+     */
+    @Test
+    void aDirectStatusUpdateIsLoggedOnceByTheTrigger() {
+        int order = testOrderAt(ProcessingTransitions.WASHING);
+        String countLogs = "SELECT COUNT(*) FROM logs WHERE orderID = ?";
+        int logsBefore = db.queryForObject(countLogs, Integer.class, order);
+        int washToCompleted = logRows(order, 9, 15);
+
+        // An update that leaves the status as it is writes nothing.
+        db.update("UPDATE orders SET statusID = statusID WHERE orderID = ?", order);
+        assertEquals(logsBefore, db.queryForObject(countLogs, Integer.class, order));
+
+        // A real change writes one row holding the status before and after.
+        assertEquals(1, db.update("UPDATE orders SET statusID = 15 WHERE orderID = ?", order));
+        assertEquals(logsBefore + 1, db.queryForObject(countLogs, Integer.class, order));
+        assertEquals(washToCompleted + 1, logRows(order, 9, 15));
+    }
+
     @Test
     void staffPagesAndApiAreForStaffOnly() throws Exception {
         var staffLogin = mvc.perform(formLogin("/login").userParameter("email").user("sam@staff.com").password("Sam1234")).andReturn();

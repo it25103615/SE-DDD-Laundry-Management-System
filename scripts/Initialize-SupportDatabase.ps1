@@ -9,12 +9,14 @@ param(
     [switch]$SampleData
 )
 # Fresh database: creates the complete current schema (initialize_database.sql).
-# Existing database: applies migrations 003, 004, 005, 006 and 007 (all safe to re-run).
+# Existing database: applies migrations 003, 004, 005, 006, 007 and 008 (all safe to re-run).
 # Migration 005 runs after the sample data: it creates the laundry processing tables when they
 # are missing and, once the sample data exists, adds the processing test orders after it.
 # Migration 006 runs next: it adds delivery.addressID when missing and fills it in for
 # delivery rows that have no address yet.
-# Migration 007 runs last: it adds orders.instructions and orders.preferences when missing.
+# Migration 007 runs next: it adds orders.instructions and orders.preferences when missing.
+# Migration 008 runs last: it creates the trigger that writes the order status history
+# (dbo.logs) and takes that job away from dbo.sp_UpdateProcessingStatus.
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 
@@ -72,6 +74,11 @@ try {
     # will not start without them, because Hibernate checks the columns at startup.
     Invoke-SqlFile $command 'database/migrations/007_order_instructions.sql'
     Write-Output 'Migration 007 applied (order instructions).'
+
+    # 008: the order status log trigger. It runs after the sample data and 005, which insert
+    # their orders and log rows directly, so their history is not written a second time.
+    Invoke-SqlFile $command 'database/migrations/008_order_status_log_trigger.sql'
+    Write-Output 'Migration 008 applied (order status log trigger).'
 
     # Report which orders the laundry processing test cases (TC-LP01 to LP10) should use.
     $connection.ChangeDatabase('laundryLinkDB')
