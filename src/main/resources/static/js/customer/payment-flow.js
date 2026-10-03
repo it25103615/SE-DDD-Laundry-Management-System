@@ -2,6 +2,7 @@
   const ORDER_DRAFT_KEY = "laundryLink.orderDraft";
   const page = document.body.dataset.paymentPage;
   let authenticatedCustomerPromise = null;
+  let csrfPromise = null;
 
   function params() {
     return new URLSearchParams(window.location.search);
@@ -50,6 +51,16 @@
     return await authenticatedCustomerID() || storedCustomerID();
   }
 
+  async function csrf() {
+    if (!csrfPromise) {
+      csrfPromise = fetch("/api/auth/csrf", {
+        headers: { "Accept": "application/json" },
+        credentials: "same-origin",
+      }).then((response) => response.json());
+    }
+    return csrfPromise;
+  }
+
   function orderID() {
     const queryOrderID = params().get("orderID");
     const draft = readOrderDraft();
@@ -91,11 +102,16 @@
   }
 
   async function api(path, options) {
+    const method = (options && options.method ? options.method : "GET").toUpperCase();
     const headers = {
       "Accept": "application/json",
       "Content-Type": "application/json",
       ...(options && options.headers ? options.headers : {}),
     };
+    if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+      const token = await csrf();
+      headers[token.headerName] = token.token;
+    }
     const resolvedCustomerID = await customerID();
     if (resolvedCustomerID) {
       headers["X-User-ID"] = resolvedCustomerID;
