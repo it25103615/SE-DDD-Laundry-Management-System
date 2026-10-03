@@ -1,6 +1,6 @@
 (function () {
-  const MANAGER_ID = sessionStorage.getItem("laundrylinkManagerID");
   const page = document.body.dataset.paymentAdminPage;
+  let csrfPromise = null;
 
   function money(value) {
     const number = Number(value || 0);
@@ -9,6 +9,13 @@
 
   function label(value) {
     return String(value || "-").replaceAll("_", " ");
+  }
+
+  function dateTimeLabel(value) {
+    if (!value) return "-";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return String(value).replace("T", " ");
+    return parsed.toLocaleString();
   }
 
   function params() {
@@ -36,14 +43,31 @@
       .replaceAll("'", "&#039;");
   }
 
-  function api(path, options = {}) {
+  async function csrf() {
+    if (!csrfPromise) {
+      csrfPromise = fetch("/api/auth/csrf", {
+        headers: { "Accept": "application/json" },
+        credentials: "same-origin",
+      }).then((response) => response.json());
+    }
+    return csrfPromise;
+  }
+
+  async function api(path, options = {}) {
+    const method = (options.method || "GET").toUpperCase();
+    const headers = {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    };
+    if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+      const token = await csrf();
+      headers[token.headerName] = token.token;
+    }
+
     return fetch(path, {
       ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(MANAGER_ID ? { "X-User-ID": MANAGER_ID } : {}),
-        ...(options.headers || {}),
-      },
+      headers,
+      credentials: "same-origin",
     }).then(async (response) => {
       if (!response.ok) {
         const error = new Error(`Request failed with status ${response.status}`);
@@ -137,6 +161,9 @@
     setText("detail-order-id", `#${record.orderID}`);
     setText("detail-customer-id", `Customer #${record.customerID}`);
     setText("detail-payment-status", label(record.paymentStatus));
+    setText("detail-payment-method", label(record.paymentMethod));
+    setText("detail-payment-reference", record.transactionReference || "-");
+    setText("detail-processed-at", dateTimeLabel(record.processedAt));
     setText("detail-order-status", label(record.orderStatus));
     setText("detail-subtotal", money(billing && billing.subtotal));
     setText("detail-discount", money(billing && billing.discountAmount));

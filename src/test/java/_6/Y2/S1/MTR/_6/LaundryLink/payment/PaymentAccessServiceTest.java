@@ -16,7 +16,7 @@ import static org.mockito.Mockito.when;
 class PaymentAccessServiceTest {
 
     @Test
-    void resolvesAuthenticatedEmailToUserIDBeforeUsingHeaderIdentity() {
+    void resolvesAuthenticatedEmailToUserID() {
         PaymentManagementRepository paymentManagementRepository = Mockito.mock(PaymentManagementRepository.class);
         UserRepository userRepository = Mockito.mock(UserRepository.class);
         User user = new User();
@@ -24,7 +24,7 @@ class PaymentAccessServiceTest {
         when(userRepository.findByEmailIgnoreCase("viyavaas@gmail.com")).thenReturn(Optional.of(user));
         PaymentAccessService service = new PaymentAccessService(paymentManagementRepository, userRepository);
 
-        Integer resolved = service.resolveUserID(principal("viyavaas@gmail.com"), 99);
+        Integer resolved = service.resolveUserID(principal("viyavaas@gmail.com"));
 
         assertEquals(30, resolved);
     }
@@ -36,7 +36,16 @@ class PaymentAccessServiceTest {
         when(userRepository.findByEmailIgnoreCase("missing@example.com")).thenReturn(Optional.empty());
         PaymentAccessService service = new PaymentAccessService(paymentManagementRepository, userRepository);
 
-        assertThrows(AccessDeniedException.class, () -> service.resolveUserID(principal("missing@example.com"), 30));
+        assertThrows(AccessDeniedException.class, () -> service.resolveUserID(principal("missing@example.com")));
+    }
+
+    @Test
+    void rejectsMissingAuthenticatedPrincipal() {
+        PaymentManagementRepository paymentManagementRepository = Mockito.mock(PaymentManagementRepository.class);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        PaymentAccessService service = new PaymentAccessService(paymentManagementRepository, userRepository);
+
+        assertThrows(AccessDeniedException.class, () -> service.resolveUserID(null));
     }
 
     private Principal principal(String name) {

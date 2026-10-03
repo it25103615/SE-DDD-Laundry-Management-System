@@ -148,6 +148,39 @@ class LaundryLinkApplicationTests {
 	}
 
 	@Test
+	void financeApisRequireLoginAndIgnoreSpoofedUserHeader() throws Exception {
+		int anna = db.queryForObject("SELECT userID FROM users WHERE email='anna@customer.com'", Integer.class);
+
+		mvc.perform(get("/api/payments/history").header("X-User-ID", anna))
+			.andExpect(status().is3xxRedirection());
+		mvc.perform(get("/api/billing/orders/1/invoice").header("X-User-ID", anna))
+			.andExpect(status().is3xxRedirection());
+		mvc.perform(get("/api/promotions").header("X-User-ID", anna))
+			.andExpect(status().is3xxRedirection());
+		mvc.perform(post("/api/payments/orders/1").header("X-User-ID", anna).with(csrf())
+				.contentType("application/json")
+				.content("{\"paymentMethod\":\"CARD\",\"amount\":100.00}"))
+			.andExpect(status().is3xxRedirection());
+	}
+
+	@Test
+	void customerCannotUseFinanceManagementEndpoints() throws Exception {
+		var customer = (MockHttpSession) mvc.perform(formLogin("/login").userParameter("email").user("anna@customer.com").password("Anna1234"))
+			.andReturn().getRequest().getSession(false);
+
+		mvc.perform(get("/api/payments/management").session(customer))
+			.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
+		mvc.perform(post("/api/payments/management/1/approve").session(customer).with(csrf()))
+			.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
+		mvc.perform(post("/api/promotions").session(customer).with(csrf())
+				.contentType("application/json")
+				.content("{\"promotionCode\":\"NOPE\",\"promotionName\":\"Nope\",\"discountType\":\"FIXED_AMOUNT\",\"discountValue\":1,\"minimumOrderAmount\":0,\"validFrom\":\"2026-01-01\",\"validTo\":\"2026-12-31\",\"active\":true}"))
+			.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
+		mvc.perform(get("/api/promotions").session(customer))
+			.andExpect(status().isForbidden());
+	}
+
+	@Test
 	void administrationAndReportsReadTheLiveSchema() {
 		var owner = new Actor(0, "Integration owner", "OWNER", false);
 		assertTrue(administration.catalog(owner).containsKey("services"));

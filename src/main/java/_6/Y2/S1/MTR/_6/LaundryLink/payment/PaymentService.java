@@ -55,9 +55,10 @@ public class PaymentService {
         validatePaymentRequest(request);
         verifyOrderExists(request.getOrderID());
 
-        Payment savedPayment = paymentRepository.save(
-                new Payment(request.getAmount().doubleValue(), request.getOrderID())
-        );
+        Payment payment = new Payment(request.getAmount().doubleValue(), request.getOrderID());
+        payment.setPaymentMethod(request.getPaymentMethod());
+        payment.ensureRecordedPaymentFields();
+        Payment savedPayment = paymentRepository.save(payment);
         return toPaymentResponse(savedPayment);
     }
 
@@ -85,6 +86,9 @@ public class PaymentService {
                 billingDetails.getFinalPayableAmount(),
                 BigDecimal.valueOf(payment.getAmount()),
                 status.getStatus(),
+                payment.getPaymentMethod(),
+                payment.getTransactionReference(),
+                payment.getProcessedAt(),
                 status.getOrderStatus()
         );
     }
@@ -118,6 +122,10 @@ public class PaymentService {
         Payment payment = paymentRepository.findById(paymentID).orElseThrow();
         payment.setAmount(request.getAmount().doubleValue());
         payment.setOrderID(request.getOrderID());
+        if (request.getPaymentMethod() != null) {
+            payment.setPaymentMethod(request.getPaymentMethod());
+        }
+        payment.ensureRecordedPaymentFields();
         return toPaymentResponse(paymentRepository.save(payment));
     }
 
@@ -138,14 +146,23 @@ public class PaymentService {
             throw new IllegalArgumentException("Payment amount must match the outstanding amount");
         }
 
-        Payment savedPayment = paymentRepository.save(new Payment(request.getAmount().doubleValue(), orderID));
+        Payment payment = new Payment(
+                request.getAmount().doubleValue(),
+                orderID,
+                request.getPaymentMethod(),
+                null
+        );
+        payment.ensureRecordedPaymentFields();
+        Payment savedPayment = paymentRepository.save(payment);
 
         return new PaymentConfirmationResponse(
                 savedPayment.getPaymentID(),
                 orderID,
                 BigDecimal.valueOf(savedPayment.getAmount()),
-                request.getPaymentMethod(),
-                PaymentStatus.PAID,
+                savedPayment.getPaymentMethod(),
+                savedPayment.getTransactionReference(),
+                savedPayment.getPaymentStatus(),
+                savedPayment.getProcessedAt(),
                 "Payment recorded successfully"
         );
     }
@@ -177,6 +194,9 @@ public class PaymentService {
                             payment.getOrderID(),
                             BigDecimal.valueOf(payment.getAmount()),
                             status.getStatus(),
+                            payment.getPaymentMethod(),
+                            payment.getTransactionReference(),
+                            payment.getProcessedAt(),
                             status.getOrderStatus()
                     );
                 })
@@ -235,6 +255,10 @@ public class PaymentService {
         LocalDate verificationDate = LocalDate.now();
         LocalTime verificationTime = LocalTime.now();
 
+        payment.setPaymentStatus(approved ? PaymentStatus.VERIFIED : PaymentStatus.REJECTED);
+        payment.ensureRecordedPaymentFields();
+        paymentRepository.save(payment);
+
         // No log row is written here. Each status update below fires the database trigger
         // dbo.trg_order_status_log, which adds the dbo.logs row (status before and after, date,
         // time) in the same transaction. Writing one here as well would log every step twice.
@@ -288,7 +312,11 @@ public class PaymentService {
         return new PaymentResponse(
                 payment.getPaymentID(),
                 BigDecimal.valueOf(payment.getAmount()),
-                payment.getOrderID()
+                payment.getOrderID(),
+                payment.getPaymentMethod(),
+                payment.getTransactionReference(),
+                payment.getPaymentStatus(),
+                payment.getProcessedAt()
         );
     }
 
@@ -370,6 +398,9 @@ public class PaymentService {
                 status.getPaidAmount(),
                 status.getOutstandingAmount(),
                 status.getStatus(),
+                payment.getPaymentMethod(),
+                payment.getTransactionReference(),
+                payment.getProcessedAt(),
                 orderStatus.getStatusLabel()
         );
     }
@@ -407,6 +438,9 @@ public class PaymentService {
                 || contains(record.getCustomerID(), search)
                 || contains(record.getAmount(), search)
                 || contains(record.getPaymentStatus(), search)
+                || contains(record.getPaymentMethod(), search)
+                || contains(record.getTransactionReference(), search)
+                || contains(record.getProcessedAt(), search)
                 || contains(record.getOrderStatus(), search);
     }
 
