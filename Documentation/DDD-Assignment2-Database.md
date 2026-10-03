@@ -56,6 +56,25 @@ ORDER_LINES(
     (itemID, serviceID) FK → SERVICE_PRICING(itemID, serviceID)
 )
 
+ORDER PROMOTION(
+       OrderID PK ,FK → ORDER(orderID)
+       promotionID NN FK → PROMOTION(promotionID),
+       discountAmount NN,
+       appliedAt 
+)
+
+PROMOTION(
+      promotionID PK,
+      promotionCode NN UK,
+      promotionName NN,
+      discountType NN,
+      discountValue NN,
+      minimumOrderAmount NN DEFAULT 0,
+      validFrom NN,
+      validTo NN,
+      active NN DEFAULT 1
+ )
+
 PAYMENTS(
     paymentID PK,
     amount NN CHECK amount >= 0,
@@ -63,6 +82,7 @@ PAYMENTS(
     paymentStatus NN DEFAULT 'PAID',
     processedAt
 )
+
 
 LOGS(
     logID PK,

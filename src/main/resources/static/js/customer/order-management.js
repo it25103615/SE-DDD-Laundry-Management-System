@@ -321,14 +321,26 @@
     const lines = order.orderLines.map((line) => `<div class="activity_item"><span class="activity_dot"></span><div><strong>${line.quantity} × ${escapeHtml(line.itemName)}</strong><p class="muted small">${escapeHtml(line.serviceName)}</p></div><strong>${money(line.linePrice)}</strong></div>`).join("");
     const history = order.history.length ? order.history.map((entry) => `<div class="activity_item"><span class="activity_dot"></span><div><strong>${escapeHtml(entry.statusAfterLabel || "Status updated")}</strong><p class="muted small">${escapeHtml(entry.statusBeforeLabel || "Initial status")} → ${escapeHtml(entry.statusAfterLabel || "")}</p></div><small>${escapeHtml(entry.logDate || "")} ${escapeHtml(entry.logTime || "")}</small></div>`).join("") : "<p class=\"muted\">No status-history entries have been recorded yet.</p>";
     const eligible = ELIGIBLE_STATUSES.has(order.statusLabel);
-    return `<header class="welcome_banner" style="margin-top:34px"><div class="top_bar"><div><div class="subtitle">CUSTOMER ORDER</div><h1>Order #${order.orderID}</h1></div><span class="status">${escapeHtml(order.statusLabel)}</span></div></header><section class="grid grid_two" style="margin-top:22px"><article class="card"><h2>Items and services</h2>${lines}<div class="top_bar"><h3>Order total</h3><h2>${money(order.orderTotal)}</h2></div></article><aside class="card"><h2>Order information</h2><p><strong>Customer ID</strong><br><span class="muted">${order.userID}</span></p><p><strong>Status</strong><br><span class="muted">${escapeHtml(order.statusLabel)}</span></p></aside></section>${includeActions ? `<div class="actions" style="margin-top:20px">${eligible ? `<a class="custom_button custom_button_bg" href="modify_order.html?userID=${order.userID}&orderID=${order.orderID}">Modify order</a>` : ""}<a class="custom_button custom_button_border" href="payments.html?orderID=${order.orderID}">Pay Now</a><a class="custom_button custom_button_nobg" href="my_orders.html">My Orders</a></div>` : ""}<section class="card" style="margin-top:22px"><h2>Order history</h2>${history}</section>`;
+    return `<header class="welcome_banner" style="margin-top:34px"><div class="top_bar"><div><div class="subtitle">CUSTOMER ORDER</div><h1>Order #${order.orderID}</h1></div><span class="status">${escapeHtml(order.statusLabel)}</span></div></header><section class="grid grid_two" style="margin-top:22px"><article class="card"><h2>Items and services</h2>${lines}<div class="top_bar"><h3>Order total</h3><h2>${money(order.orderTotal)}</h2></div></article><aside class="card"><h2>Order information</h2><p><strong>Customer ID</strong><br><span class="muted">${order.userID}</span></p><p><strong>Status</strong><br><span class="muted">${escapeHtml(order.statusLabel)}</span></p></aside></section>${includeActions ? `<div class="actions" style="margin-top:20px">${eligible ? `<a class="custom_button custom_button_bg" href="modify_order.html?userID=${order.userID}&orderID=${order.orderID}">Modify order</a>` : ""}<a class="custom_button custom_button_border pay-now-link" href="payments.html?orderID=${order.orderID}">Pay Now</a><a class="custom_button custom_button_nobg" href="my_orders.html">My Orders</a></div>` : ""}<section class="card" style="margin-top:22px"><h2>Order history</h2>${history}</section>`;
+  }
+
+  function preservePaymentContext(order) {
+    const customerID = order?.userID;
+    const orderID = order?.orderID;
+    if (!customerID || !orderID) return;
+    sessionStorage.setItem("laundrylinkCustomerID", String(customerID));
+    saveDraft({ ...getDraft(), userID: Number(customerID) || customerID, lastOrderID: Number(orderID) || orderID });
   }
 
   async function initDetails(upcoming) {
     const main = document.querySelector("main");
     if (!main) return;
     const order = await fetchOrderOrExplain(main);
-    if (order) main.innerHTML = detailMarkup(order, upcoming);
+    if (order) {
+      main.innerHTML = detailMarkup(order, upcoming);
+      const payNowLink = main.querySelector(".pay-now-link");
+      if (payNowLink) payNowLink.addEventListener("click", () => preservePaymentContext(order));
+    }
   }
 
   async function initModify() {
