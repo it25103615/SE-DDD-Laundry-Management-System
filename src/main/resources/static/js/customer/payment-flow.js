@@ -94,7 +94,16 @@
   }
 
   function methodLabel(method) {
-    return method === "CASH" ? "Cash" : "Credit/Debit Card";
+    if (method === "CASH") return "Cash";
+    if (method === "CARD") return "Credit/Debit Card";
+    return "Not recorded";
+  }
+
+  function dateTimeLabel(value) {
+    if (!value) return "Not recorded";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return String(value).replace("T", " ");
+    return parsed.toLocaleString();
   }
 
   function statusLabel(status) {
@@ -112,11 +121,6 @@
       const token = await csrf();
       headers[token.headerName] = token.token;
     }
-    const resolvedCustomerID = await customerID();
-    if (resolvedCustomerID) {
-      headers["X-User-ID"] = resolvedCustomerID;
-    }
-
     return fetch(path, {
       ...options,
       headers,
@@ -525,14 +529,14 @@
     try {
       const receipt = await api(`/api/payments/${queryPaymentID}/receipt?orderID=${encodeURIComponent(queryOrderID)}`);
       setText("receipt-title", "Payment receipt");
-      setText("receipt-reference", `Receipt #LL-${receipt.orderID}-${receipt.paymentID}`);
+      setText("receipt-reference", receipt.transactionReference || `Receipt #LL-${receipt.orderID}-${receipt.paymentID}`);
       setText("receipt-order", `Order #${receipt.orderID}`);
       setText("receipt-amount", money(receipt.amountPaid));
       setText("receipt-subtotal", money(receipt.subtotal));
       setText("receipt-discount", `- ${money(receipt.discountAmount)}`);
       setText("receipt-status", `Status: ${String(receipt.paymentStatus || "Unknown").replaceAll("_", " ")}`);
-      setText("receipt-method", "Method: Not recorded");
-      setText("receipt-time", "Date/time: Not recorded");
+      setText("receipt-method", `Method: ${methodLabel(receipt.paymentMethod)}`);
+      setText("receipt-time", `Date/time: ${dateTimeLabel(receipt.processedAt)}`);
       if (paymentsLink) paymentsLink.href = paymentFlowUrl("payments.html", receipt.orderID);
     } catch (error) {
       setText("receipt-title", "Receipt unavailable");

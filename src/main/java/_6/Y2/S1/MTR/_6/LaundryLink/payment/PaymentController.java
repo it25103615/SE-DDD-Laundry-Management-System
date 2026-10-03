@@ -22,12 +22,11 @@ public class PaymentController {
 
     @PostMapping
     public ResponseEntity<PaymentResponse> createPayment(
-            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
             Principal principal,
             @Valid @RequestBody PaymentCrudRequest request
     ) {
         try {
-            Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
+            Integer userID = paymentAccessService.resolveUserID(principal);
             return ResponseEntity.status(201).body(paymentService.createPayment(userID, request));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
@@ -41,11 +40,10 @@ public class PaymentController {
     @GetMapping("/{paymentID}")
     public ResponseEntity<PaymentResponse> getPayment(
             @PathVariable Integer paymentID,
-            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
             Principal principal
     ) {
         try {
-            Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
+            Integer userID = paymentAccessService.resolveUserID(principal);
             return ResponseEntity.ok(paymentService.getPayment(userID, paymentID));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
@@ -58,11 +56,10 @@ public class PaymentController {
     public ResponseEntity<PaymentReceiptResponse> getReceipt(
             @PathVariable Integer paymentID,
             @RequestParam(required = false) Integer orderID,
-            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
             Principal principal
     ) {
         try {
-            Integer customerID = paymentAccessService.resolveCustomerID(principal, headerUserID);
+            Integer customerID = paymentAccessService.resolveCustomerID(principal);
             return ResponseEntity.ok(paymentService.getCustomerReceipt(customerID, paymentID, orderID));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
@@ -75,11 +72,10 @@ public class PaymentController {
 
     @GetMapping
     public ResponseEntity<List<PaymentResponse>> getPayments(
-            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
             Principal principal
     ) {
         try {
-            Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
+            Integer userID = paymentAccessService.resolveUserID(principal);
             return ResponseEntity.ok(paymentService.getPayments(userID));
         } catch (AccessDeniedException ex) {
             return ResponseEntity.status(403).build();
@@ -89,11 +85,10 @@ public class PaymentController {
     @GetMapping("/orders/{orderID}")
     public ResponseEntity<List<PaymentResponse>> getPaymentsByOrder(
             @PathVariable Integer orderID,
-            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
             Principal principal
     ) {
         try {
-            Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
+            Integer userID = paymentAccessService.resolveUserID(principal);
             return ResponseEntity.ok(paymentService.getPaymentsByOrder(userID, orderID));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
@@ -105,12 +100,11 @@ public class PaymentController {
     @PutMapping("/{paymentID}")
     public ResponseEntity<PaymentResponse> updatePayment(
             @PathVariable Integer paymentID,
-            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
             Principal principal,
             @Valid @RequestBody PaymentCrudRequest request
     ) {
         try {
-            Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
+            Integer userID = paymentAccessService.resolveUserID(principal);
             return ResponseEntity.ok(paymentService.updatePayment(userID, paymentID, request));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
@@ -124,11 +118,10 @@ public class PaymentController {
     @DeleteMapping("/{paymentID}")
     public ResponseEntity<Void> deletePayment(
             @PathVariable Integer paymentID,
-            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
             Principal principal
     ) {
         try {
-            Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
+            Integer userID = paymentAccessService.resolveUserID(principal);
             paymentService.deletePayment(userID, paymentID);
             return ResponseEntity.noContent().build();
         } catch (NoSuchElementException ex) {
@@ -141,11 +134,10 @@ public class PaymentController {
     @GetMapping("/orders/{orderID}/amount")
     public ResponseEntity<PaymentAmountResponse> getAmountDue(
             @PathVariable Integer orderID,
-            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
             Principal principal
     ) {
         try {
-            Integer customerID = paymentAccessService.resolveCustomerID(principal, headerUserID);
+            Integer customerID = paymentAccessService.resolveCustomerID(principal);
             return ResponseEntity.ok(paymentService.getAmountDue(orderID, customerID));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
@@ -157,12 +149,11 @@ public class PaymentController {
     @PostMapping("/orders/{orderID}")
     public ResponseEntity<PaymentConfirmationResponse> submitPayment(
             @PathVariable Integer orderID,
-            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
             Principal principal,
             @Valid @RequestBody PaymentRequest request
     ) {
         try {
-            Integer customerID = paymentAccessService.resolveCustomerID(principal, headerUserID);
+            Integer customerID = paymentAccessService.resolveCustomerID(principal);
             return ResponseEntity.ok(paymentService.submitPayment(orderID, customerID, request));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
@@ -178,11 +169,10 @@ public class PaymentController {
     @GetMapping("/orders/{orderID}/status")
     public ResponseEntity<PaymentStatusResponse> getPaymentStatus(
             @PathVariable Integer orderID,
-            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
             Principal principal
     ) {
         try {
-            Integer customerID = paymentAccessService.resolveCustomerID(principal, headerUserID);
+            Integer customerID = paymentAccessService.resolveCustomerID(principal);
             return ResponseEntity.ok(paymentService.getPaymentStatus(orderID, customerID));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
@@ -194,11 +184,10 @@ public class PaymentController {
     @GetMapping("/staff/orders/{orderID}/status")
     public ResponseEntity<PaymentStatusResponse> getPaymentStatusForStaff(
             @PathVariable Integer orderID,
-            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
             Principal principal
     ) {
         try {
-            Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
+            Integer userID = paymentAccessService.resolveUserID(principal);
             return ResponseEntity.ok(paymentService.getPaymentStatusForStaff(orderID, userID));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
@@ -209,11 +198,10 @@ public class PaymentController {
 
     @GetMapping("/history")
     public ResponseEntity<List<PaymentHistoryResponse>> getPaymentHistory(
-            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
             Principal principal
     ) {
         try {
-            Integer customerID = paymentAccessService.resolveCustomerID(principal, headerUserID);
+            Integer customerID = paymentAccessService.resolveCustomerID(principal);
             return ResponseEntity.ok(paymentService.getPaymentHistory(customerID));
         } catch (AccessDeniedException ex) {
             return ResponseEntity.status(403).build();
@@ -222,7 +210,6 @@ public class PaymentController {
 
     @GetMapping("/management")
     public ResponseEntity<List<PaymentRecordResponse>> getPaymentRecords(
-            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
             @RequestParam(required = false) Integer orderID,
             @RequestParam(required = false) Integer customerID,
             @RequestParam(required = false) PaymentStatus status,
@@ -230,7 +217,7 @@ public class PaymentController {
             Principal principal
     ) {
         try {
-            Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
+            Integer userID = paymentAccessService.resolveUserID(principal);
             return ResponseEntity.ok(paymentService.getPaymentRecords(userID, orderID, customerID, status, search));
         } catch (AccessDeniedException ex) {
             return ResponseEntity.status(403).build();
@@ -240,12 +227,11 @@ public class PaymentController {
     @PostMapping("/management/{paymentID}/verify")
     public ResponseEntity<PaymentVerificationResponse> verifyPayment(
             @PathVariable Integer paymentID,
-            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
             Principal principal,
             @Valid @RequestBody PaymentVerificationRequest request
     ) {
         try {
-            Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
+            Integer userID = paymentAccessService.resolveUserID(principal);
             return ResponseEntity.ok(paymentService.verifyPayment(userID, paymentID, request));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
@@ -259,11 +245,10 @@ public class PaymentController {
     @PostMapping("/management/{paymentID}/approve")
     public ResponseEntity<PaymentVerificationResponse> approvePayment(
             @PathVariable Integer paymentID,
-            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
             Principal principal
     ) {
         try {
-            Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
+            Integer userID = paymentAccessService.resolveUserID(principal);
             return ResponseEntity.ok(paymentService.approvePayment(userID, paymentID));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
@@ -277,11 +262,10 @@ public class PaymentController {
     @PostMapping("/management/{paymentID}/reject")
     public ResponseEntity<PaymentVerificationResponse> rejectPayment(
             @PathVariable Integer paymentID,
-            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
             Principal principal
     ) {
         try {
-            Integer userID = paymentAccessService.resolveUserID(principal, headerUserID);
+            Integer userID = paymentAccessService.resolveUserID(principal);
             return ResponseEntity.ok(paymentService.rejectPayment(userID, paymentID));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();

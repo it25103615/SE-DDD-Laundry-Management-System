@@ -1,6 +1,7 @@
 package _6.Y2.S1.MTR._6.LaundryLink.payment;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 public class PaymentReceiptResponse {
     private final Integer paymentID;
@@ -10,6 +11,9 @@ public class PaymentReceiptResponse {
     private final BigDecimal finalPayableAmount;
     private final BigDecimal amountPaid;
     private final PaymentStatus paymentStatus;
+    private final PaymentMethod paymentMethod;
+    private final String transactionReference;
+    private final LocalDateTime processedAt;
     private final String orderStatus;
 
     public PaymentReceiptResponse(
@@ -20,6 +24,9 @@ public class PaymentReceiptResponse {
             BigDecimal finalPayableAmount,
             BigDecimal amountPaid,
             PaymentStatus paymentStatus,
+            PaymentMethod paymentMethod,
+            String transactionReference,
+            LocalDateTime processedAt,
             String orderStatus
     ) {
         this.paymentID = paymentID;
@@ -29,6 +36,9 @@ public class PaymentReceiptResponse {
         this.finalPayableAmount = finalPayableAmount;
         this.amountPaid = amountPaid;
         this.paymentStatus = paymentStatus;
+        this.paymentMethod = paymentMethod;
+        this.transactionReference = transactionReference;
+        this.processedAt = processedAt;
         this.orderStatus = orderStatus;
     }
 
@@ -58,6 +68,18 @@ public class PaymentReceiptResponse {
 
     public PaymentStatus getPaymentStatus() {
         return paymentStatus;
+    }
+
+    public PaymentMethod getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public String getTransactionReference() {
+        return transactionReference;
+    }
+
+    public LocalDateTime getProcessedAt() {
+        return processedAt;
     }
 
     public String getOrderStatus() {

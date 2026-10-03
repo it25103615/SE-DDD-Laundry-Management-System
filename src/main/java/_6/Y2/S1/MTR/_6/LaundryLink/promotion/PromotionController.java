@@ -21,9 +21,15 @@ public class PromotionController {
     }
 
     @PostMapping
-    public ResponseEntity<Promotion> createPromotion(@RequestBody PromotionRequest request) {
+    public ResponseEntity<Promotion> createPromotion(
+            Principal principal,
+            @RequestBody PromotionRequest request
+    ) {
         try {
+            paymentAccessService.requireManagementUser(paymentAccessService.resolveUserID(principal));
             return ResponseEntity.status(201).body(promotionService.createPromotion(request));
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().build();
         }
@@ -32,12 +38,16 @@ public class PromotionController {
     @PutMapping("/{promotionID}")
     public ResponseEntity<Promotion> updatePromotion(
             @PathVariable Integer promotionID,
+            Principal principal,
             @RequestBody PromotionRequest request
     ) {
         try {
+            paymentAccessService.requireManagementUser(paymentAccessService.resolveUserID(principal));
             return ResponseEntity.ok(promotionService.updatePromotion(promotionID, request));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().build();
         }
@@ -46,32 +56,48 @@ public class PromotionController {
     @PatchMapping("/{promotionID}/active")
     public ResponseEntity<Promotion> setPromotionActive(
             @PathVariable Integer promotionID,
+            Principal principal,
             @RequestParam boolean active
     ) {
         try {
+            paymentAccessService.requireManagementUser(paymentAccessService.resolveUserID(principal));
             return ResponseEntity.ok(promotionService.setPromotionActive(promotionID, active));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
         }
     }
 
     @GetMapping("/{promotionID}")
-    public ResponseEntity<Promotion> getPromotion(@PathVariable Integer promotionID) {
+    public ResponseEntity<Promotion> getPromotion(
+            @PathVariable Integer promotionID,
+            Principal principal
+    ) {
         try {
+            paymentAccessService.requireManagementUser(paymentAccessService.resolveUserID(principal));
             return ResponseEntity.ok(promotionService.getPromotion(promotionID));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
         }
     }
 
     @GetMapping
     public ResponseEntity<List<Promotion>> listPromotions(
+            Principal principal,
             @RequestParam(defaultValue = "false") boolean availableOnly
     ) {
         if (availableOnly) {
             return ResponseEntity.ok(promotionService.listAvailablePromotions());
         }
-        return ResponseEntity.ok(promotionService.listPromotions());
+        try {
+            paymentAccessService.requireManagementUser(paymentAccessService.resolveUserID(principal));
+            return ResponseEntity.ok(promotionService.listPromotions());
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
+        }
     }
 
     @GetMapping("/available")
@@ -83,11 +109,10 @@ public class PromotionController {
     public ResponseEntity<PromotionValidationResponse> validatePromotion(
             @PathVariable String promotionCode,
             @PathVariable Integer orderID,
-            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
             Principal principal
     ) {
         try {
-            Integer customerID = paymentAccessService.resolveCustomerID(principal, headerUserID);
+            Integer customerID = paymentAccessService.resolveCustomerID(principal);
             return ResponseEntity.ok(promotionService.validatePromotionForCustomer(promotionCode, orderID, customerID));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
@@ -102,11 +127,10 @@ public class PromotionController {
     public ResponseEntity<PromotionApplicationResponse> applyPromotion(
             @PathVariable String promotionCode,
             @PathVariable Integer orderID,
-            @RequestHeader(value = "X-User-ID", required = false) Integer headerUserID,
             Principal principal
     ) {
         try {
-            Integer customerID = paymentAccessService.resolveCustomerID(principal, headerUserID);
+            Integer customerID = paymentAccessService.resolveCustomerID(principal);
             return ResponseEntity.ok(promotionService.applyPromotionForCustomer(promotionCode, orderID, customerID));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
