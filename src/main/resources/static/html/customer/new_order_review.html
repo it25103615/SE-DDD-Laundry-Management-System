@@ -11,17 +11,8 @@
     <script src="../../js/customer/order-management.js" defer></script>
   </head>
   <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="dashboard.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="dashboard.html">Cancel order</a
-          ><span class="profile_badge">PF</span>
-        </li>
-      </ul>
-    </nav>
+    <nav class="dashboard_nav" data-nav="flow"
+         data-exit-label="Cancel order" data-exit-href="/html/customer/dashboard.html"></nav>
     <main>
       <header class="page_header">
         <div class="subtitle">NEW ORDER</div>
@@ -110,23 +101,64 @@
         const confirmation = document.getElementById("confirm-order-form");
         if (!confirmation) return;
         observer.disconnect();
-        let schedule;
-        try { schedule = JSON.parse(sessionStorage.getItem("laundryLink.orderDraft"))?.schedule; }
+        let draft;
+        try { draft = JSON.parse(sessionStorage.getItem("laundryLink.orderDraft")) || {}; }
         catch (_) { return; }
-        if (!schedule) return;
         const section = document.createElement("section");
         section.className = "grid grid_two";
         section.style.marginTop = "22px";
-        [["Pickup time", schedule.date, schedule.time], ["Delivery time", schedule.deliveryDate, schedule.deliveryTime]].forEach(([title, date, time]) => {
+        // Makes one card with a heading. Built with DOM nodes and textContent (not innerHTML)
+        // so text typed by the customer is never run as HTML.
+        function addCard(title) {
           const card = document.createElement("article");
           card.className = "card";
           const heading = document.createElement("h2");
           heading.textContent = title;
-          const detail = document.createElement("p");
-          detail.textContent = `${date || "Date not selected"} · ${time || "Time window not selected"}`;
-          card.append(heading, detail);
+          card.append(heading);
           section.append(card);
-        });
+          return card;
+        }
+        // Adds a small heading with lines of muted text under it to a card.
+        function addDetail(card, title, lines) {
+          const detail = document.createElement("p");
+          const name = document.createElement("strong");
+          name.textContent = title;
+          detail.append(name);
+          lines.forEach(line => {
+            const text = document.createElement("span");
+            text.className = "muted";
+            // Keeps the line breaks of a note typed on several lines, and wraps long words.
+            text.style.whiteSpace = "pre-wrap";
+            text.style.overflowWrap = "anywhere";
+            text.textContent = line;
+            detail.append(document.createElement("br"), text);
+          });
+          card.append(detail);
+        }
+
+        // Pickup time, from the schedule step.
+        const schedule = draft.schedule || {};
+        const pickup = document.createElement("p");
+        pickup.textContent = `${schedule.date || "Date not selected"} · ${schedule.time || "Time window not selected"}`;
+        addCard("Pickup time").append(pickup);
+
+        // Instructions, from the instructions step: the ticked preferences and the note. These
+        // are sent with the order when it is confirmed. The draft holds each preference as a
+        // short code, so this map gives the text to show for it. It must match the checkboxes
+        // in new_order_instructions.html and OrderPreference.java on the server.
+        const PREFERENCE_LABELS = {
+          "fragrance-free": "Fragrance-free detergent",
+          "hypoallergenic": "Hypoallergenic detergent",
+          "hang-dry": "Hang-dry delicate items",
+          "hangers": "Return shirts on hangers"
+        };
+        const instructions = draft.instructions || {};
+        const preferences = (instructions.preferences || []).map(code => PREFERENCE_LABELS[code] || code);
+        const note = (instructions.notes || "").trim();
+        const instructionsCard = addCard("Instructions");
+        addDetail(instructionsCard, "Preferences", preferences.length ? preferences : ["None"]);
+        addDetail(instructionsCard, "Notes for our team", [note || "None"]);
+
         confirmation.before(section);
       }
       const observer = new MutationObserver(showSchedule);

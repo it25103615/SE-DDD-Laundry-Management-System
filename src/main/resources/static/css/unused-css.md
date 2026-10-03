@@ -51,6 +51,6 @@ so a plain-text search alone would have missed them):
   set via `className`/`classList.add` in `global-pre.js`.
 - `.connected_toast`, `.list_mode` — set via `className`/`classList.add` in `global-post.js`.
 - `.pickup_section`, `.delivery_section` — both literal in rider HTML and
-  built dynamically via `` `${row.dataset.type}_section` `` in `rider.js`.
-- All `status_*`, `alert_*` classes — confirmed via `classify()` and
-  `className =` assignments in `rider.js` and `order-processing.js`.
+  used in the `querySelector` calls in `riderAll.js`.
+- All `status_*`, `alert_*` classes — confirmed via `statusClass()` in
+  `riderAll.js` and `className =` assignments in `order-processing.js`.

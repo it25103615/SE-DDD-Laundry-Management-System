@@ -11,17 +11,8 @@
     <script src="../../js/customer/order-management.js" defer></script>
   </head>
   <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="dashboard.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="dashboard.html">Cancel order</a
-          ><a href="../portal.html">Switch Portal</a>
-        </li>
-      </ul>
-    </nav>
+    <nav class="dashboard_nav" data-nav="flow"
+         data-exit-label="Cancel order" data-exit-href="/html/customer/dashboard.html"></nav>
     <main>
       <header class="page_header">
         <div class="subtitle">NEW ORDER · SERVICE CATALOGUE</div>
@@ -187,21 +178,7 @@
           </table>
         </article>
       </section>
-      <div class="card" style="margin-top: 22px">
-        <div class="top_bar">
-          <div>
-            <h3>Pricing information</h3>
-            <p class="muted">
-              The estimate updates as you add items. Final prices are confirmed
-              after inspection.
-            </p>
-          </div>
-          <a class="link" href="../public/pricing.html"
-            >Open full public pricing →</a
-          >
-        </div>
-      </div>
-      <form id="service-form" action="new_order_items.html" method="get">
+      <form id="service-form" action="new_order_items.html" method="get" style="margin-top: 22px">
         <label class="check_row"
           ><input type="checkbox" required />I have reviewed the available
           services and estimated prices.</label
@@ -216,10 +193,11 @@
       </form>
     </main>
     <script>
+      // Runs before the handler in order-management.js: stop here with a clear message when no
+      // service has been ticked. (The customer is no longer asked for an account ID; the order
+      // is placed for whoever is signed in.)
       document.getElementById("service-form").addEventListener("submit", function (event) {
-        const customer = document.getElementById("order-user-id");
-        if (customer && customer.checkValidity() && Number(customer.value) > 0
-            && !document.querySelector(".catalog-service:checked")) {
+        if (!document.querySelector(".catalog-service:checked")) {
           event.preventDefault();
           event.stopImmediatePropagation();
           if (window.connectedToast) window.connectedToast("Select at least one service");

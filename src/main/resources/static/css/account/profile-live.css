@@ -1,2 +1,95 @@
 .account-profile{max-width:900px;margin:auto;padding-bottom:60px}.account-profile .card{margin:24px 0}.account-profile .field{margin:20px 0}.profile-message{padding:14px 18px;border-radius:12px;background:#edf9f1;color:#165333}.profile-message.error{background:#fff0f0;color:#92252d}.account-profile [hidden]{display:none!important}
 .password-control{display:flex;align-items:stretch;gap:8px}.password-control .input{min-width:0;flex:1}.password-toggle{padding:0 15px;border:1px solid #aec5d7;border-radius:10px;background:#f3f9ff;color:#174c76;font:inherit;cursor:pointer}.password-toggle:hover{background:#e0f1ff}.password-toggle:focus-visible{outline:3px solid #2785bf;outline-offset:2px}
+
+/* ---- Saved addresses section (filled in by js/account/profile-addresses.js) ---- */
+
+/* Keep "+ Add address" on one line beside the heading instead of wrapping. */
+#add-address-button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* One row per saved address: the details on the left, its buttons on the right. */
+.address-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+.address-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid rgba(3, 75, 120, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+}
+/* The default address stands out with a coloured edge as well as its badge. */
+.address-item.is-default {
+  border-left: 4px solid var(--primary-color);
+}
+.address-item h3 {
+  margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.address-item p {
+  margin: 2px 0;
+}
+.address-buttons {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+}
+.address-buttons button {
+  padding: 8px 12px;
+}
+.address-delete {
+  color: var(--color-error);
+}
+.address-delete:hover {
+  background: var(--color-error-soft);
+}
+
+/* The add/edit form sits under the list, separated from it by a line. */
+.address-form {
+  margin-top: 26px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(3, 75, 120, 0.14);
+}
+.address-form h3 {
+  margin: 0;
+}
+
+/* The pop-up that asks about deleting an address. */
+.address-dialog {
+  width: min(480px, calc(100vw - 32px));
+  padding: 26px 28px;
+  border: 0;
+  border-radius: 18px;
+  box-shadow: 0 24px 65px rgba(3, 42, 72, 0.3);
+}
+.address-dialog::backdrop {
+  background: rgba(16, 42, 59, 0.45);
+}
+.address-dialog h3 {
+  margin: 0 0 10px;
+}
+.address-dialog p {
+  margin: 0 0 6px;
+}
+
+/* On a phone the buttons drop below the address instead of squeezing beside it. */
+@media (max-width: 640px) {
+  .address-item {
+    flex-direction: column;
+  }
+  .address-buttons {
+    justify-content: flex-start;
+  }
+}

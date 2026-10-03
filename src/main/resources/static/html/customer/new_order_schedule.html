@@ -11,17 +11,8 @@
 
   </head>
   <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="dashboard.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="dashboard.html">Cancel order</a
-          ><span class="profile_badge">PF</span>
-        </li>
-      </ul>
-    </nav>
+    <nav class="dashboard_nav" data-nav="flow"
+         data-exit-label="Cancel order" data-exit-href="/html/customer/dashboard.html"></nav>
     <main>
       <header class="page_header">
         <div class="subtitle">NEW ORDER</div>
@@ -37,7 +28,6 @@
       </ol>
       <form action="new_order_instructions.html" method="get">
         <div class="grid grid_two">
-          <div>
           <section class="card">
             <h2>Pickup time</h2>
             <div class="field">
@@ -66,54 +56,16 @@
               </select>
             </div>
           </section>
-          <section class="card" style="margin-top: 22px">
-            <h2>Delivery time</h2>
-            <p class="muted small">
-              Delivery must be at least 24 hours after your pickup time.
-            </p>
-            <!--
-              QUESTION: the delivery date and time window chosen here are only kept in the browser's
-              order draft (shown on the review page). They are NOT sent to POST /api/orders, and the
-              delivery table has no column for a planned delivery time (delivery_time records when the
-              delivery actually happened). Should this delivery section be removed from the order
-              creation process, or should the backend be extended to store it?
-            -->
-            <div class="field">
-              <label for="delivery-date">Date</label
-              ><input
-                class="input"
-                id="delivery-date"
-                name="delivery_date"
-                type="date"
-                required
-              />
-            </div>
-            <div class="field">
-              <label for="delivery-time">Time window</label
-              ><select
-                class="input"
-                id="delivery-time"
-                name="delivery_time"
-                required
-              >
-                <option value="">Choose a time</option>
-                <option>8:00 AM – 11:00 AM</option>
-                <option>11:00 AM – 2:00 PM</option>
-                <option>2:00 PM – 5:00 PM</option>
-                <option>5:00 PM – 8:00 PM</option>
-              </select>
-            </div>
-          </section>
-          </div>
           <section class="card">
             <h2>Pickup address</h2>
+            <!--
+              The signed-in customer's saved addresses are loaded from GET /api/account/addresses
+              by the script at the bottom of this page and added here, one radio row each.
+            -->
+            <div id="pickup-addresses">
+              <p class="muted" id="pickup-addresses-status">Loading your saved addresses…</p>
+            </div>
             <label class="radio_row"
-              ><input type="radio" name="address" value="home" checked /><span
-                ><strong>Home</strong><br /><span class="muted"
-                  >24 Flower Road, Colombo 07</span
-                ></span
-              ></label
-            ><label class="radio_row"
               ><input type="radio" name="address" value="other" /><span
                 ><strong>Use another address</strong><br /><span class="muted"
                   >Add a different pickup location</span
@@ -139,22 +91,82 @@
         const key = "laundryLink.orderDraft";
         const form = document.querySelector("main form");
         const error = document.getElementById("schedule-error");
-        const fields = ["pickup-date", "pickup-time", "delivery-date", "delivery-time"].map(id => document.getElementById(id));
-        const [pickupDate, pickupTime, deliveryDate, deliveryTime] = fields;
+        // The two fields this step validates: the pickup date and the pickup time window.
+        const fields = ["pickup-date", "pickup-time"].map(id => document.getElementById(id));
+        const [pickupDate, pickupTime] = fields;
         const readDraft = () => {
           try { return JSON.parse(sessionStorage.getItem(key)) || {}; }
           catch (_) { return {}; }
         };
         const schedule = readDraft().schedule || {};
-        fields.forEach((field, index) => { field.value = schedule[["date", "time", "deliveryDate", "deliveryTime"][index]] || ""; });
-        form.querySelectorAll("input[name=address]").forEach(input => {
-          if (schedule.address) input.checked = input.value === schedule.address;
-        });
+        fields.forEach((field, index) => { field.value = schedule[["date", "time"][index]] || ""; });
+        // Tick the address remembered in the order draft, if there is one. Runs now for the
+        // "Use another address" row and again once the saved addresses have been loaded.
+        function restoreAddressChoice() {
+          const remembered = readDraft().schedule?.address;
+          if (!remembered) return;
+          form.querySelectorAll("input[name=address]").forEach(input => {
+            if (input.value === String(remembered)) input.checked = true;
+          });
+        }
+        restoreAddressChoice();
+
+        // Pickup addresses: ask the server for the signed-in customer's saved addresses and
+        // show each one as a radio row. The API works out who the customer is from the login
+        // session, so no customer ID is sent.
+        const addressList = document.getElementById("pickup-addresses");
+        const addressStatus = document.getElementById("pickup-addresses-status");
+        // "18 Temple Road, Colombo 05, Western" - skips any part the customer left empty.
+        const addressLine = address => [address.street, address.city, address.state]
+          .map(part => (part || "").trim()).filter(Boolean).join(", ");
+        function showAddresses(addresses) {
+          if (!addresses.length) {
+            addressStatus.textContent = "You have no saved addresses yet.";
+            return;
+          }
+          addressStatus.remove();
+          addresses.forEach(address => {
+            // Built with DOM nodes (not innerHTML) so text typed by the customer is never run as HTML.
+            const row = document.createElement("label");
+            row.className = "radio_row";
+            const radio = document.createElement("input");
+            radio.type = "radio";
+            radio.name = "address";
+            radio.value = String(address.addressID);
+            // The customer's default address starts selected.
+            radio.checked = Boolean(address.isDefault);
+            const text = document.createElement("span");
+            const nickname = document.createElement("strong");
+            nickname.textContent = address.nickname || "Saved address";
+            const line = document.createElement("span");
+            line.className = "muted";
+            line.textContent = addressLine(address);
+            text.append(nickname, document.createElement("br"), line);
+            row.append(radio, text);
+            addressList.append(row);
+          });
+          // A choice made earlier in this order wins over the default; then keep the draft in step.
+          restoreAddressChoice();
+          save();
+        }
+        fetch("/api/account/addresses", { headers: { Accept: "application/json" }, credentials: "same-origin" })
+          .then(response => {
+            // A signed-out visitor is redirected to the login page, which is not JSON.
+            const isJson = (response.headers.get("content-type") || "").includes("application/json");
+            if (!response.ok || !isJson) throw new Error("Addresses could not be loaded.");
+            return response.json();
+          })
+          .then(showAddresses)
+          .catch(() => {
+            addressStatus.textContent = "We could not load your saved addresses. Please sign in again or try later.";
+          });
         function save() {
           const draft = readDraft();
+          // This step no longer asks for a delivery time. A draft started before that change
+          // may still hold one, so it is left out of the schedule that is saved back.
+          const { deliveryDate, deliveryTime, ...keptSchedule } = draft.schedule || {};
           sessionStorage.setItem(key, JSON.stringify({ ...draft, schedule: {
-            ...draft.schedule, date: pickupDate.value, time: pickupTime.value,
-            deliveryDate: deliveryDate.value, deliveryTime: deliveryTime.value,
+            ...keptSchedule, date: pickupDate.value, time: pickupTime.value,
             address: form.querySelector("input[name=address]:checked")?.value
           } }));
         }
@@ -180,30 +192,6 @@
           if (pickupTime.selectedOptions[0]?.disabled) pickupTime.value = "";
           return anyOpenToday;
         }
-        // Delivery must start at least 24 hours after the pickup window starts. Every day has the
-        // same windows, so that means: never on or before the pickup date, and on the day after
-        // pickup only windows starting at or after the pickup window's start time (which are
-        // exactly 24+ hours later). Earlier windows on that day are greyed out, and any date from
-        // two days after pickup onward keeps all windows. Returns the earliest allowed delivery date.
-        function limitDeliverySlots(today) {
-          const pickupOption = pickupTime.selectedOptions[0];
-          const pickupStart = pickupOption ? slotStart(pickupOption) : null;
-          if (!pickupDate.value || pickupStart === null) {
-            // No pickup chosen yet, so there is nothing to measure 24 hours from.
-            Array.from(deliveryTime.options).forEach(option => { option.disabled = false; });
-            return today;
-          }
-          // Built from date parts (not by adding milliseconds) so daylight-saving changes cannot shift it.
-          const [year, month, day] = pickupDate.value.split("-").map(Number);
-          const dayAfterPickup = isoDate(new Date(year, month - 1, day + 1));
-          Array.from(deliveryTime.options).forEach(option => {
-            const start = slotStart(option);
-            if (start === null) return; // the "Choose a time" placeholder
-            option.disabled = deliveryDate.value === dayAfterPickup && start < pickupStart;
-          });
-          if (deliveryTime.selectedOptions[0]?.disabled) deliveryTime.value = "";
-          return dayAfterPickup;
-        }
         function validate(showMissing) {
           const now = new Date();
           const today = isoDate(now);
@@ -211,10 +199,8 @@
           const nowMinutes = now.getHours() * 60 + now.getMinutes();
           // Once every pickup window for today has started, today can no longer be chosen at all.
           pickupDate.min = limitPickupSlots(today, nowMinutes) ? today : tomorrow;
-          // Runs after the pickup check so it measures from a pickup window that is still valid.
-          deliveryDate.min = limitDeliverySlots(today);
           fields.forEach(field => field.setCustomValidity(""));
-          const labels = ["pickup date", "pickup time window", "delivery date", "delivery time window"];
+          const labels = ["pickup date", "pickup time window"];
           fields.forEach((field, index) => {
             if (!field.value) field.setCustomValidity(`Please select a ${labels[index]}.`);
           });
@@ -222,11 +208,6 @@
             pickupDate.setCustomValidity(pickupDate.min === today
               ? "Please choose today or a future date."
               : "We will not be doing any more pickups for today. Please choose tomorrow or a later date.");
-          }
-          if (deliveryDate.value && deliveryDate.value < deliveryDate.min) {
-            deliveryDate.setCustomValidity(pickupDate.value
-              ? "Delivery must be at least 24 hours after pickup. Please choose a later date."
-              : "Please choose today or a future date.");
           }
           const invalid = fields.find(field => !field.validity.valid && (showMissing || field.value));
           error.textContent = invalid ? invalid.validationMessage : "";
