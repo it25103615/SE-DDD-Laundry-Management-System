@@ -1,7 +1,6 @@
 (function () {
   const ORDER_DRAFT_KEY = "laundryLink.orderDraft";
   const page = document.body.dataset.paymentPage;
-  let authenticatedCustomerPromise = null;
   let csrfPromise = null;
 
   function params() {
@@ -18,37 +17,6 @@
 
   function saveOrderDraft(draft) {
     sessionStorage.setItem(ORDER_DRAFT_KEY, JSON.stringify(draft || {}));
-  }
-
-  function storedCustomerID() {
-    const draft = readOrderDraft();
-    return sessionStorage.getItem("laundrylinkCustomerID") || params().get("userID") || draft.userID || "";
-  }
-
-  async function authenticatedCustomerID() {
-    if (!authenticatedCustomerPromise) {
-      authenticatedCustomerPromise = fetch("/api/account/profile", {
-        headers: { "Accept": "application/json" },
-        credentials: "same-origin",
-      }).then(async (response) => {
-        if (!response.ok) return "";
-        const profile = await response.json();
-        const id = profile && profile.id ? String(profile.id) : "";
-        if (id) {
-          sessionStorage.setItem("laundrylinkCustomerID", id);
-          const draft = readOrderDraft();
-          if (String(draft.userID || "") !== id) {
-            saveOrderDraft({ ...draft, userID: Number(id) || id });
-          }
-        }
-        return id;
-      }).catch(() => "");
-    }
-    return authenticatedCustomerPromise;
-  }
-
-  async function customerID() {
-    return await authenticatedCustomerID() || storedCustomerID();
   }
 
   async function csrf() {
@@ -85,8 +53,6 @@
   function paymentFlowUrl(pageName, id, extra = {}) {
     const search = new URLSearchParams();
     search.set("orderID", id);
-    const urlCustomerID = params().get("userID");
-    if (urlCustomerID) search.set("userID", urlCustomerID);
     Object.entries(extra).forEach(([key, value]) => {
       if (value) search.set(key, value);
     });
@@ -108,6 +74,10 @@
 
   function statusLabel(status) {
     return String(status || "Unknown").replaceAll("_", " ");
+  }
+
+  function cleanValue(value) {
+    return value == null || value === "" ? "N/A" : String(value);
   }
 
   async function api(path, options) {
@@ -296,11 +266,11 @@
       const history = await api("/api/payments/history");
       if (!historyBody) return;
       if (!Array.isArray(history)) {
-        historyBody.innerHTML = '<tr><td colspan="5">Payment history could not be loaded.</td></tr>';
+        historyBody.innerHTML = '<tr><td colspan="8">Payment history could not be loaded.</td></tr>';
         return;
       }
       if (!history.length) {
-        historyBody.innerHTML = '<tr><td colspan="5">No payment history available.</td></tr>';
+        historyBody.innerHTML = '<tr><td colspan="8">No payment history available.</td></tr>';
         return;
       }
       historyBody.innerHTML = history
@@ -311,17 +281,20 @@
             <tr>
               <td>Payment #${payment.paymentID}</td>
               <td>#${payment.orderID}</td>
-              <td>${statusLabel(payment.paymentStatus)}${payment.orderStatus ? ` · ${payment.orderStatus}` : ""}</td>
               <td>${money(payment.amount)}</td>
+              <td>${methodLabel(payment.paymentMethod)}</td>
+              <td>${cleanValue(payment.transactionReference)}</td>
+              <td>${statusLabel(payment.paymentStatus)}${payment.orderStatus ? ` · ${payment.orderStatus}` : ""}</td>
+              <td>${dateTimeLabel(payment.processedAt)}</td>
               <td><a class="link" href="${receiptUrl}">View Receipt</a></td>
             </tr>`;
         })
         .join("");
       if (!historyBody.innerHTML) {
-        historyBody.innerHTML = '<tr><td colspan="5">Payment history could not be loaded.</td></tr>';
+        historyBody.innerHTML = '<tr><td colspan="8">Payment history could not be loaded.</td></tr>';
       }
     } catch (error) {
-      if (historyBody) historyBody.innerHTML = '<tr><td colspan="5">Payment history could not be loaded.</td></tr>';
+      if (historyBody) historyBody.innerHTML = '<tr><td colspan="8">Payment history could not be loaded.</td></tr>';
     }
   }
 

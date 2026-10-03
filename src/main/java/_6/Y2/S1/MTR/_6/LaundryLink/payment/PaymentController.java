@@ -213,12 +213,28 @@ public class PaymentController {
             @RequestParam(required = false) Integer orderID,
             @RequestParam(required = false) Integer customerID,
             @RequestParam(required = false) PaymentStatus status,
+            @RequestParam(required = false) PaymentMethod method,
             @RequestParam(required = false) String search,
             Principal principal
     ) {
         try {
             Integer userID = paymentAccessService.resolveUserID(principal);
-            return ResponseEntity.ok(paymentService.getPaymentRecords(userID, orderID, customerID, status, search));
+            return ResponseEntity.ok(paymentService.getPaymentRecords(userID, orderID, customerID, status, method, search));
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
+        }
+    }
+
+    @GetMapping("/management/{paymentID}")
+    public ResponseEntity<PaymentRecordResponse> getPaymentRecord(
+            @PathVariable Integer paymentID,
+            Principal principal
+    ) {
+        try {
+            Integer userID = paymentAccessService.resolveUserID(principal);
+            return ResponseEntity.ok(paymentService.getPaymentRecord(userID, paymentID));
+        } catch (NoSuchElementException ex) {
+            return ResponseEntity.notFound().build();
         } catch (AccessDeniedException ex) {
             return ResponseEntity.status(403).build();
         }

@@ -11,6 +11,10 @@
     return String(value || "-").replaceAll("_", " ");
   }
 
+  function cleanValue(value) {
+    return value == null || value === "" ? "N/A" : label(value);
+  }
+
   function dateTimeLabel(value) {
     if (!value) return "-";
     const parsed = new Date(value);
@@ -85,7 +89,7 @@
     if (!form) return "";
 
     const data = new FormData(form);
-    ["search", "status", "orderID", "customerID"].forEach((field) => {
+    ["search", "status", "method", "orderID", "customerID"].forEach((field) => {
       const value = String(data.get(field) || "").trim();
       if (value) query.set(field, value);
     });
@@ -127,7 +131,7 @@
 
       if (!table) return;
       if (!records.length) {
-        table.innerHTML = '<tr><td colspan="7">No payment records found.</td></tr>';
+        table.innerHTML = '<tr><td colspan="9">No payment records found.</td></tr>';
         return;
       }
 
@@ -137,9 +141,11 @@
             <tr>
               <td>#${record.paymentID}</td>
               <td>#${record.orderID}</td>
-              <td>Customer #${record.customerID}</td>
               <td>${money(record.amount)}</td>
+              <td>${escapeHtml(cleanValue(record.paymentMethod))}</td>
+              <td>${escapeHtml(cleanValue(record.transactionReference))}</td>
               <td>${statusMarkup(record.paymentStatus)}</td>
+              <td>${escapeHtml(dateTimeLabel(record.processedAt))}</td>
               <td>${escapeHtml(label(record.orderStatus))}</td>
               <td><a class="link" href="payment_detail.html?paymentID=${encodeURIComponent(record.paymentID)}">View</a></td>
             </tr>`,
@@ -149,7 +155,7 @@
       setText("collected-total", "Unavailable");
       setText("outstanding-total", "Unavailable");
       setText("failed-total", "-");
-      if (table) table.innerHTML = '<tr><td colspan="7">Payment records could not be loaded.</td></tr>';
+      if (table) table.innerHTML = '<tr><td colspan="9">Payment records could not be loaded.</td></tr>';
     }
   }
 
@@ -161,8 +167,8 @@
     setText("detail-order-id", `#${record.orderID}`);
     setText("detail-customer-id", `Customer #${record.customerID}`);
     setText("detail-payment-status", label(record.paymentStatus));
-    setText("detail-payment-method", label(record.paymentMethod));
-    setText("detail-payment-reference", record.transactionReference || "-");
+    setText("detail-payment-method", cleanValue(record.paymentMethod));
+    setText("detail-payment-reference", cleanValue(record.transactionReference));
     setText("detail-processed-at", dateTimeLabel(record.processedAt));
     setText("detail-order-status", label(record.orderStatus));
     setText("detail-subtotal", money(billing && billing.subtotal));
@@ -214,8 +220,7 @@
 
     async function refresh() {
       showMessage("detail-error", "");
-      const records = await paymentRecords();
-      currentRecord = records.find((record) => Number(record.paymentID) === paymentID);
+      currentRecord = await api(`/api/payments/management/${encodeURIComponent(paymentID)}`);
       if (!currentRecord) {
         showMessage("detail-error", "Payment record could not be found.");
         return;

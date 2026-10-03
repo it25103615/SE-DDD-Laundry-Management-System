@@ -435,7 +435,7 @@ class PaymentServiceTest {
         when(paymentRepository.findByOrderID(1)).thenReturn(List.of(payment));
         when(billingService.getBillingDetails(1)).thenReturn(billingDetails(1, 7, BigDecimal.valueOf(1350.0)));
 
-        List<PaymentRecordResponse> records = service.getPaymentRecords(11, null, null, PaymentStatus.PAID, null);
+        List<PaymentRecordResponse> records = service.getPaymentRecords(11, null, null, PaymentStatus.PAID, null, null);
 
         assertEquals(1, records.size());
         assertEquals(4, records.get(0).getPaymentID());
@@ -458,10 +458,57 @@ class PaymentServiceTest {
         when(paymentRepository.findByOrderID(1)).thenReturn(List.of(payment));
         when(billingService.getBillingDetails(1)).thenReturn(billingDetails(1, 7, BigDecimal.valueOf(1350.0)));
 
-        List<PaymentRecordResponse> records = service.getPaymentRecords(11, null, null, null, "verified");
+        List<PaymentRecordResponse> records = service.getPaymentRecords(11, null, null, null, null, "verified");
 
         assertEquals(1, records.size());
         assertEquals(PaymentStatus.VERIFIED, records.get(0).getPaymentStatus());
+    }
+
+    @Test
+    void letsManagerFilterPaymentRecordsByMethod() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentManagementRepository managementRepository = managementRepository("MANAGER", new PaymentOrderStatus(1, "Unconfirmed"));
+        PaymentService service = paymentService(paymentRepository, managementRepository, billingService);
+        Payment cardPayment = new Payment(1350.0, 1);
+        cardPayment.setPaymentID(4);
+        cardPayment.setPaymentMethod(PaymentMethod.CARD);
+        Payment cashPayment = new Payment(500.0, 2);
+        cashPayment.setPaymentID(5);
+        cashPayment.setPaymentMethod(PaymentMethod.CASH);
+
+        when(paymentRepository.findAll()).thenReturn(List.of(cardPayment, cashPayment));
+        when(paymentRepository.findByOrderID(1)).thenReturn(List.of(cardPayment));
+        when(paymentRepository.findByOrderID(2)).thenReturn(List.of(cashPayment));
+        when(billingService.getBillingDetails(1)).thenReturn(billingDetails(1, 7, BigDecimal.valueOf(1350.0)));
+        when(billingService.getBillingDetails(2)).thenReturn(billingDetails(2, 8, BigDecimal.valueOf(500.0)));
+
+        List<PaymentRecordResponse> records = service.getPaymentRecords(11, null, null, null, PaymentMethod.CARD, null);
+
+        assertEquals(1, records.size());
+        assertEquals(4, records.get(0).getPaymentID());
+        assertEquals(PaymentMethod.CARD, records.get(0).getPaymentMethod());
+    }
+
+    @Test
+    void letsManagerLoadSinglePaymentRecord() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentManagementRepository managementRepository = managementRepository("MANAGER", new PaymentOrderStatus(1, "Unconfirmed"));
+        PaymentService service = paymentService(paymentRepository, managementRepository, billingService);
+        Payment payment = new Payment(1350.0, 1);
+        payment.setPaymentID(4);
+        payment.setPaymentMethod(PaymentMethod.CARD);
+
+        when(paymentRepository.findById(4)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findByOrderID(1)).thenReturn(List.of(payment));
+        when(billingService.getBillingDetails(1)).thenReturn(billingDetails(1, 7, BigDecimal.valueOf(1350.0)));
+
+        PaymentRecordResponse record = service.getPaymentRecord(11, 4);
+
+        assertEquals(4, record.getPaymentID());
+        assertEquals(1, record.getOrderID());
+        assertEquals(PaymentMethod.CARD, record.getPaymentMethod());
     }
 
     @Test
@@ -472,7 +519,7 @@ class PaymentServiceTest {
         PaymentService service = paymentService(paymentRepository, managementRepository, billingService);
 
         assertThrows(AccessDeniedException.class, () ->
-                service.getPaymentRecords(7, null, null, null, null));
+                service.getPaymentRecords(7, null, null, null, null, null));
     }
 
     @Test
@@ -540,7 +587,7 @@ class PaymentServiceTest {
         when(billingService.getBillingDetails(1)).thenReturn(billingDetails(1, 7, BigDecimal.valueOf(1350.0)));
         when(managementRepository.wasPaymentVerified(1)).thenReturn(true);
 
-        List<PaymentRecordResponse> records = service.getPaymentRecords(11, null, null, null, null);
+        List<PaymentRecordResponse> records = service.getPaymentRecords(11, null, null, null, null, null);
 
         // The order has moved on, but its log shows the payment was verified, so the
         // payment page keeps showing it as verified (and hides Approve/Reject).

@@ -208,6 +208,7 @@ public class PaymentService {
             Integer orderID,
             Integer customerID,
             PaymentStatus paymentStatus,
+            PaymentMethod paymentMethod,
             String search
     ) {
         paymentAccessService.requireManagementUser(managementUserID);
@@ -218,8 +219,15 @@ public class PaymentService {
                 .filter(record -> orderID == null || Objects.equals(record.getOrderID(), orderID))
                 .filter(record -> customerID == null || Objects.equals(record.getCustomerID(), customerID))
                 .filter(record -> paymentStatus == null || record.getPaymentStatus() == paymentStatus)
+                .filter(record -> paymentMethod == null || record.getPaymentMethod() == paymentMethod)
                 .filter(record -> normalizedSearch == null || normalizedSearch.isBlank() || matchesPaymentSearch(record, normalizedSearch))
                 .toList();
+    }
+
+    public PaymentRecordResponse getPaymentRecord(Integer managementUserID, Integer paymentID) {
+        paymentAccessService.requireManagementUser(managementUserID);
+        Payment payment = paymentRepository.findById(paymentID).orElseThrow();
+        return toPaymentRecord(payment);
     }
 
     @Transactional
