@@ -171,6 +171,152 @@ class PaymentServiceTest {
     }
 
     @Test
+    void acceptsPaymentForExactFinalPayableAfterBulkDiscount() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentService service = paymentService(
+                paymentRepository,
+                managementRepository("CUSTOMER", new PaymentOrderStatus(1, "Unconfirmed")),
+                billingService
+        );
+
+        when(billingService.getBillingDetails(1)).thenReturn(
+                billingDetails(
+                        1,
+                        7,
+                        BigDecimal.valueOf(10000.0),
+                        BigDecimal.valueOf(1000.0),
+                        BigDecimal.ZERO,
+                        BigDecimal.valueOf(1000.0),
+                        BigDecimal.valueOf(9000.0)
+                )
+        );
+        when(paymentRepository.findByOrderID(1)).thenReturn(List.of());
+        when(paymentRepository.save(Mockito.any(Payment.class))).thenAnswer(invocation -> {
+            Payment payment = invocation.getArgument(0);
+            payment.setPaymentID(30);
+            return payment;
+        });
+
+        PaymentConfirmationResponse response = service.submitPayment(1, 7, paymentRequest(BigDecimal.valueOf(9000.0)));
+
+        assertEquals(30, response.getPaymentID());
+        assertEquals(BigDecimal.valueOf(9000.0), response.getAmount());
+    }
+
+    @Test
+    void returnsOutstandingAmountWithBulkDiscountOnly() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentService service = paymentService(
+                paymentRepository,
+                managementRepository("CUSTOMER", new PaymentOrderStatus(1, "Unconfirmed")),
+                billingService
+        );
+
+        when(billingService.getBillingDetails(23)).thenReturn(
+                billingDetails(
+                        23,
+                        7,
+                        BigDecimal.valueOf(9240.0),
+                        BigDecimal.valueOf(924.0),
+                        BigDecimal.ZERO,
+                        BigDecimal.valueOf(924.0),
+                        BigDecimal.valueOf(8316.0)
+                )
+        );
+        when(paymentRepository.findByOrderID(23)).thenReturn(List.of());
+
+        PaymentStatusResponse response = service.getPaymentStatus(23, 7);
+
+        assertEquals(BigDecimal.valueOf(8316.0), response.getPayableAmount());
+        assertEquals(BigDecimal.valueOf(8316.0), response.getOutstandingAmount());
+    }
+
+    @Test
+    void returnsOutstandingAmountWithBulkAndPromotionDiscounts() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentService service = paymentService(
+                paymentRepository,
+                managementRepository("CUSTOMER", new PaymentOrderStatus(1, "Unconfirmed")),
+                billingService
+        );
+
+        when(billingService.getBillingDetails(23)).thenReturn(
+                billingDetails(
+                        23,
+                        7,
+                        BigDecimal.valueOf(9240.0),
+                        BigDecimal.valueOf(924.0),
+                        BigDecimal.valueOf(831.60),
+                        BigDecimal.valueOf(1755.60),
+                        BigDecimal.valueOf(7484.40)
+                )
+        );
+        when(paymentRepository.findByOrderID(23)).thenReturn(List.of());
+
+        PaymentStatusResponse response = service.getPaymentStatus(23, 7);
+
+        assertEquals(BigDecimal.valueOf(7484.40), response.getPayableAmount());
+        assertEquals(BigDecimal.valueOf(7484.40), response.getOutstandingAmount());
+    }
+
+    @Test
+    void rejectsManipulatedSubtotalAmountAfterBulkDiscount() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentService service = paymentService(
+                paymentRepository,
+                managementRepository("CUSTOMER", new PaymentOrderStatus(1, "Unconfirmed")),
+                billingService
+        );
+
+        when(billingService.getBillingDetails(1)).thenReturn(
+                billingDetails(
+                        1,
+                        7,
+                        BigDecimal.valueOf(10000.0),
+                        BigDecimal.valueOf(1000.0),
+                        BigDecimal.ZERO,
+                        BigDecimal.valueOf(1000.0),
+                        BigDecimal.valueOf(9000.0)
+                )
+        );
+        when(paymentRepository.findByOrderID(1)).thenReturn(List.of());
+
+        assertThrows(IllegalArgumentException.class, () ->
+                service.submitPayment(1, 7, paymentRequest(BigDecimal.valueOf(10000.0))));
+    }
+
+    @Test
+    void rejectsPrePromotionAmountAfterPromotionHasBeenApplied() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentService service = paymentService(
+                paymentRepository,
+                managementRepository("CUSTOMER", new PaymentOrderStatus(1, "Unconfirmed")),
+                billingService
+        );
+
+        when(billingService.getBillingDetails(23)).thenReturn(
+                billingDetails(
+                        23,
+                        7,
+                        BigDecimal.valueOf(9240.0),
+                        BigDecimal.valueOf(924.0),
+                        BigDecimal.valueOf(831.60),
+                        BigDecimal.valueOf(1755.60),
+                        BigDecimal.valueOf(7484.40)
+                )
+        );
+        when(paymentRepository.findByOrderID(23)).thenReturn(List.of());
+
+        assertThrows(IllegalArgumentException.class, () ->
+                service.submitPayment(23, 7, paymentRequest(BigDecimal.valueOf(8316.0))));
+    }
+
+    @Test
     void preventsDuplicatePaymentWhenOrderIsAlreadyPaid() {
         PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
         BillingService billingService = Mockito.mock(BillingService.class);
@@ -690,6 +836,27 @@ class PaymentServiceTest {
             BigDecimal finalPayableAmount
     ) {
         return new BillingDetails(orderID, userID, List.of(), subtotal, discountAmount, finalPayableAmount);
+    }
+
+    private BillingDetails billingDetails(
+            Integer orderID,
+            Integer userID,
+            BigDecimal subtotal,
+            BigDecimal automaticBulkDiscount,
+            BigDecimal promotionDiscount,
+            BigDecimal totalDiscount,
+            BigDecimal finalPayableAmount
+    ) {
+        return new BillingDetails(
+                orderID,
+                userID,
+                List.of(),
+                subtotal,
+                automaticBulkDiscount,
+                promotionDiscount,
+                totalDiscount,
+                finalPayableAmount
+        );
     }
 
     private PaymentService paymentService(

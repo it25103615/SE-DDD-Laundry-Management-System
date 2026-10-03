@@ -174,6 +174,31 @@ class PromotionServiceTest {
     }
 
     @Test
+    void calculatesPercentagePromotionAfterAutomaticBulkDiscount() {
+        TestPromotionRepository promotionRepository = new TestPromotionRepository(validPercentagePromotion());
+        PromotionService service = newService(promotionRepository, BigDecimal.valueOf(10000.0));
+
+        PromotionApplicationResponse response = service.applyPromotion("save10", 1);
+
+        assertEquals(BigDecimal.valueOf(900.00).setScale(2), response.getDiscountAmount());
+        assertEquals(BigDecimal.valueOf(8100.00).setScale(2), response.getFinalPayableAmount());
+        assertEquals(BigDecimal.valueOf(900.00).setScale(2), promotionRepository.appliedDiscountAmount);
+    }
+
+    @Test
+    void calculatesFixedPromotionAfterAutomaticBulkDiscount() {
+        Promotion promotion = validFixedPromotion(BigDecimal.valueOf(500.0));
+        TestPromotionRepository promotionRepository = new TestPromotionRepository(promotion);
+        PromotionService service = newService(promotionRepository, BigDecimal.valueOf(10000.0));
+
+        PromotionApplicationResponse response = service.applyPromotion("fixed", 1);
+
+        assertEquals(BigDecimal.valueOf(500.0), response.getDiscountAmount());
+        assertEquals(BigDecimal.valueOf(8500.00).setScale(2), response.getFinalPayableAmount());
+        assertEquals(BigDecimal.valueOf(500.0), promotionRepository.appliedDiscountAmount);
+    }
+
+    @Test
     void fixedDiscountCannotMakeFinalAmountNegative() {
         Promotion promotion = validFixedPromotion(BigDecimal.valueOf(200.0));
         TestPromotionRepository promotionRepository = new TestPromotionRepository(promotion);
@@ -184,6 +209,19 @@ class PromotionServiceTest {
         assertTrue(response.isValid());
         assertEquals(BigDecimal.valueOf(100.0), response.getDiscountAmount());
         assertEquals(BigDecimal.ZERO.setScale(1), response.getFinalPayableAmount());
+    }
+
+    @Test
+    void fixedPromotionCannotMakePostBulkFinalAmountNegative() {
+        Promotion promotion = validFixedPromotion(BigDecimal.valueOf(10000.0));
+        TestPromotionRepository promotionRepository = new TestPromotionRepository(promotion);
+        PromotionService service = newService(promotionRepository, BigDecimal.valueOf(6000.0));
+
+        PromotionValidationResponse response = service.validatePromotion("FIXED", 1);
+
+        assertTrue(response.isValid());
+        assertEquals(BigDecimal.valueOf(5400.00).setScale(2), response.getDiscountAmount());
+        assertEquals(BigDecimal.ZERO.setScale(2), response.getFinalPayableAmount());
     }
 
     @Test

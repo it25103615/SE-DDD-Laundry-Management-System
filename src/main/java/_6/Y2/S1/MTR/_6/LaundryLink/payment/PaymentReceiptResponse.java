@@ -7,7 +7,10 @@ public class PaymentReceiptResponse {
     private final Integer paymentID;
     private final Integer orderID;
     private final BigDecimal subtotal;
+    private final BigDecimal automaticBulkDiscount;
+    private final BigDecimal promotionDiscount;
     private final BigDecimal discountAmount;
+    private final BigDecimal totalDiscount;
     private final BigDecimal finalPayableAmount;
     private final BigDecimal amountPaid;
     private final PaymentStatus paymentStatus;
@@ -20,7 +23,10 @@ public class PaymentReceiptResponse {
             Integer paymentID,
             Integer orderID,
             BigDecimal subtotal,
+            BigDecimal automaticBulkDiscount,
+            BigDecimal promotionDiscount,
             BigDecimal discountAmount,
+            BigDecimal totalDiscount,
             BigDecimal finalPayableAmount,
             BigDecimal amountPaid,
             PaymentStatus paymentStatus,
@@ -32,7 +38,10 @@ public class PaymentReceiptResponse {
         this.paymentID = paymentID;
         this.orderID = orderID;
         this.subtotal = subtotal;
+        this.automaticBulkDiscount = automaticBulkDiscount;
+        this.promotionDiscount = promotionDiscount;
         this.discountAmount = discountAmount;
+        this.totalDiscount = totalDiscount;
         this.finalPayableAmount = finalPayableAmount;
         this.amountPaid = amountPaid;
         this.paymentStatus = paymentStatus;
@@ -54,8 +63,20 @@ public class PaymentReceiptResponse {
         return subtotal;
     }
 
+    public BigDecimal getAutomaticBulkDiscount() {
+        return automaticBulkDiscount;
+    }
+
+    public BigDecimal getPromotionDiscount() {
+        return promotionDiscount;
+    }
+
     public BigDecimal getDiscountAmount() {
         return discountAmount;
+    }
+
+    public BigDecimal getTotalDiscount() {
+        return totalDiscount;
     }
 
     public BigDecimal getFinalPayableAmount() {

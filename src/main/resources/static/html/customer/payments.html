@@ -53,11 +53,40 @@
               <strong id="billing-subtotal">Loading...</strong>
             </div>
             <div class="top_bar">
-              <span id="billing-promotion-label">Promotion discount</span>
-              <strong id="billing-discount">Loading...</strong>
+              <span>Automatic Bulk Discount</span>
+              <strong id="billing-bulk-discount">Loading...</strong>
+            </div>
+            <div class="top_bar">
+              <span id="billing-promotion-label">Promotion Discount</span>
+              <strong id="billing-promotion-discount">Loading...</strong>
+            </div>
+            <div class="top_bar">
+              <span>Total Discount</span>
+              <strong id="billing-total-discount">Loading...</strong>
+            </div>
+            <div class="top_bar">
+              <span>Final Payable</span>
+              <strong id="billing-final-payable">Loading...</strong>
             </div>
             <hr />
+            <h2>Discounts &amp; Promotions</h2>
+            <div class="card" style="margin-top: 16px; box-shadow: none" id="bulk-discount-card">
+              <span class="muted small">AUTOMATIC BULK DISCOUNT</span>
+              <h3 id="bulk-discount-title">Checking eligibility...</h3>
+              <p class="muted" id="bulk-discount-message">Loading discount details.</p>
+              <strong id="bulk-discount-savings">Loading...</strong>
+            </div>
+            <div style="margin-top: 18px">
+              <div class="top_bar">
+                <h3>Available Promotions</h3>
+                <span class="muted small" id="available-promotions-count">Loading...</span>
+              </div>
+              <div class="grid grid_two" id="available-promotions-list">
+                <div class="card">Loading promotions...</div>
+              </div>
+            </div>
             <form class="unstyled_form" id="promotion-form" style="padding: 0; box-shadow: none; border: 0; background: transparent">
+              <h3>Have a promotion code?</h3>
               <div class="field">
                 <label for="promotion-code">Promotion code</label>
                 <input class="input" id="promotion-code" name="promotionCode" type="text" autocomplete="off" placeholder="Enter promotion code" />

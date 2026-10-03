@@ -29,18 +29,18 @@
             </div>
             <div class="field">
               <label for="card-number">Card Number</label>
-              <input class="input" id="card-number" inputmode="numeric" autocomplete="cc-number" placeholder="4242 4242 4242 4242" />
+              <input class="input" id="card-number" inputmode="numeric" autocomplete="cc-number" maxlength="19" placeholder="4242 4242 4242 4242" />
               <small class="danger" data-error-for="card-number"></small>
             </div>
             <div class="grid grid_two">
               <div class="field">
                 <label for="expiry-date">Expiry Date</label>
-                <input class="input" id="expiry-date" autocomplete="cc-exp" placeholder="MM/YY" />
+                <input class="input" id="expiry-date" inputmode="numeric" autocomplete="cc-exp" maxlength="5" placeholder="MM/YY" />
                 <small class="danger" data-error-for="expiry-date"></small>
               </div>
               <div class="field">
                 <label for="cvv">CVV</label>
-                <input class="input" id="cvv" inputmode="numeric" autocomplete="cc-csc" placeholder="123" />
+                <input class="input" id="cvv" inputmode="numeric" autocomplete="cc-csc" maxlength="3" placeholder="123" />
                 <small class="danger" data-error-for="cvv"></small>
               </div>
             </div>
