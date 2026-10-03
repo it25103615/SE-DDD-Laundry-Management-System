@@ -86,12 +86,8 @@ public class PromotionController {
 
     @GetMapping
     public ResponseEntity<List<Promotion>> listPromotions(
-            Principal principal,
-            @RequestParam(defaultValue = "false") boolean availableOnly
+            Principal principal
     ) {
-        if (availableOnly) {
-            return ResponseEntity.ok(promotionService.listAvailablePromotions());
-        }
         try {
             paymentAccessService.requireManagementUser(paymentAccessService.resolveUserID(principal));
             return ResponseEntity.ok(promotionService.listPromotions());
@@ -101,8 +97,10 @@ public class PromotionController {
     }
 
     @GetMapping("/available")
-    public ResponseEntity<List<Promotion>> listAvailablePromotions() {
-        return ResponseEntity.ok(promotionService.listAvailablePromotions());
+    public ResponseEntity<List<AvailablePromotionResponse>> listAvailablePromotions() {
+        return ResponseEntity.ok(promotionService.listAvailablePromotions().stream()
+                .map(AvailablePromotionResponse::new)
+                .toList());
     }
 
     @GetMapping("/{promotionCode}/orders/{orderID}/validate")

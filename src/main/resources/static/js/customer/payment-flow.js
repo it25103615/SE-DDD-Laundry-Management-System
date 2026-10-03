@@ -80,6 +80,21 @@
     return value == null || value === "" ? "N/A" : String(value);
   }
 
+  function promotionDiscountLabel(promotion) {
+    const value = Number(promotion.discountValue || 0);
+    if (promotion.discountType === "PERCENTAGE") {
+      return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}% OFF`;
+    }
+    return `${money(value)} OFF`;
+  }
+
+  function dateLabel(value) {
+    if (!value) return "N/A";
+    const parsed = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return String(value);
+    return parsed.toLocaleDateString();
+  }
+
   async function api(path, options) {
     const method = (options && options.method ? options.method : "GET").toUpperCase();
     const headers = {
@@ -137,19 +152,77 @@
     return api(`/api/billing/orders/${id}/invoice`);
   }
 
+  async function getAvailablePromotions() {
+    return api("/api/promotions/available");
+  }
+
   function displayInvoice(invoice) {
     setText("billing-order-label", `Order #${invoice.orderID}`);
     setText("billing-subtotal", money(invoice.subtotal));
-    setText("billing-discount", `- ${money(invoice.discountAmount)}`);
+    setText("billing-bulk-discount", `- ${money(invoice.automaticBulkDiscount)}`);
+    setText("billing-promotion-discount", `- ${money(invoice.promotionDiscount)}`);
+    setText("billing-total-discount", `- ${money(invoice.totalDiscount ?? invoice.discountAmount)}`);
     setText("billing-final", money(invoice.finalPayableAmount));
+    setText("billing-final-payable", money(invoice.finalPayableAmount));
     const appliedCode = sessionStorage.getItem(`laundrylinkPromotionCode:${invoice.orderID}`);
-    const hasDiscount = Number(invoice.discountAmount || 0) > 0;
-    setText("billing-promotion-label", hasDiscount && appliedCode ? `Promotion discount (${appliedCode})` : "Promotion discount");
+    const hasPromotionDiscount = Number(invoice.promotionDiscount || 0) > 0;
+    setText("billing-promotion-label", hasPromotionDiscount && appliedCode ? `Promotion Discount (${appliedCode})` : "Promotion Discount");
+    displayBulkDiscount(invoice);
   }
 
-  async function refreshBillingAndStatus(id) {
+  function displayBulkDiscount(invoice) {
+    const subtotal = Number(invoice.subtotal || 0);
+    const saved = Number(invoice.automaticBulkDiscount || 0);
+    const remaining = Math.max(0, 5000 - subtotal);
+    setText("bulk-discount-title", saved > 0 ? "Bulk Order Discount" : "Bulk Order Discount");
+    setText(
+      "bulk-discount-message",
+      saved > 0
+        ? "10% off orders of LKR 5,000 or more. Automatically applied - no code required."
+        : `Spend ${money(remaining)} more to receive 10% off.`
+    );
+    setText("bulk-discount-savings", saved > 0 ? `You saved: ${money(saved)}` : "Not applied");
+  }
+
+  function displayAvailablePromotions(promotions, id) {
+    const list = document.getElementById("available-promotions-list");
+    const count = document.getElementById("available-promotions-count");
+    if (!list) return;
+    if (!Array.isArray(promotions) || !promotions.length) {
+      list.innerHTML = '<div class="card">No active promotions available.</div>';
+      if (count) count.textContent = "0 available";
+      return;
+    }
+
+    if (count) count.textContent = `${promotions.length} available`;
+    list.innerHTML = promotions
+      .map((promotion) => `
+        <article class="card">
+          <span class="muted small">${cleanValue(promotion.promotionName)}</span>
+          <h3>${cleanValue(promotion.promotionCode)}</h3>
+          <p><strong>${promotionDiscountLabel(promotion)}</strong></p>
+          <p class="muted">Minimum order: ${money(promotion.minimumOrderAmount)}</p>
+          <p class="muted">Valid until: ${dateLabel(promotion.validTo)}</p>
+          <button class="custom_button custom_button_border" type="button" data-promotion-code="${cleanValue(promotion.promotionCode)}">Apply</button>
+        </article>`)
+      .join("");
+
+    list.querySelectorAll("[data-promotion-code]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const input = document.getElementById("promotion-code");
+        const form = document.getElementById("promotion-form");
+        if (input) input.value = button.dataset.promotionCode || "";
+        if (form) form.requestSubmit();
+      });
+    });
+  }
+
+  async function refreshBillingAndStatus(id, payLink) {
     const [invoice, status] = await Promise.all([getInvoice(id), getStatus(id)]);
     displayInvoice(invoice);
+    if (payLink) {
+      displayPaymentStatus(id, status, payLink);
+    }
     return { invoice, status };
   }
 
@@ -183,7 +256,7 @@
 
     await api(`/api/promotions/${encodeURIComponent(code)}/orders/${id}/apply`, { method: "POST" });
     sessionStorage.setItem(`laundrylinkPromotionCode:${id}`, code.toUpperCase());
-    await refreshBillingAndStatus(id);
+    await refreshBillingAndStatus(id, document.getElementById("pay-now-link"));
     return "";
   }
 
@@ -199,11 +272,14 @@
     if (!id) {
       setText("outstanding-amount", "Unavailable");
       setText("payment-order-line", "Open an order before reviewing payment.");
-      setText("billing-order-label", "Invoice");
-      setText("billing-subtotal", "Unavailable");
-      setText("billing-discount", "Unavailable");
-      setText("billing-final", "Unavailable");
-      showMessage(promotionMessage, "CROSS-MODULE CHANGE REQUIRED: this page needs a real orderID from Order Management navigation.", false);
+        setText("billing-order-label", "Invoice");
+        setText("billing-subtotal", "Unavailable");
+        setText("billing-bulk-discount", "Unavailable");
+        setText("billing-promotion-discount", "Unavailable");
+        setText("billing-total-discount", "Unavailable");
+        setText("billing-final", "Unavailable");
+        setText("billing-final-payable", "Unavailable");
+        showMessage(promotionMessage, "CROSS-MODULE CHANGE REQUIRED: this page needs a real orderID from Order Management navigation.", false);
       if (payLink) {
         payLink.setAttribute("aria-disabled", "true");
         payLink.removeAttribute("href");
@@ -215,8 +291,11 @@
       } catch (error) {
         setText("billing-order-label", "Invoice");
         setText("billing-subtotal", "Unavailable");
-        setText("billing-discount", "Unavailable");
+        setText("billing-bulk-discount", "Unavailable");
+        setText("billing-promotion-discount", "Unavailable");
+        setText("billing-total-discount", "Unavailable");
         setText("billing-final", "Unavailable");
+        setText("billing-final-payable", "Unavailable");
       }
 
       try {
@@ -230,6 +309,15 @@
           payLink.removeAttribute("href");
         }
       }
+    }
+
+    try {
+      displayAvailablePromotions(await getAvailablePromotions(), id);
+    } catch (error) {
+      const list = document.getElementById("available-promotions-list");
+      const count = document.getElementById("available-promotions-count");
+      if (list) list.innerHTML = '<div class="card">Available promotions could not be loaded.</div>';
+      if (count) count.textContent = "Unavailable";
     }
 
     if (promotionForm) {
@@ -350,38 +438,91 @@
     if (element) element.textContent = message;
   }
 
+  function digitsOnly(value, maxLength) {
+    return String(value || "").replace(/\D/g, "").slice(0, maxLength);
+  }
+
+  function formatCardNumber(value) {
+    return digitsOnly(value, 16).replace(/(\d{4})(?=\d)/g, "$1 ");
+  }
+
+  function formatExpiry(value) {
+    const digits = digitsOnly(value, 4);
+    if (digits.length <= 2) return digits;
+    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  }
+
+  function attachCardInputFormatting() {
+    const cardNumber = document.getElementById("card-number");
+    const expiry = document.getElementById("expiry-date");
+    const cvv = document.getElementById("cvv");
+
+    if (cardNumber) {
+      cardNumber.addEventListener("input", () => {
+        cardNumber.value = formatCardNumber(cardNumber.value);
+      });
+    }
+
+    if (expiry) {
+      expiry.addEventListener("input", () => {
+        expiry.value = formatExpiry(expiry.value);
+      });
+    }
+
+    if (cvv) {
+      cvv.addEventListener("input", () => {
+        cvv.value = digitsOnly(cvv.value, 3);
+      });
+    }
+  }
+
   function validExpiry(value) {
     const match = /^(\d{2})\/(\d{2})$/.exec(value.trim());
-    if (!match) return false;
+    if (!match) return "format";
     const month = Number(match[1]);
     const year = Number(`20${match[2]}`);
-    if (month < 1 || month > 12) return false;
+    if (month < 1 || month > 12) return "month";
     const expiry = new Date(year, month, 0, 23, 59, 59);
-    return expiry >= new Date();
+    return expiry >= new Date() ? "" : "expired";
   }
 
   function validateCard() {
     clearFieldErrors();
     let valid = true;
-    const name = document.getElementById("cardholder-name").value.trim();
-    const number = document.getElementById("card-number").value.replace(/\D/g, "");
-    const expiry = document.getElementById("expiry-date").value.trim();
-    const cvv = document.getElementById("cvv").value.trim();
+    const nameInput = document.getElementById("cardholder-name");
+    const numberInput = document.getElementById("card-number");
+    const expiryInput = document.getElementById("expiry-date");
+    const cvvInput = document.getElementById("cvv");
+    const name = nameInput.value.trim();
+    const number = digitsOnly(numberInput.value, 16);
+    const expiry = formatExpiry(expiryInput.value);
+    const cvv = digitsOnly(cvvInput.value, 3);
+
+    nameInput.value = name;
+    numberInput.value = formatCardNumber(number);
+    expiryInput.value = expiry;
+    cvvInput.value = cvv;
 
     if (!name) {
       fieldError("cardholder-name", "Cardholder name is required.");
       valid = false;
     }
-    if (!/^\d{13,19}$/.test(number)) {
-      fieldError("card-number", "Enter a valid card number.");
+    if (!/^\d{16}$/.test(number)) {
+      fieldError("card-number", "Enter a valid 16-digit card number.");
       valid = false;
     }
-    if (!validExpiry(expiry)) {
-      fieldError("expiry-date", "Use a valid future date in MM/YY format.");
+    const expiryError = validExpiry(expiry);
+    if (expiryError) {
+      const message = expiryError === "format"
+        ? "Enter expiry date as MM/YY."
+        : expiryError === "month"
+          ? "Enter a valid expiry month."
+          : "Card has expired.";
+      fieldError("expiry-date", message);
       valid = false;
     }
-    if (!/^\d{3,4}$/.test(cvv)) {
-      fieldError("cvv", "CVV must be 3 or 4 digits.");
+    if (!/^\d{3}$/.test(cvv)) {
+      fieldError("cvv", "Enter a valid 3-digit CVV.");
       valid = false;
     }
 
@@ -399,6 +540,7 @@
     const backLink = document.getElementById("checkout-back-link");
     const cancelLink = document.getElementById("checkout-cancel-link");
     let amount = null;
+    attachCardInputFormatting();
 
     if (!id) {
       setText("summary-order", "Order not selected");
@@ -492,7 +634,10 @@
       setText("receipt-order", queryOrderID ? `Order #${queryOrderID}` : "Order not selected");
       setText("receipt-amount", "Unavailable");
       setText("receipt-subtotal", "Unavailable");
-      setText("receipt-discount", "Unavailable");
+      setText("receipt-bulk-discount", "Unavailable");
+      setText("receipt-promotion-discount", "Unavailable");
+      setText("receipt-total-discount", "Unavailable");
+      setText("receipt-final-amount", "Unavailable");
       setText("receipt-status", "Status: Unavailable");
       setText("receipt-method", "Method: Not recorded");
       setText("receipt-time", "Date/time: Not recorded");
@@ -506,7 +651,10 @@
       setText("receipt-order", `Order #${receipt.orderID}`);
       setText("receipt-amount", money(receipt.amountPaid));
       setText("receipt-subtotal", money(receipt.subtotal));
-      setText("receipt-discount", `- ${money(receipt.discountAmount)}`);
+      setText("receipt-bulk-discount", `- ${money(receipt.automaticBulkDiscount)}`);
+      setText("receipt-promotion-discount", `- ${money(receipt.promotionDiscount)}`);
+      setText("receipt-total-discount", `- ${money(receipt.totalDiscount ?? receipt.discountAmount)}`);
+      setText("receipt-final-amount", money(receipt.finalPayableAmount));
       setText("receipt-status", `Status: ${String(receipt.paymentStatus || "Unknown").replaceAll("_", " ")}`);
       setText("receipt-method", `Method: ${methodLabel(receipt.paymentMethod)}`);
       setText("receipt-time", `Date/time: ${dateTimeLabel(receipt.processedAt)}`);
@@ -517,7 +665,10 @@
       setText("receipt-order", `Order #${queryOrderID}`);
       setText("receipt-amount", "Unavailable");
       setText("receipt-subtotal", "Unavailable");
-      setText("receipt-discount", "Unavailable");
+      setText("receipt-bulk-discount", "Unavailable");
+      setText("receipt-promotion-discount", "Unavailable");
+      setText("receipt-total-discount", "Unavailable");
+      setText("receipt-final-amount", "Unavailable");
       setText("receipt-status", "Status: Unavailable");
       setText("receipt-method", "Method: Not recorded");
       setText("receipt-time", "Date/time: Not recorded");
