@@ -1,6 +1,6 @@
 (function () {
-  const MANAGER_ID = sessionStorage.getItem("laundrylinkManagerID");
   const page = document.body.dataset.paymentAdminPage;
+  let csrfPromise = null;
 
   function money(value) {
     const number = Number(value || 0);
@@ -9,6 +9,17 @@
 
   function label(value) {
     return String(value || "-").replaceAll("_", " ");
+  }
+
+  function cleanValue(value) {
+    return value == null || value === "" ? "N/A" : label(value);
+  }
+
+  function dateTimeLabel(value) {
+    if (!value) return "-";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return String(value).replace("T", " ");
+    return parsed.toLocaleString();
   }
 
   function params() {
@@ -36,14 +47,31 @@
       .replaceAll("'", "&#039;");
   }
 
-  function api(path, options = {}) {
+  async function csrf() {
+    if (!csrfPromise) {
+      csrfPromise = fetch("/api/auth/csrf", {
+        headers: { "Accept": "application/json" },
+        credentials: "same-origin",
+      }).then((response) => response.json());
+    }
+    return csrfPromise;
+  }
+
+  async function api(path, options = {}) {
+    const method = (options.method || "GET").toUpperCase();
+    const headers = {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    };
+    if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+      const token = await csrf();
+      headers[token.headerName] = token.token;
+    }
+
     return fetch(path, {
       ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(MANAGER_ID ? { "X-User-ID": MANAGER_ID } : {}),
-        ...(options.headers || {}),
-      },
+      headers,
+      credentials: "same-origin",
     }).then(async (response) => {
       if (!response.ok) {
         const error = new Error(`Request failed with status ${response.status}`);
@@ -61,7 +89,7 @@
     if (!form) return "";
 
     const data = new FormData(form);
-    ["search", "status", "orderID", "customerID"].forEach((field) => {
+    ["search", "status", "method", "orderID", "customerID"].forEach((field) => {
       const value = String(data.get(field) || "").trim();
       if (value) query.set(field, value);
     });
@@ -103,7 +131,7 @@
 
       if (!table) return;
       if (!records.length) {
-        table.innerHTML = '<tr><td colspan="7">No payment records found.</td></tr>';
+        table.innerHTML = '<tr><td colspan="9">No payment records found.</td></tr>';
         return;
       }
 
@@ -113,9 +141,11 @@
             <tr>
               <td>#${record.paymentID}</td>
               <td>#${record.orderID}</td>
-              <td>Customer #${record.customerID}</td>
               <td>${money(record.amount)}</td>
+              <td>${escapeHtml(cleanValue(record.paymentMethod))}</td>
+              <td>${escapeHtml(cleanValue(record.transactionReference))}</td>
               <td>${statusMarkup(record.paymentStatus)}</td>
+              <td>${escapeHtml(dateTimeLabel(record.processedAt))}</td>
               <td>${escapeHtml(label(record.orderStatus))}</td>
               <td><a class="link" href="payment_detail.html?paymentID=${encodeURIComponent(record.paymentID)}">View</a></td>
             </tr>`,
@@ -125,7 +155,7 @@
       setText("collected-total", "Unavailable");
       setText("outstanding-total", "Unavailable");
       setText("failed-total", "-");
-      if (table) table.innerHTML = '<tr><td colspan="7">Payment records could not be loaded.</td></tr>';
+      if (table) table.innerHTML = '<tr><td colspan="9">Payment records could not be loaded.</td></tr>';
     }
   }
 
@@ -137,6 +167,9 @@
     setText("detail-order-id", `#${record.orderID}`);
     setText("detail-customer-id", `Customer #${record.customerID}`);
     setText("detail-payment-status", label(record.paymentStatus));
+    setText("detail-payment-method", cleanValue(record.paymentMethod));
+    setText("detail-payment-reference", cleanValue(record.transactionReference));
+    setText("detail-processed-at", dateTimeLabel(record.processedAt));
     setText("detail-order-status", label(record.orderStatus));
     setText("detail-subtotal", money(billing && billing.subtotal));
     setText("detail-discount", money(billing && billing.discountAmount));
@@ -187,8 +220,7 @@
 
     async function refresh() {
       showMessage("detail-error", "");
-      const records = await paymentRecords();
-      currentRecord = records.find((record) => Number(record.paymentID) === paymentID);
+      currentRecord = await api(`/api/payments/management/${encodeURIComponent(paymentID)}`);
       if (!currentRecord) {
         showMessage("detail-error", "Payment record could not be found.");
         return;

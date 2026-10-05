@@ -13,6 +13,8 @@ public class PaymentCrudRequest {
     @NotNull
     private Integer orderID;
 
+    private PaymentMethod paymentMethod;
+
     public BigDecimal getAmount() {
         return amount;
     }
@@ -27,5 +29,13 @@ public class PaymentCrudRequest {
 
     public void setOrderID(Integer orderID) {
         this.orderID = orderID;
+    }
+
+    public PaymentMethod getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(PaymentMethod paymentMethod) {
+        this.paymentMethod = paymentMethod;
     }
 }

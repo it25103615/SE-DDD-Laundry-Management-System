@@ -51,9 +51,19 @@
         </div>
         <div class="grid grid_two">
           <div class="field">
+            <label for="payment-method-filter">Payment method</label>
+            <select class="input" id="payment-method-filter" name="method">
+              <option value="">All methods</option>
+              <option value="CARD">CARD</option>
+              <option value="CASH">CASH</option>
+            </select>
+          </div>
+          <div class="field">
             <label for="order-id-filter">Order ID</label>
             <input class="input" id="order-id-filter" name="orderID" type="number" min="1" step="1" />
           </div>
+        </div>
+        <div class="grid grid_two">
           <div class="field">
             <label for="customer-id-filter">Customer ID</label>
             <input class="input" id="customer-id-filter" name="customerID" type="number" min="1" step="1" />
@@ -70,16 +80,18 @@
             <tr>
               <th>PAYMENT</th>
               <th>ORDER</th>
-              <th>CUSTOMER</th>
               <th>AMOUNT</th>
+              <th>METHOD</th>
+              <th>REFERENCE</th>
               <th>STATUS</th>
+              <th>PROCESSED AT</th>
               <th>ORDER STATUS</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="manager-payment-table">
             <tr>
-              <td colspan="7">Loading payment records...</td>
+              <td colspan="9">Loading payment records...</td>
             </tr>
           </tbody>
         </table>

@@ -1,34 +1,53 @@
 package _6.Y2.S1.MTR._6.LaundryLink.payment;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 public class PaymentReceiptResponse {
     private final Integer paymentID;
     private final Integer orderID;
     private final BigDecimal subtotal;
+    private final BigDecimal automaticBulkDiscount;
+    private final BigDecimal promotionDiscount;
     private final BigDecimal discountAmount;
+    private final BigDecimal totalDiscount;
     private final BigDecimal finalPayableAmount;
     private final BigDecimal amountPaid;
     private final PaymentStatus paymentStatus;
+    private final PaymentMethod paymentMethod;
+    private final String transactionReference;
+    private final LocalDateTime processedAt;
     private final String orderStatus;
 
     public PaymentReceiptResponse(
             Integer paymentID,
             Integer orderID,
             BigDecimal subtotal,
+            BigDecimal automaticBulkDiscount,
+            BigDecimal promotionDiscount,
             BigDecimal discountAmount,
+            BigDecimal totalDiscount,
             BigDecimal finalPayableAmount,
             BigDecimal amountPaid,
             PaymentStatus paymentStatus,
+            PaymentMethod paymentMethod,
+            String transactionReference,
+            LocalDateTime processedAt,
             String orderStatus
     ) {
         this.paymentID = paymentID;
         this.orderID = orderID;
         this.subtotal = subtotal;
+        this.automaticBulkDiscount = automaticBulkDiscount;
+        this.promotionDiscount = promotionDiscount;
         this.discountAmount = discountAmount;
+        this.totalDiscount = totalDiscount;
         this.finalPayableAmount = finalPayableAmount;
         this.amountPaid = amountPaid;
         this.paymentStatus = paymentStatus;
+        this.paymentMethod = paymentMethod;
+        this.transactionReference = transactionReference;
+        this.processedAt = processedAt;
         this.orderStatus = orderStatus;
     }
 
@@ -44,8 +63,20 @@ public class PaymentReceiptResponse {
         return subtotal;
     }
 
+    public BigDecimal getAutomaticBulkDiscount() {
+        return automaticBulkDiscount;
+    }
+
+    public BigDecimal getPromotionDiscount() {
+        return promotionDiscount;
+    }
+
     public BigDecimal getDiscountAmount() {
         return discountAmount;
+    }
+
+    public BigDecimal getTotalDiscount() {
+        return totalDiscount;
     }
 
     public BigDecimal getFinalPayableAmount() {
@@ -58,6 +89,18 @@ public class PaymentReceiptResponse {
 
     public PaymentStatus getPaymentStatus() {
         return paymentStatus;
+    }
+
+    public PaymentMethod getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public String getTransactionReference() {
+        return transactionReference;
+    }
+
+    public LocalDateTime getProcessedAt() {
+        return processedAt;
     }
 
     public String getOrderStatus() {

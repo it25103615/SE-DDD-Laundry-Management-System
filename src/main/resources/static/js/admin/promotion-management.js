@@ -4,7 +4,7 @@
   const title = document.getElementById("promotion-form-title");
   const saveButton = document.getElementById("save-promotion");
   const resetButton = document.getElementById("reset-promotion-form");
-  const managerID = sessionStorage.getItem("laundrylinkManagerID");
+  let csrfPromise = null;
 
   let promotions = [];
 
@@ -49,14 +49,28 @@
     return `${action} failed. Please try again.`;
   }
 
-  function api(path, options = {}) {
+  async function csrf() {
+    if (!csrfPromise) {
+      csrfPromise = fetch("/api/auth/csrf", {
+        headers: { "Accept": "application/json" },
+        credentials: "same-origin",
+      }).then((response) => response.json());
+    }
+    return csrfPromise;
+  }
+
+  async function api(path, options = {}) {
+    const method = (options.method || "GET").toUpperCase();
     const headers = {
       "Content-Type": "application/json",
-      ...(managerID ? { "X-User-ID": managerID } : {}),
       ...(options.headers || {}),
     };
+    if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+      const token = await csrf();
+      headers[token.headerName] = token.token;
+    }
 
-    return fetch(path, { ...options, headers }).then(async (response) => {
+    return fetch(path, { ...options, headers, credentials: "same-origin" }).then(async (response) => {
       if (!response.ok) {
         const error = new Error(`Request failed with status ${response.status}`);
         error.status = response.status;

@@ -22,6 +22,13 @@ import javax.sql.DataSource;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+    private static final String[] FINANCE_MANAGEMENT_ROLES = {
+            "OWNER", "ADMIN", "MANAGER", "CSM", "CUSTOMER_SERVICE_MANAGER"
+    };
+
+    private static final String[] STAFF_OR_FINANCE_MANAGEMENT_ROLES = {
+            "STAFF", "OWNER", "ADMIN", "MANAGER", "CSM", "CUSTOMER_SERVICE_MANAGER"
+    };
 
     // The {userID} part of /api/orders/customer/{userID}/... as a number, or null when it is
     // not a number (which then matches no customer, so access is refused).
@@ -63,6 +70,30 @@ public class SecurityConfig {
                         .requestMatchers("/api/orders/customer/{userID}/**").access((authentication, context) ->
                                 new AuthorizationDecision(orderAccess.isOwnAccount(authentication.get(), customerID(context))))
                         .requestMatchers("/api/orders/**").authenticated()
+                        // Billing and invoice data is protected in BillingController:
+                        // finance management can inspect all orders, customers only their own.
+                        .requestMatchers("/api/billing/**").authenticated()
+                        // Payments: management routes are for authorised finance/admin roles;
+                        // customer routes still perform per-order ownership checks in PaymentService.
+                        .requestMatchers("/api/payments/management/**").hasAnyRole(FINANCE_MANAGEMENT_ROLES)
+                        .requestMatchers("/api/payments/staff/**").hasAnyRole(STAFF_OR_FINANCE_MANAGEMENT_ROLES)
+                        .requestMatchers(HttpMethod.GET, "/api/payments/history").hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.GET, "/api/payments/orders/*/amount").hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.GET, "/api/payments/orders/*/status").hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.POST, "/api/payments/orders/*").hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.GET, "/api/payments/orders/*").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/payments/*/receipt").hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.GET, "/api/payments/*").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/payments").hasAnyRole(FINANCE_MANAGEMENT_ROLES)
+                        .requestMatchers(HttpMethod.PUT, "/api/payments/*").hasAnyRole(FINANCE_MANAGEMENT_ROLES)
+                        .requestMatchers(HttpMethod.DELETE, "/api/payments/*").hasAnyRole(FINANCE_MANAGEMENT_ROLES)
+                        .requestMatchers(HttpMethod.GET, "/api/payments").hasAnyRole(FINANCE_MANAGEMENT_ROLES)
+                        // Promotion application is customer-owned; promotion CRUD/listing is finance management.
+                        .requestMatchers(HttpMethod.GET, "/api/promotions/*/orders/*/validate").hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.POST, "/api/promotions/*/orders/*/apply").hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.GET, "/api/promotions/available").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/promotions").authenticated()
+                        .requestMatchers("/api/promotions/**").hasAnyRole(FINANCE_MANAGEMENT_ROLES)
                         .anyRequest().permitAll()
                 )
                 .exceptionHandling(exceptions -> exceptions

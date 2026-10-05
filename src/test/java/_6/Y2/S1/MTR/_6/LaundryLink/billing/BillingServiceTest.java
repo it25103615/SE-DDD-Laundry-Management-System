@@ -63,6 +63,65 @@ class BillingServiceTest {
     }
 
     @Test
+    void subtotalBelowBulkThresholdDoesNotReceiveAutomaticDiscount() {
+        BillingService service = new BillingService(new TestBillingRepository(
+                Optional.of(7),
+                List.of(new BillingLine(1, 1, 1, 1, BigDecimal.valueOf(4999))),
+                BigDecimal.ZERO
+        ));
+
+        BillingDetails details = service.getBillingDetails(10);
+
+        assertEquals(BigDecimal.ZERO, details.getAutomaticBulkDiscount());
+        assertEquals(BigDecimal.valueOf(4999), details.getAmountAfterBulkDiscount());
+        assertEquals(BigDecimal.valueOf(4999), details.getFinalPayableAmount());
+    }
+
+    @Test
+    void subtotalAtBulkThresholdReceivesAutomaticTenPercentDiscount() {
+        BillingService service = new BillingService(new TestBillingRepository(
+                Optional.of(7),
+                List.of(new BillingLine(1, 1, 1, 1, BigDecimal.valueOf(5000))),
+                BigDecimal.ZERO
+        ));
+
+        BillingDetails details = service.getBillingDetails(10);
+
+        assertEquals(new BigDecimal("500.00"), details.getAutomaticBulkDiscount());
+        assertEquals(new BigDecimal("4500.00"), details.getFinalPayableAmount());
+    }
+
+    @Test
+    void subtotalAboveBulkThresholdReceivesAutomaticTenPercentDiscount() {
+        BillingService service = new BillingService(new TestBillingRepository(
+                Optional.of(7),
+                List.of(new BillingLine(1, 1, 1, 1, BigDecimal.valueOf(10000))),
+                BigDecimal.ZERO
+        ));
+
+        BillingDetails details = service.getBillingDetails(10);
+
+        assertEquals(new BigDecimal("1000.00"), details.getAutomaticBulkDiscount());
+        assertEquals(new BigDecimal("9000.00"), details.getFinalPayableAmount());
+    }
+
+    @Test
+    void stacksAutomaticBulkDiscountBeforeStoredPromotionDiscount() {
+        BillingService service = new BillingService(new TestBillingRepository(
+                Optional.of(7),
+                List.of(new BillingLine(1, 1, 1, 1, BigDecimal.valueOf(10000))),
+                BigDecimal.valueOf(500)
+        ));
+
+        BillingDetails details = service.getBillingDetails(10);
+
+        assertEquals(new BigDecimal("1000.00"), details.getAutomaticBulkDiscount());
+        assertEquals(BigDecimal.valueOf(500), details.getPromotionDiscount());
+        assertEquals(new BigDecimal("1500.00"), details.getTotalDiscount());
+        assertEquals(new BigDecimal("8500.00"), details.getFinalPayableAmount());
+    }
+
+    @Test
     void preventsFinalPayableAmountFromBecomingNegative() {
         BillingRepository repository = new TestBillingRepository(
                 Optional.of(7),
