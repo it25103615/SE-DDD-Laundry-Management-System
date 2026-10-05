@@ -95,6 +95,30 @@ class LaundryLinkApplicationTests {
 			.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
 	}
 
+	// /api/admin/** (the account-management API) is for owners and administrators only.
+	// Not signed in goes to the login page; a signed-in customer, staff member or manager is
+	// sent to the portal by the access-denied handler; an owner gets the user list.
+	@Test
+	void adminApiIsOnlyForOwnersAndAdministrators() throws Exception {
+		mvc.perform(get("/api/admin/accounts")).andExpect(status().is3xxRedirection());
+
+		var credentials = new String[][]{{"anna@customer.com", "Anna1234"}, {"sam@staff.com", "Sam1234"}, {"maya@manager.com", "Maya1234"}};
+		for (String[] account : credentials) {
+			var session = (MockHttpSession) mvc.perform(formLogin("/login").userParameter("email").user(account[0]).password(account[1]))
+				.andReturn().getRequest().getSession(false);
+			mvc.perform(get("/api/admin/accounts").session(session))
+				.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
+			mvc.perform(post("/api/admin/accounts").session(session).with(csrf())
+					.contentType("application/json")
+					.content("{\"firstName\":\"A\",\"lastName\":\"B\",\"email\":\"x@example.com\",\"phoneNumber\":\"0770000000\",\"type\":\"STAFF\",\"password\":\"Passw0rd!\"}"))
+				.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
+		}
+
+		var owner = (MockHttpSession) mvc.perform(formLogin("/login").userParameter("email").user("oliver@owner.com").password("Oliver1234"))
+			.andReturn().getRequest().getSession(false);
+		mvc.perform(get("/api/admin/accounts").session(owner)).andExpect(status().isOk());
+	}
+
 	// The Log out button in global-pre.js relies on this contract: POST /logout with a CSRF
 	// token ends the session and redirects to the login page. Without the token it is refused,
 	// and SecurityConfig's access-denied handler turns that refusal into a redirect to the

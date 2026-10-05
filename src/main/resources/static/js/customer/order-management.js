@@ -3,7 +3,14 @@
 
   const API = "/api";
   const DRAFT_KEY = "laundryLink.orderDraft";
-  const ELIGIBLE_STATUSES = new Set(["Unconfirmed", "Payment Verified", "Awaiting Pickup"]);
+  // The only status in which a customer may still change an order. Once finance verifies the
+  // payment the order moves to "Payment Verified" (then on to "Awaiting Pickup" and the later
+  // stages), so those statuses are deliberately NOT listed: editing would leave the verified
+  // payment out of step with the order total. This one set drives the "View & modify" link on
+  // My Orders, the "Modify order" button on the order page and the guard on modify_order.html.
+  // NOTE: this is a front-end block only; the server still accepts edits for these statuses.
+  const ELIGIBLE_STATUSES = new Set(["Unconfirmed"]);
+  const LOCKED_MESSAGE = "This order can no longer be changed because its payment has been verified.";
 
   const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
@@ -366,7 +373,7 @@
     const preferences = (order.preferences || []).map((label) => escapeHtml(label)).join("<br>") || "None";
     const note = order.instructions ? escapeHtml(order.instructions) : "None";
     const instructions = `<p><strong>Preferences</strong><br><span class="muted">${preferences}</span></p><p><strong>Notes for our team</strong><br><span class="muted" style="white-space:pre-wrap;overflow-wrap:anywhere">${note}</span></p>`;
-    return `<header class="welcome_banner" style="margin-top:34px"><div class="top_bar"><div><div class="subtitle">CUSTOMER ORDER</div><h1>Order #${order.orderID}</h1></div><span class="status">${escapeHtml(order.statusLabel)}</span></div></header><section class="grid grid_two" style="margin-top:22px"><article class="card"><h2>Items and services</h2>${lines}<div class="top_bar"><h3>Order total</h3><h2>${money(order.orderTotal)}</h2></div></article><aside class="card"><h2>Order information</h2><p><strong>Customer ID</strong><br><span class="muted">${order.userID}</span></p><p><strong>Status</strong><br><span class="muted">${escapeHtml(order.statusLabel)}</span></p>${instructions}</aside></section>${includeActions ? `<div class="actions" style="margin-top:20px">${eligible ? `<a class="custom_button custom_button_bg" href="modify_order.html?userID=${order.userID}&orderID=${order.orderID}">Modify order</a>` : ""}<a class="custom_button custom_button_border pay-now-link" href="payments.html?orderID=${order.orderID}">Pay Now</a><a class="custom_button custom_button_nobg" href="my_orders.html">My Orders</a></div>` : ""}<section class="card" style="margin-top:22px"><h2>Order history</h2>${history}</section>`;
+    return `<header class="welcome_banner" style="margin-top:34px"><div class="top_bar"><div><div class="subtitle">CUSTOMER ORDER</div><h1>Order #${order.orderID}</h1></div><span class="status">${escapeHtml(order.statusLabel)}</span></div></header><section class="grid grid_two" style="margin-top:22px"><article class="card"><h2>Items and services</h2>${lines}<div class="top_bar"><h3>Order total</h3><h2>${money(order.orderTotal)}</h2></div></article><aside class="card"><h2>Order information</h2><p><strong>Customer ID</strong><br><span class="muted">${order.userID}</span></p><p><strong>Status</strong><br><span class="muted">${escapeHtml(order.statusLabel)}</span></p>${instructions}</aside></section>${includeActions ? `<div class="actions" style="margin-top:20px">${eligible ? `<a class="custom_button custom_button_bg" href="modify_order.html?userID=${order.userID}&orderID=${order.orderID}">Modify order</a>` : ""}<a class="custom_button custom_button_border pay-now-link" href="payments.html?orderID=${order.orderID}">Pay Now</a><a class="custom_button custom_button_nobg" href="my_orders.html">My Orders</a></div>${eligible ? "" : `<p class="muted small" style="margin-top:12px">${LOCKED_MESSAGE}</p>`}` : ""}<section class="card" style="margin-top:22px"><h2>Order history</h2>${history}</section>`;
   }
 
   function preservePaymentContext(order) {
@@ -393,7 +400,7 @@
     if (!main) return;
     const order = await fetchOrderOrExplain(main);
     if (!order) return;
-    if (!ELIGIBLE_STATUSES.has(order.statusLabel)) { main.innerHTML = `<section class="card"><h1>Order cannot be modified</h1><p class="muted">${escapeHtml(order.statusLabel)} is beyond the permitted modification stage.</p><a class="custom_button custom_button_bg" href="order_details.html?userID=${order.userID}&orderID=${order.orderID}">View order</a></section>`; return; }
+    if (!ELIGIBLE_STATUSES.has(order.statusLabel)) { main.innerHTML = `<section class="card"><h1>Order cannot be modified</h1><p class="muted">${LOCKED_MESSAGE} Current status: ${escapeHtml(order.statusLabel)}.</p><a class="custom_button custom_button_bg" href="order_details.html?userID=${order.userID}&orderID=${order.orderID}">View order</a></section>`; return; }
     try {
       const data = await catalog();
       const allServices = data.services.map((service) => service.serviceID);

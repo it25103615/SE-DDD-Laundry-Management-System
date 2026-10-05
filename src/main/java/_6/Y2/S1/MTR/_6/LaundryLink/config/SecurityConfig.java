@@ -44,6 +44,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http, OrderAccess orderAccess) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/admin/**").hasAnyRole("OWNER", "ADMIN")
                         .requestMatchers("/html/admin/owner/**").hasAnyRole("OWNER", "ADMIN")
                         .requestMatchers("/html/admin/manager/**").hasAnyRole("MANAGER", "OWNER", "ADMIN")
                         .requestMatchers("/html/admin/customer-service-manager/**").hasAnyRole("CSM", "CUSTOMER_SERVICE_MANAGER", "MANAGER", "OWNER", "ADMIN")
