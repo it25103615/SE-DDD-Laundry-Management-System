@@ -27,9 +27,23 @@
       </a>`;
   }
 
+  /**
+   * Switches the board between grid (columns side by side) and list (columns stacked).
+   * The button always offers the view you are not in, and the choice is kept in ?view=list
+   * so a refresh or shared link opens the same view.
+   */
+  function setView(list) {
+    $("board").classList.toggle("list_mode", list);
+    const toggle = $("view-toggle");
+    toggle.textContent = list ? "Grid view" : "List view";
+    toggle.setAttribute("aria-pressed", String(list));
+    history.replaceState(null, "", list ? "?view=list" : location.pathname);
+  }
+
   async function load() {
     try {
       const orders = await api("/orders");
+      $("board-count").textContent = `${orders.length} order${orders.length === 1 ? "" : "s"} in processing`;
       $("board").innerHTML = COLUMNS.map((column) => {
         const inColumn = orders.filter((order) => column.statuses.includes(order.statusID));
         return `<div class="board_column">
@@ -42,6 +56,11 @@
       notice(escape(error.message), "error");
     }
   }
+
+  // global-post.js has already put list_mode on the board when the page was opened with ?view=list,
+  // so read the starting view from the board itself to get the button label right.
+  $("view-toggle").addEventListener("click", () => setView(!$("board").classList.contains("list_mode")));
+  setView($("board").classList.contains("list_mode"));
 
   load();
 })();

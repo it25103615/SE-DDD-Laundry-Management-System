@@ -478,6 +478,20 @@ ul.navigation.nav_collapsed li.nav_right .nav_links a.custom_button {
   position: relative;
   z-index: 1;
 }
+/* A header that is also a flex row (title block plus an action button): the accent bar
+   (::after) would otherwise be a third flex item and push the button out of place. Wrapping
+   with the bar at full width puts the title and button on the first row, the bar on its own
+   row underneath. */
+.page_header.top_bar {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.page_header.top_bar::after {
+  /* The bar keeps its 86px width, but a right margin that fills the rest of the row makes its
+     outer size 100% of the header, which is what forces it onto a new line. (A flex-basis of 100%
+     capped by max-width does not work: wrapping uses the capped size, so it stays on line one.) */
+  margin-right: calc(100% - 86px);
+}
 .page_header p {
   color: var(--black-70);
   margin: 0;

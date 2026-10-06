@@ -15,18 +15,24 @@
   <body>
     <nav class="dashboard_nav"></nav>
     <main>
-      <header class="page_header top_bar">
-        <div>
-          <div class="subtitle">FACILITY WORKFLOW</div>
-          <h1>Processing Board</h1>
-          <p>Orders currently moving through the laundry facility. Open an order to move it to its next stage.</p>
-        </div>
-        <a
-          class="custom_button custom_button_nobg"
-          href="processing_board.html?view=list"
-          >List view</a
-        >
+      <header class="page_header">
+        <div class="subtitle">FACILITY WORKFLOW</div>
+        <h1>Processing Board</h1>
+        <p>Orders currently moving through the laundry facility. Open an order to move it to its next stage.</p>
       </header>
+      <!-- View switch sits above the board it controls; processing-board.js wires it up.
+           It deliberately has no type="button": global-post.js adds a placeholder toast to every
+           button[type="button"], and outside a <form> a plain button does nothing by default. -->
+      <div class="top_bar board_toolbar">
+        <span id="board-count"></span>
+        <button
+          id="view-toggle"
+          class="custom_button custom_button_nobg"
+          aria-pressed="false"
+        >
+          List view
+        </button>
+      </div>
       <div id="notice" class="alert" hidden></div>
       <!-- One column per stage; processing-board.js fills them in. -->
       <section id="board" class="board_columns" aria-label="Order processing stages">

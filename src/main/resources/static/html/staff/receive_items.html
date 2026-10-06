@@ -24,17 +24,13 @@
       <form id="find-form" class="card" action="receive_items.html">
         <div class="field">
           <label for="order-number">Order number</label
-          ><input
-            class="input"
-            id="order-number"
-            name="orderId"
-            required
-            inputmode="numeric"
-            placeholder="e.g. 6"
-          />
+          ><!-- Filled by receive-items.js with the orders that are In Shop and waiting to be received. -->
+          <select class="input" id="order-number" name="orderId" required>
+            <option value="">Loading orders…</option>
+          </select>
         </div>
         <button class="custom_button custom_button_bg" type="submit">
-          Find order
+          Get order details
         </button>
       </form>
       <div id="notice" class="alert" hidden style="margin-top: 24px"></div>
