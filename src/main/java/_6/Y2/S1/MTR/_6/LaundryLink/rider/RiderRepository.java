@@ -23,7 +23,10 @@ import java.util.List;
  *   <li>7 In Shop: the rider's pickup work ends here</li>
  *   <li>12 Awaiting Delivery: open delivery pool (no {@code delivery_riderID})</li>
  *   <li>13 En Route To Delivery: delivery accepted</li>
+ *   <li>14 Delivered: passed through automatically on the way to 15</li>
  *   <li>15 Completed: delivery finished</li>
+ *   <li>17 Pickup Failed / 18 Delivery Failed: passed through automatically on a failure,
+ *       only so the log records the step; the order never stays at these statuses</li>
  * </ul>
  * Status 5 (Picked Up) is still included in some queries, but this module never sets it.
  *
@@ -325,7 +328,15 @@ public class RiderRepository {
                 .setParameter("riderId", riderId)
                 .executeUpdate();
         if (timestampUpdated != 1) return 0;
-        return updateStatus(deliverId, riderId, "pickup_riderID", 4, 6);
+        int pickedUp = updateStatus(
+                deliverId, riderId, "pickup_riderID", 4, 5
+        );
+
+        if (pickedUp != 1) return 0;
+
+        return updateStatus(
+                deliverId, riderId, "pickup_riderID", 5, 6
+        );
     }
 
     /**
@@ -343,12 +354,22 @@ public class RiderRepository {
     /**
      * Records a failed pickup and returns the task to the open pool.
      *
-     * <p>Saves the note in {@code riderNotes}, clears {@code pickup_riderID}, then resets the
-     * order to status 3 (Awaiting Pickup) so another rider can retry. Only works from
-     * status 4 and for the assigned rider.
+     * <p>Runs when the rider clicks Pickup Failed. The order moves 4 (En Route To Pickup) to
+     * 17 (Pickup Failed) and immediately, automatically, from 17 to 3 (Awaiting Pickup), so
+     * {@code trg_order_status_log} records both steps ({@code 4 -> 17} and {@code 17 -> 3}).
+     * Status 17 is never visible to the rider, because it only exists for an instant inside
+     * the transaction.
+     *
+     * <p>Each status step is a compare-and-set via {@link #updateStatus}, which requires the
+     * rider column to still hold {@code riderId}. The note is therefore saved and
+     * {@code pickup_riderID} is cleared last, once both status steps have succeeded. The
+     * task is then unclaimed at status 3, so another rider can retry.
+     *
+     * <p>Relies on the caller's {@code @Transactional}: if any step returns 0, the whole
+     * failure (log rows, notifications, note) is rolled back.
      *
      * <p><b>Note:</b> {@code riderNotes} holds a single note, so it is overwritten by the next
-     * failure, and status 17 (Pickup Failed) is not used by this flow.
+     * failure.
      *
      * @param deliverId the pickup task
      * @param riderId   the assigned rider
@@ -356,23 +377,27 @@ public class RiderRepository {
      * @return 1 on success, 0 otherwise
      */
     public int pickupFailed(Integer deliverId, Integer riderId, String note) {
+        // Button clicked: 4 -> 17 (Pickup Failed)
+        if (updateStatus(deliverId, riderId, "pickup_riderID", 4, 17) != 1) return 0;
+
+        // Immediate and automatic: 17 -> 3 (Awaiting Pickup, back in the open pool)
+        if (updateStatus(deliverId, riderId, "pickup_riderID", 17, 3) != 1) return 0;
+
+        // Save the note and release the task. This is done last because updateStatus
+        // needs pickup_riderID to still be set.
         String sql = """
-                UPDATE d
-                SET d.riderNotes = :note,
-                    d.pickup_riderID = NULL
-                FROM delivery d
-                JOIN orders o ON o.orderID = d.orderID
-                WHERE d.deliverID = :deliverId
-                  AND d.pickup_riderID = :riderId
-                  AND o.statusID = 4
-                """;
-        int updated = entityManager.createNativeQuery(sql)
+            UPDATE d
+            SET d.riderNotes = :note,
+                d.pickup_riderID = NULL
+            FROM delivery d
+            WHERE d.deliverID = :deliverId
+              AND d.pickup_riderID = :riderId
+            """;
+        return entityManager.createNativeQuery(sql)
                 .setParameter("deliverId", deliverId)
                 .setParameter("riderId", riderId)
                 .setParameter("note", note)
-                .executeUpdate();
-        if (updated != 1) return 0;
-        return setStatusByDeliveryId(deliverId, 3);
+                .executeUpdate() == 1 ? 1 : 0;
     }
 
     /**
@@ -401,15 +426,32 @@ public class RiderRepository {
                 .setParameter("riderId", riderId)
                 .executeUpdate();
         if (timestampUpdated != 1) return 0;
-        return updateStatus(deliverId, riderId, "delivery_riderID", 13, 15);
+        int delivered = updateStatus(
+                deliverId, riderId, "delivery_riderID", 13, 14
+        );
+
+        if (delivered != 1) return 0;
+
+        return updateStatus(
+                deliverId, riderId, "delivery_riderID", 14, 15
+        );
     }
 
     /**
      * Records a failed delivery and returns it to the open pool.
      *
-     * <p>Saves the note, clears {@code delivery_riderID} and resets the status to 12
-     * (Awaiting Delivery). Same reasoning as {@link #pickupFailed}; status 18
-     * (Delivery Failed) is not used here.
+     * <p>Runs when the rider clicks Delivery Failed. The order moves 13 (En Route To Delivery)
+     * to 18 (Delivery Failed) and immediately, automatically, from 18 to 12 (Awaiting
+     * Delivery), so {@code trg_order_status_log} records both steps ({@code 13 -> 18} and
+     * {@code 18 -> 12}). Status 18 is never visible to the rider, because it only exists for
+     * an instant inside the transaction.
+     *
+     * <p>Same ordering and rollback reasoning as {@link #pickupFailed}: the note is saved and
+     * {@code delivery_riderID} is cleared last, because {@link #updateStatus} needs the rider
+     * column to still be set.
+     *
+     * <p>The {@code 18 -> 12} log row is also what {@link #findAvailableTasks()} uses as the
+     * awaiting-delivery time, so a failed delivery re-enters the queue at the moment of failure.
      *
      * @param deliverId the delivery task
      * @param riderId   the assigned rider
@@ -417,23 +459,26 @@ public class RiderRepository {
      * @return 1 on success, 0 otherwise
      */
     public int deliveryFailed(Integer deliverId, Integer riderId, String note) {
+        // Button clicked: 13 -> 18 (Delivery Failed)
+        if (updateStatus(deliverId, riderId, "delivery_riderID", 13, 18) != 1) return 0;
+
+        // Immediate and automatic: 18 -> 12 (Awaiting Delivery, back in the open pool)
+        if (updateStatus(deliverId, riderId, "delivery_riderID", 18, 12) != 1) return 0;
+
+        // Save the note and release the task (last, see pickupFailed).
         String sql = """
-                UPDATE d
-                SET d.riderNotes = :note,
-                    d.delivery_riderID = NULL
-                FROM delivery d
-                JOIN orders o ON o.orderID = d.orderID
-                WHERE d.deliverID = :deliverId
-                  AND d.delivery_riderID = :riderId
-                  AND o.statusID = 13
-                """;
-        int updated = entityManager.createNativeQuery(sql)
+            UPDATE d
+            SET d.riderNotes = :note,
+                d.delivery_riderID = NULL
+            FROM delivery d
+            WHERE d.deliverID = :deliverId
+              AND d.delivery_riderID = :riderId
+            """;
+        return entityManager.createNativeQuery(sql)
                 .setParameter("deliverId", deliverId)
                 .setParameter("riderId", riderId)
                 .setParameter("note", note)
-                .executeUpdate();
-        if (updated != 1) return 0;
-        return setStatusByDeliveryId(deliverId, 12);
+                .executeUpdate() == 1 ? 1 : 0;
     }
 
     /**
