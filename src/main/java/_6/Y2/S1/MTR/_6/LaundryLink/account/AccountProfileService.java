@@ -66,7 +66,7 @@ public class AccountProfileService {
         String nextEmail=input.email().trim().toLowerCase(Locale.ROOT);
         if(db.queryForObject("SELECT COUNT(*) FROM users WHERE email=? AND userID<>?",Integer.class,nextEmail,id)>0)
             throw new ResponseStatusException(CONFLICT,"That email address belongs to another account.");
-        db.update("UPDATE users SET firstName=?,lastName=?,email=?,phoneNumber=? WHERE userID=?",
+        db.update("UPDATE users SET firstName=?,lastName=?,email=?,phoneNumber=?,updatedAt=SYSDATETIME(),version=version+1 WHERE userID=?",
                 names[0],names.length>1?names[1]:"",nextEmail,input.phone(),id);
         var saved=profile(nextEmail);
         var result=new LinkedHashMap<String,Object>(saved);

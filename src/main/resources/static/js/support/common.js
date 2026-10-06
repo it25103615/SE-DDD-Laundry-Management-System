@@ -45,6 +45,14 @@ window.Support = (() => {
   const page=document.body.dataset.page;
   if(!['service-catalog','staff-accounts','roles-permissions'].includes(page)) return;
   const {$,escape:e,money,date,api,notice,run}=Support;
+  if(page==='staff-accounts') {
+    $('staff-phone').addEventListener('keydown',event=>{
+      if(!event.ctrlKey&&!event.metaKey&&event.key.length===1&&!/^[0-9]$/.test(event.key)) event.preventDefault();
+    });
+    $('staff-phone').addEventListener('input',event=>{
+      event.target.value=event.target.value.replace(/[^0-9]/g,'').slice(0,10);
+    });
+  }
 
   async function catalog() {
     let data,editing;
