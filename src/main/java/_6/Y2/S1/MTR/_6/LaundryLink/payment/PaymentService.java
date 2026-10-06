@@ -2,6 +2,7 @@ package _6.Y2.S1.MTR._6.LaundryLink.payment;
 
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingDetails;
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingService;
+import _6.Y2.S1.MTR._6.LaundryLink.notification.NotificationService;
 import _6.Y2.S1.MTR._6.LaundryLink.status.Status;
 import _6.Y2.S1.MTR._6.LaundryLink.status.StatusService;
 import org.springframework.security.access.AccessDeniedException;
@@ -26,23 +27,29 @@ public class PaymentService {
     private static final String AWAITING_PICKUP = "Awaiting Pickup";
 
     private final PaymentRepository paymentRepository;
+    private final RefundRepository refundRepository;
     private final PaymentManagementRepository paymentManagementRepository;
     private final BillingService billingService;
     private final PaymentAccessService paymentAccessService;
     private final StatusService statusService;
+    private final NotificationService notificationService;
 
     public PaymentService(
             PaymentRepository paymentRepository,
+            RefundRepository refundRepository,
             PaymentManagementRepository paymentManagementRepository,
             BillingService billingService,
             PaymentAccessService paymentAccessService,
-            StatusService statusService
+            StatusService statusService,
+            NotificationService notificationService
     ) {
         this.paymentRepository = paymentRepository;
+        this.refundRepository = refundRepository;
         this.paymentManagementRepository = paymentManagementRepository;
         this.billingService = billingService;
         this.paymentAccessService = paymentAccessService;
         this.statusService = statusService;
+        this.notificationService = notificationService;
     }
 
     public PaymentAmountResponse getAmountDue(Integer orderID, Integer customerID) {
@@ -82,6 +89,7 @@ public class PaymentService {
         BillingDetails billingDetails = billingService.getBillingDetails(payment.getOrderID());
         verifyCanViewOrderPaymentRecords(customerID, billingDetails);
         PaymentStatusResponse status = buildPaymentStatus(payment.getOrderID(), billingDetails);
+        Optional<Refund> refund = refundRepository.findByPaymentID(payment.getPaymentID());
 
         return new PaymentReceiptResponse(
                 payment.getPaymentID(),
@@ -97,7 +105,12 @@ public class PaymentService {
                 payment.getPaymentMethod(),
                 payment.getTransactionReference(),
                 payment.getProcessedAt(),
-                status.getOrderStatus()
+                status.getOrderStatus(),
+                refund.map(Refund::getRefundAmount).orElse(null),
+                refund.map(Refund::getRefundStatus).orElse(null),
+                refund.map(Refund::getRequestedAt).orElse(null),
+                refund.map(Refund::getProcessedAt).orElse(null),
+                refund.map(Refund::getRefundedAt).orElse(null)
         );
     }
 
@@ -150,6 +163,10 @@ public class PaymentService {
             throw new IllegalStateException("This order is already paid");
         }
 
+        if (currentStatus.getStatus() == PaymentStatus.REFUNDED) {
+            throw new IllegalStateException("This order payment has already been refunded");
+        }
+
         if (currentStatus.getStatus() == PaymentStatus.PAID) {
             throw new IllegalStateException("Payment submitted - awaiting verification");
         }
@@ -193,7 +210,7 @@ public class PaymentService {
     }
 
     public List<PaymentHistoryResponse> getPaymentHistory(Integer customerID) {
-        return paymentRepository.findAll().stream()
+        return paymentRepository.findAllByOrderByProcessedAtDescPaymentIDDesc().stream()
                 .filter(payment -> {
                     BillingDetails billingDetails = billingService.getBillingDetails(payment.getOrderID());
                     return billingDetails.getUserID().equals(customerID);
@@ -201,6 +218,7 @@ public class PaymentService {
                 .map(payment -> {
                     BillingDetails billingDetails = billingService.getBillingDetails(payment.getOrderID());
                     PaymentStatusResponse status = buildPaymentStatus(payment.getOrderID(), billingDetails);
+                    Optional<Refund> refund = refundRepository.findByPaymentID(payment.getPaymentID());
                     return new PaymentHistoryResponse(
                             payment.getPaymentID(),
                             payment.getOrderID(),
@@ -209,7 +227,12 @@ public class PaymentService {
                             payment.getPaymentMethod(),
                             payment.getTransactionReference(),
                             payment.getProcessedAt(),
-                            status.getOrderStatus()
+                            status.getOrderStatus(),
+                            refund.map(Refund::getRefundAmount).orElse(null),
+                            refund.map(Refund::getRefundStatus).orElse(null),
+                            refund.map(Refund::getRequestedAt).orElse(null),
+                            refund.map(Refund::getProcessedAt).orElse(null),
+                            refund.map(Refund::getRefundedAt).orElse(null)
                     );
                 })
                 .toList();
@@ -268,6 +291,82 @@ public class PaymentService {
         return verifyPaymentDecision(managementUserID, paymentID, false);
     }
 
+    @Transactional
+    public RefundResponse requestRefund(Integer customerID, Integer paymentID, RefundRequest request) {
+        paymentAccessService.requireCustomer(customerID);
+        Payment payment = paymentRepository.findById(paymentID).orElseThrow();
+        BillingDetails billingDetails = billingService.getBillingDetails(payment.getOrderID());
+        paymentAccessService.verifyOrderBelongsToCustomer(billingDetails, customerID);
+        String reason = validateRefundRequest(request);
+
+        if (payment.getPaymentStatus() != PaymentStatus.VERIFIED) {
+            throw new IllegalStateException("Only verified payments can have a refund requested");
+        }
+
+        if (refundRepository.existsByPaymentID(paymentID)) {
+            throw new IllegalStateException("A refund workflow already exists for this payment");
+        }
+
+        Refund refund = new Refund(
+                paymentID,
+                BigDecimal.valueOf(payment.getAmount()),
+                reason,
+                customerID
+        );
+        Refund savedRefund = refundRepository.save(refund);
+        return toRefundResponse(savedRefund, payment, "Refund request submitted");
+    }
+
+    @Transactional
+    public RefundResponse approveRefund(Integer managementUserID, Integer paymentID) {
+        paymentAccessService.requireManagementUser(managementUserID);
+        Payment payment = paymentRepository.findById(paymentID).orElseThrow();
+        Refund refund = refundRepository.findByPaymentID(paymentID).orElseThrow();
+
+        if (payment.getPaymentStatus() != PaymentStatus.VERIFIED) {
+            throw new IllegalStateException("Only verified payments can be refunded");
+        }
+
+        if (refund.getRefundStatus() != RefundStatus.REQUESTED) {
+            throw new IllegalStateException("Only requested refunds can be approved");
+        }
+
+        refund.setRefundAmount(BigDecimal.valueOf(payment.getAmount()));
+        refund.setRefundStatus(RefundStatus.REFUNDED);
+        refund.setProcessedAt(LocalDateTime.now());
+        refund.setRefundedAt(refund.getProcessedAt());
+        refund.setProcessedBy(managementUserID);
+        Refund savedRefund = refundRepository.save(refund);
+
+        payment.setPaymentStatus(PaymentStatus.REFUNDED);
+        paymentRepository.save(payment);
+        notifyRefundApproved(payment, savedRefund);
+
+        return toRefundResponse(savedRefund, payment, "Refund approved");
+    }
+
+    @Transactional
+    public RefundResponse rejectRefund(Integer managementUserID, Integer paymentID) {
+        paymentAccessService.requireManagementUser(managementUserID);
+        Payment payment = paymentRepository.findById(paymentID).orElseThrow();
+        Refund refund = refundRepository.findByPaymentID(paymentID).orElseThrow();
+
+        if (refund.getRefundStatus() != RefundStatus.REQUESTED) {
+            throw new IllegalStateException("Only requested refunds can be rejected");
+        }
+
+        if (payment.getPaymentStatus() != PaymentStatus.VERIFIED) {
+            throw new IllegalStateException("Only verified payments can have refund requests rejected");
+        }
+
+        refund.setRefundStatus(RefundStatus.REJECTED);
+        refund.setProcessedAt(LocalDateTime.now());
+        refund.setProcessedBy(managementUserID);
+        Refund savedRefund = refundRepository.save(refund);
+        notifyRefundRejected(payment, savedRefund);
+        return toRefundResponse(savedRefund, payment, "Refund request rejected");
+    }
+
     private PaymentVerificationResponse verifyPaymentDecision(Integer managementUserID, Integer paymentID, boolean approved) {
         paymentAccessService.requireManagementUser(managementUserID);
 
@@ -319,6 +418,19 @@ public class PaymentService {
         );
     }
 
+    private String validateRefundRequest(RefundRequest request) {
+        String reason = request == null ? null : request.resolvedReason();
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new IllegalArgumentException("Refund reason is required");
+        }
+
+        reason = reason.trim();
+        if (reason.length() > 255) {
+            throw new IllegalArgumentException("Refund reason must be 255 characters or fewer");
+        }
+        return reason;
+    }
+
     private void validatePaymentRequest(PaymentCrudRequest request) {
         if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Payment amount must be greater than zero");
@@ -345,6 +457,53 @@ public class PaymentService {
         );
     }
 
+    private RefundResponse toRefundResponse(Refund refund, Payment payment, String message) {
+        return new RefundResponse(
+                refund.getRefundID(),
+                payment.getPaymentID(),
+                payment.getOrderID(),
+                refund.getRefundAmount(),
+                refund.getRefundStatus(),
+                refund.getRequestedAt(),
+                refund.getProcessedAt(),
+                refund.getRefundedAt(),
+                refund.getRequestedBy(),
+                refund.getProcessedBy(),
+                message
+        );
+    }
+
+    private void notifyRefundApproved(Payment payment, Refund refund) {
+        Integer customerID = billingService.getBillingDetails(payment.getOrderID()).getUserID();
+        notificationService.notifyUser(
+                customerID,
+                "PAYMENT",
+                "Refund Approved",
+                "Your refund request for Order #" + payment.getOrderID() + " has been approved. LKR "
+                        + formatNotificationAmount(refund.getRefundAmount()) + " has been refunded.",
+                "/html/customer/receipt.html?paymentID=" + payment.getPaymentID() + "&orderID=" + payment.getOrderID(),
+                "REFUND",
+                refund.getRefundID()
+        );
+    }
+
+    private void notifyRefundRejected(Payment payment, Refund refund) {
+        Integer customerID = billingService.getBillingDetails(payment.getOrderID()).getUserID();
+        notificationService.notifyUser(
+                customerID,
+                "PAYMENT",
+                "Refund Request Rejected",
+                "Your refund request for Order #" + payment.getOrderID() + " was not approved.",
+                "/html/customer/receipt.html?paymentID=" + payment.getPaymentID() + "&orderID=" + payment.getOrderID(),
+                "REFUND",
+                refund.getRefundID()
+        );
+    }
+
+    private String formatNotificationAmount(BigDecimal amount) {
+        return amount.stripTrailingZeros().toPlainString();
+    }
+
     private PaymentStatusResponse buildPaymentStatus(Integer orderID, BillingDetails billingDetails) {
         BigDecimal payableAmount = billingDetails.getFinalPayableAmount();
         PaymentOrderStatus orderStatus = paymentManagementRepository.findOrderStatus(orderID).orElseThrow();
@@ -357,7 +516,9 @@ public class PaymentService {
         BigDecimal paidAmount = status == PaymentStatus.PAID || status == PaymentStatus.VERIFIED
                 ? payableAmount
                 : BigDecimal.ZERO;
-        BigDecimal outstandingAmount = status == PaymentStatus.PAID || status == PaymentStatus.VERIFIED
+        BigDecimal outstandingAmount = status == PaymentStatus.PAID
+                || status == PaymentStatus.VERIFIED
+                || status == PaymentStatus.REFUNDED
                 ? BigDecimal.ZERO
                 : payableAmount;
 
@@ -378,6 +539,9 @@ public class PaymentService {
     ) {
         if (latestFullPayment.isPresent()) {
             Payment payment = latestFullPayment.get();
+            if (payment.getPaymentStatus() == PaymentStatus.REFUNDED) {
+                return PaymentStatus.REFUNDED;
+            }
             if (payment.getPaymentStatus() == PaymentStatus.REJECTED) {
                 return PaymentStatus.REJECTED;
             }
@@ -425,6 +589,7 @@ public class PaymentService {
                         status.getOrderStatus(),
                         null
                 ));
+        Optional<Refund> refund = refundRepository.findByPaymentID(payment.getPaymentID());
 
         return new PaymentRecordResponse(
                 payment.getPaymentID(),
@@ -440,7 +605,15 @@ public class PaymentService {
                 payment.getTransactionReference(),
                 payment.getProcessedAt(),
                 payment.getProcessedAt(),
-                orderSummary.getOrderStatus()
+                orderSummary.getOrderStatus(),
+                refund.map(Refund::getRefundAmount).orElse(null),
+                refund.map(Refund::getRefundReason).orElse(null),
+                refund.map(Refund::getRefundStatus).orElse(null),
+                refund.map(Refund::getRequestedAt).orElse(null),
+                refund.map(Refund::getProcessedAt).orElse(null),
+                refund.map(Refund::getRefundedAt).orElse(null),
+                refund.map(Refund::getRequestedBy).orElse(null),
+                refund.map(Refund::getProcessedBy).orElse(null)
         );
     }
 
@@ -462,7 +635,15 @@ public class PaymentService {
                 null,
                 null,
                 orderSummary.getOrderDate(),
-                orderSummary.getOrderStatus()
+                orderSummary.getOrderStatus(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
         );
     }
 
