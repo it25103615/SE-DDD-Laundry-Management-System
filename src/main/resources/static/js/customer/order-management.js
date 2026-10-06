@@ -329,36 +329,28 @@
     } catch (error) { main.insertAdjacentHTML("beforeend", `<div class="alert">Unable to review this order: ${escapeHtml(error.message)}</div>`); }
   }
 
-  function customerSelector(main, reload) {
-    const draft = getDraft();
-    main.querySelector("header").insertAdjacentHTML("afterend", `<form id="customer-order-selector" class="card" style="margin-top:20px"><div class="top_bar"><div class="field" style="flex:1"><label for="orders-user-id">Customer account ID</label><input id="orders-user-id" class="input" type="number" min="1" required value="${draft.userID || ""}"></div><button class="custom_button custom_button_bg" type="submit">Load orders</button></div></form>`);
-    document.getElementById("customer-order-selector").addEventListener("submit", (event) => { event.preventDefault(); const userID = Number(document.getElementById("orders-user-id").value); if (userID) { saveDraft({ ...getDraft(), userID }); reload(userID); } });
-  }
-
+  // My Orders: the customer never types an account ID. The signed-in customer is identified by
+  // the server session (GET /api/account/profile via currentUserID) and their orders are listed
+  // straight away. The server also refuses a customer who asks for another account's orders, so
+  // an ID left in the browser draft by someone else is deliberately not used as a fallback.
+  // The table has four columns: Order, Total, Status and the View link.
   async function initMyOrders() {
-    const main = document.querySelector("main");
     const tbody = document.querySelector("tbody");
-    if (!main || !tbody) return;
-    const headers = document.querySelectorAll("thead th");
-    if (headers[1]) headers[1].textContent = "CUSTOMER ID";
-    const load = async (userID) => {
-      tbody.innerHTML = "<tr><td colspan=\"6\">Loading orders…</td></tr>";
-      try {
-        const orders = await api(`/orders/customer/${userID}`);
-        tbody.innerHTML = orders.length ? orders.map((order) => `<tr><td><strong>#${order.orderID}</strong></td><td>${order.userID || userID}</td><td>Order lines available in details</td><td>${money(order.orderTotal)}</td><td><span class="status">${escapeHtml(order.statusLabel)}</span></td><td><a class="link" href="${ELIGIBLE_STATUSES.has(order.statusLabel) ? "upcoming_order_details" : "order_details"}.html?userID=${userID}&orderID=${order.orderID}">View${ELIGIBLE_STATUSES.has(order.statusLabel) ? " & modify" : ""}</a></td></tr>`).join("") : "<tr><td colspan=\"6\">No orders found.</td></tr>";
-      } catch (error) { tbody.innerHTML = `<tr><td colspan="6">Unable to load orders: ${escapeHtml(error.message)}</td></tr>`; }
-    };
-    customerSelector(main, load);
-    // Open on the signed-in customer's own orders. The server now refuses a customer who asks
-    // for another account's orders, so an ID left in the draft by someone else must not be used.
-    let userID = 0;
+    if (!tbody) return;
+    const message = (text) => { tbody.innerHTML = `<tr><td colspan="4">${text}</td></tr>`; };
+    message("Loading orders…");
     try {
-      userID = await currentUserID();
-      document.getElementById("orders-user-id").value = userID;
-    } catch (_) {
-      userID = Number(getDraft().userID || 0);
+      const userID = await currentUserID();
+      const orders = await api(`/orders/customer/${userID}`);
+      tbody.innerHTML = orders.length ? orders.map((order) => {
+        // Orders that can still be changed open the page that has the modify button.
+        const editable = ELIGIBLE_STATUSES.has(order.statusLabel);
+        return `<tr><td><strong>#${order.orderID}</strong></td><td>${money(order.orderTotal)}</td><td><span class="status">${escapeHtml(order.statusLabel)}</span></td><td><a class="link" href="${editable ? "upcoming_order_details" : "order_details"}.html?userID=${userID}&orderID=${order.orderID}">View${editable ? " & modify" : ""}</a></td></tr>`;
+      }).join("") : "";
+      if (!orders.length) message("No orders found.");
+    } catch (error) {
+      message(`Unable to load your orders: ${escapeHtml(error.message)} <a class="link" href="/html/auth/login.html">Sign in again</a>`);
     }
-    if (userID) load(userID); else tbody.innerHTML = "<tr><td colspan=\"6\">Enter a customer account ID to load orders.</td></tr>";
   }
 
   async function fetchOrderOrExplain(main) {
