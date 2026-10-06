@@ -4,7 +4,8 @@
  * 1. Staff enter an order number; the order and its lines are loaded.
  * 2. For each line they enter the received quantity (at least 1) and its condition.
  * 3. Confirm sends the counts. The server either saves them and moves the order to
- *    Verifying Items (200), or saves nothing and returns the mismatched lines (422), which are
+ *    Verifying Items (200; the order details are then hidden, leaving only the success message),
+ *    or saves nothing and returns the mismatched lines (422), which are
  *    shown with a link to report a missing item or count mismatch.
  */
 (() => {
@@ -62,11 +63,15 @@
 
     try {
       const result = await api(`/orders/${order.orderID}/receive`, "POST", { lines });
-      // Reload first (the form locks now the order is no longer In Shop), then show the success message.
-      await loadOrder(order.orderID);
-      // The order has left In Shop, so refresh the drop-down (it stays selected).
-      await loadReceivableOrders(order.orderID);
-      notice(`${escape(result.message)} <a class="link" href="order_processing.html?orderId=${order.orderID}">Open the order →</a>`, "success");
+      // Receipt succeeded: hide the order details so only the success message is left, and
+      // drop ?orderId= so a page refresh does not bring the received order back.
+      const receivedId = order.orderID;
+      $("order-section").hidden = true;
+      order = null;
+      history.replaceState(null, "", "receive_items.html");
+      // The order has left In Shop, so refresh the drop-down; it no longer lists this order.
+      await loadReceivableOrders();
+      notice(`${escape(result.message)} <a class="link" href="order_processing.html?orderId=${receivedId}">Open the order →</a>`, "success");
     } catch (error) {
       if (error.status !== 422) throw error;
       // TC-LP02 / LP04: counts do not match, nothing was saved.
