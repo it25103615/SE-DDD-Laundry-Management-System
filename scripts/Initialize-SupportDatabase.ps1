@@ -9,14 +9,17 @@ param(
     [switch]$SampleData
 )
 # Fresh database: creates the complete current schema (initialize_database.sql).
-# Existing database: applies migrations 003, 004, 005, 006, 007 and 008 (all safe to re-run).
+# Existing database: applies migrations 003, 004, 005, 006, 007, 008, 009 and 010 (all safe to re-run).
 # Migration 005 runs after the sample data: it creates the laundry processing tables when they
 # are missing and, once the sample data exists, adds the processing test orders after it.
 # Migration 006 runs next: it adds delivery.addressID when missing and fills it in for
 # delivery rows that have no address yet.
 # Migration 007 runs next: it adds orders.instructions and orders.preferences when missing.
-# Migration 008 runs last: it creates the trigger that writes the order status history
+# Migration 008 runs next: it creates the trigger that writes the order status history
 # (dbo.logs) and takes that job away from dbo.sp_UpdateProcessingStatus.
+# Migration 009 runs next: it adds the payment method, reference, status and processed-at
+# columns to dbo.payments when missing.
+# Migration 010 runs last: it fixes the payment notification's receipt link.
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 
@@ -79,6 +82,17 @@ try {
     # their orders and log rows directly, so their history is not written a second time.
     Invoke-SqlFile $command 'database/migrations/008_order_status_log_trigger.sql'
     Write-Output 'Migration 008 applied (order status log trigger).'
+
+    # 009: payment method, transaction reference, status and processed-at columns on payments
+    # (added when missing). Like 007, the application will not start without them, because
+    # Hibernate checks the columns at startup. Existing payment rows stay valid.
+    Invoke-SqlFile $command 'database/migrations/009_payment_data_alignment.sql'
+    Write-Output 'Migration 009 applied (payment data alignment).'
+
+    # 010: the payment notification trigger now links to receipt.html?orderID=..&paymentID=..
+    # (the receipt page needs both), and existing payment notifications are rewritten to match.
+    Invoke-SqlFile $command 'database/migrations/010_notification_links.sql'
+    Write-Output 'Migration 010 applied (notification links).'
 
     # Report which orders the laundry processing test cases (TC-LP01 to LP10) should use.
     $connection.ChangeDatabase('laundryLinkDB')

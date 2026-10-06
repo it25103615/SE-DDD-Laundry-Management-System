@@ -95,6 +95,30 @@ class LaundryLinkApplicationTests {
 			.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
 	}
 
+	// /api/admin/** (the account-management API) is for owners and administrators only.
+	// Not signed in goes to the login page; a signed-in customer, staff member or manager is
+	// sent to the portal by the access-denied handler; an owner gets the user list.
+	@Test
+	void adminApiIsOnlyForOwnersAndAdministrators() throws Exception {
+		mvc.perform(get("/api/admin/accounts")).andExpect(status().is3xxRedirection());
+
+		var credentials = new String[][]{{"anna@customer.com", "Anna1234"}, {"sam@staff.com", "Sam1234"}, {"maya@manager.com", "Maya1234"}};
+		for (String[] account : credentials) {
+			var session = (MockHttpSession) mvc.perform(formLogin("/login").userParameter("email").user(account[0]).password(account[1]))
+				.andReturn().getRequest().getSession(false);
+			mvc.perform(get("/api/admin/accounts").session(session))
+				.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
+			mvc.perform(post("/api/admin/accounts").session(session).with(csrf())
+					.contentType("application/json")
+					.content("{\"firstName\":\"A\",\"lastName\":\"B\",\"email\":\"x@example.com\",\"phoneNumber\":\"0770000000\",\"type\":\"STAFF\",\"password\":\"Passw0rd!\"}"))
+				.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
+		}
+
+		var owner = (MockHttpSession) mvc.perform(formLogin("/login").userParameter("email").user("oliver@owner.com").password("Oliver1234"))
+			.andReturn().getRequest().getSession(false);
+		mvc.perform(get("/api/admin/accounts").session(owner)).andExpect(status().isOk());
+	}
+
 	// The Log out button in global-pre.js relies on this contract: POST /logout with a CSRF
 	// token ends the session and redirects to the login page. Without the token it is refused,
 	// and SecurityConfig's access-denied handler turns that refusal into a redirect to the
@@ -145,6 +169,39 @@ class LaundryLinkApplicationTests {
 			mvc.perform(get("/api/orders/customer/" + otherCustomer).session(session)).andExpect(status().isOk());
 			mvc.perform(get("/api/orders/management").session(session)).andExpect(status().isOk());
 		}
+	}
+
+	@Test
+	void financeApisRequireLoginAndIgnoreSpoofedUserHeader() throws Exception {
+		int anna = db.queryForObject("SELECT userID FROM users WHERE email='anna@customer.com'", Integer.class);
+
+		mvc.perform(get("/api/payments/history").header("X-User-ID", anna))
+			.andExpect(status().is3xxRedirection());
+		mvc.perform(get("/api/billing/orders/1/invoice").header("X-User-ID", anna))
+			.andExpect(status().is3xxRedirection());
+		mvc.perform(get("/api/promotions").header("X-User-ID", anna))
+			.andExpect(status().is3xxRedirection());
+		mvc.perform(post("/api/payments/orders/1").header("X-User-ID", anna).with(csrf())
+				.contentType("application/json")
+				.content("{\"paymentMethod\":\"CARD\",\"amount\":100.00}"))
+			.andExpect(status().is3xxRedirection());
+	}
+
+	@Test
+	void customerCannotUseFinanceManagementEndpoints() throws Exception {
+		var customer = (MockHttpSession) mvc.perform(formLogin("/login").userParameter("email").user("anna@customer.com").password("Anna1234"))
+			.andReturn().getRequest().getSession(false);
+
+		mvc.perform(get("/api/payments/management").session(customer))
+			.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
+		mvc.perform(post("/api/payments/management/1/approve").session(customer).with(csrf()))
+			.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
+		mvc.perform(post("/api/promotions").session(customer).with(csrf())
+				.contentType("application/json")
+				.content("{\"promotionCode\":\"NOPE\",\"promotionName\":\"Nope\",\"discountType\":\"FIXED_AMOUNT\",\"discountValue\":1,\"minimumOrderAmount\":0,\"validFrom\":\"2026-01-01\",\"validTo\":\"2026-12-31\",\"active\":true}"))
+			.andExpect(redirectedUrl("/html/portal.html?accessDenied=true"));
+		mvc.perform(get("/api/promotions").session(customer))
+			.andExpect(status().isForbidden());
 	}
 
 	@Test

@@ -13,20 +13,7 @@
     <script src="../../js/staff/receive-items.js" defer></script>
   </head>
   <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="dashboard.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="dashboard.html">Dashboard</a
-          ><a href="processing_board.html">Processing Board</a
-          ><a href="receive_items.html">Receive Items</a
-          ><a href="issue_reports.html">Issue Reports</a
-          ><span class="profile_badge">S</span>
-        </li>
-      </ul>
-    </nav>
+    <nav class="dashboard_nav"></nav>
     <main>
       <header class="page_header">
         <div class="subtitle">INBOUND ORDERS</div>
@@ -37,17 +24,13 @@
       <form id="find-form" class="card" action="receive_items.html">
         <div class="field">
           <label for="order-number">Order number</label
-          ><input
-            class="input"
-            id="order-number"
-            name="orderId"
-            required
-            inputmode="numeric"
-            placeholder="e.g. 6"
-          />
+          ><!-- Filled by receive-items.js with the orders that are In Shop and waiting to be received. -->
+          <select class="input" id="order-number" name="orderId" required>
+            <option value="">Loading orders…</option>
+          </select>
         </div>
         <button class="custom_button custom_button_bg" type="submit">
-          Find order
+          Get order details
         </button>
       </form>
       <div id="notice" class="alert" hidden style="margin-top: 24px"></div>
