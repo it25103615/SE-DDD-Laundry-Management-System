@@ -57,6 +57,34 @@
             </div>
           </section>
           <section class="card">
+            <h2>Delivery time</h2>
+            <div class="field">
+              <label for="delivery-date">Date</label
+              ><input
+                class="input"
+                id="delivery-date"
+                name="delivery_date"
+                type="date"
+                required
+              />
+            </div>
+            <div class="field">
+              <label for="delivery-time">Time window</label
+              ><select
+                class="input"
+                id="delivery-time"
+                name="delivery_time"
+                required
+              >
+                <option value="">Choose a time</option>
+                <option>8:00 AM – 11:00 AM</option>
+                <option>11:00 AM – 2:00 PM</option>
+                <option>2:00 PM – 5:00 PM</option>
+                <option>5:00 PM – 8:00 PM</option>
+              </select>
+            </div>
+          </section>
+          <section class="card">
             <h2>Pickup address</h2>
             <!--
               The signed-in customer's saved addresses are loaded from GET /api/account/addresses
@@ -91,15 +119,15 @@
         const key = "laundryLink.orderDraft";
         const form = document.querySelector("main form");
         const error = document.getElementById("schedule-error");
-        // The two fields this step validates: the pickup date and the pickup time window.
-        const fields = ["pickup-date", "pickup-time"].map(id => document.getElementById(id));
-        const [pickupDate, pickupTime] = fields;
+        // Both scheduling cards use the same storage and validation rules.
+        const fields = ["pickup-date", "pickup-time", "delivery-date", "delivery-time"].map(id => document.getElementById(id));
+        const [pickupDate, pickupTime, deliveryDate, deliveryTime] = fields;
         const readDraft = () => {
           try { return JSON.parse(sessionStorage.getItem(key)) || {}; }
           catch (_) { return {}; }
         };
         const schedule = readDraft().schedule || {};
-        fields.forEach((field, index) => { field.value = schedule[["date", "time"][index]] || ""; });
+        fields.forEach((field, index) => { field.value = schedule[["date", "time", "deliveryDate", "deliveryTime"][index]] || ""; });
         // Tick the address remembered in the order draft, if there is one. Runs now for the
         // "Use another address" row and again once the saved addresses have been loaded.
         function restoreAddressChoice() {
@@ -162,11 +190,10 @@
           });
         function save() {
           const draft = readDraft();
-          // This step no longer asks for a delivery time. A draft started before that change
-          // may still hold one, so it is left out of the schedule that is saved back.
-          const { deliveryDate, deliveryTime, ...keptSchedule } = draft.schedule || {};
+          const keptSchedule = draft.schedule || {};
           sessionStorage.setItem(key, JSON.stringify({ ...draft, schedule: {
             ...keptSchedule, date: pickupDate.value, time: pickupTime.value,
+            deliveryDate: deliveryDate.value, deliveryTime: deliveryTime.value,
             address: form.querySelector("input[name=address]:checked")?.value
           } }));
         }
@@ -177,19 +204,19 @@
           if (!match) return null;
           return (Number(match[1]) % 12 + (match[3].toUpperCase() === "PM" ? 12 : 0)) * 60 + Number(match[2]);
         }
-        // A pickup slot can only be booked if it has not started yet. For today's date, grey out
+        // A scheduling slot can only be booked if it has not started yet. For today's date, grey out
         // (disable) every window whose start time has already passed, and clear the selection if it
         // was one of them. Other dates keep all windows. Returns true if any window is still open today.
-        function limitPickupSlots(today, nowMinutes) {
+        function limitSlots(dateField, timeField, today, nowMinutes) {
           let anyOpenToday = false;
-          Array.from(pickupTime.options).forEach(option => {
+          Array.from(timeField.options).forEach(option => {
             const start = slotStart(option);
             if (start === null) return; // the "Choose a time" placeholder
             const passed = start <= nowMinutes;
             if (!passed) anyOpenToday = true;
-            option.disabled = pickupDate.value === today && passed;
+            option.disabled = dateField.value === today && passed;
           });
-          if (pickupTime.selectedOptions[0]?.disabled) pickupTime.value = "";
+          if (timeField.selectedOptions[0]?.disabled) timeField.value = "";
           return anyOpenToday;
         }
         function validate(showMissing) {
@@ -198,9 +225,10 @@
           const tomorrow = isoDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
           const nowMinutes = now.getHours() * 60 + now.getMinutes();
           // Once every pickup window for today has started, today can no longer be chosen at all.
-          pickupDate.min = limitPickupSlots(today, nowMinutes) ? today : tomorrow;
+          pickupDate.min = limitSlots(pickupDate, pickupTime, today, nowMinutes) ? today : tomorrow;
+          deliveryDate.min = limitSlots(deliveryDate, deliveryTime, today, nowMinutes) ? today : tomorrow;
           fields.forEach(field => field.setCustomValidity(""));
-          const labels = ["pickup date", "pickup time window"];
+          const labels = ["pickup date", "pickup time window", "delivery date", "delivery time window"];
           fields.forEach((field, index) => {
             if (!field.value) field.setCustomValidity(`Please select a ${labels[index]}.`);
           });
@@ -208,6 +236,11 @@
             pickupDate.setCustomValidity(pickupDate.min === today
               ? "Please choose today or a future date."
               : "We will not be doing any more pickups for today. Please choose tomorrow or a later date.");
+          }
+          if (deliveryDate.value && deliveryDate.value < deliveryDate.min) {
+            deliveryDate.setCustomValidity(deliveryDate.min === today
+              ? "Please choose today or a future date."
+              : "We will not be doing any more deliveries for today. Please choose tomorrow or a later date.");
           }
           const invalid = fields.find(field => !field.validity.valid && (showMissing || field.value));
           error.textContent = invalid ? invalid.validationMessage : "";

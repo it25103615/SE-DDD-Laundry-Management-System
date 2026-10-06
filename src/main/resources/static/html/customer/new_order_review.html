@@ -141,6 +141,9 @@
         const pickup = document.createElement("p");
         pickup.textContent = `${schedule.date || "Date not selected"} · ${schedule.time || "Time window not selected"}`;
         addCard("Pickup time").append(pickup);
+        const delivery = document.createElement("p");
+        delivery.textContent = `${schedule.deliveryDate || "Date not selected"} · ${schedule.deliveryTime || "Time window not selected"}`;
+        addCard("Delivery time").append(delivery);
 
         // Instructions, from the instructions step: the ticked preferences and the note. These
         // are sent with the order when it is confirmed. The draft holds each preference as a
