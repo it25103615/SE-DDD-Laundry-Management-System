@@ -25,6 +25,17 @@
   background: var(--color-accent-100);
 }
 
+/* Row above the board holding the order count (left) and the Grid/List switch (right). */
+.board_toolbar {
+  align-items: center;
+  margin: 0 0 14px;
+}
+.board_toolbar #board-count {
+  color: var(--black-70);
+  font-size: 18px;
+  font-weight: 600;
+}
+
 .board_columns {
   display: grid;
   grid-template-columns: repeat(4, minmax(220px, 1fr));
