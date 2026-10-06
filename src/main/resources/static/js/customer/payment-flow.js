@@ -229,12 +229,20 @@
   function displayPaymentStatus(id, status, payLink) {
     const outstandingAmount = displayOutstanding(status);
     setText("outstanding-amount", money(outstandingAmount));
-    setText("payment-order-line", `Order #${id} · ${status.status.replaceAll("_", " ")}`);
+    const statusText = status.status === "PAID"
+      ? "Payment submitted - awaiting verification"
+      : status.status.replaceAll("_", " ");
+    setText("payment-order-line", `Order #${id} · ${statusText}`);
     if (payLink) {
       payLink.href = paymentFlowUrl("payment_method.html", id);
-      if (outstandingAmount <= 0) {
+      if (status.status === "PAID") {
+        payLink.textContent = "Awaiting verification";
+        payLink.setAttribute("aria-disabled", "true");
+        payLink.removeAttribute("href");
+      } else if (outstandingAmount <= 0) {
         payLink.textContent = "Paid";
         payLink.setAttribute("aria-disabled", "true");
+        payLink.removeAttribute("href");
       } else {
         payLink.textContent = "Pay now";
         payLink.removeAttribute("aria-disabled");
@@ -406,7 +414,9 @@
       const { status } = await refreshBillingAndStatus(id);
       const outstandingAmount = displayOutstanding(status);
       setText("method-amount", money(outstandingAmount));
-      if (outstandingAmount <= 0) {
+      if (status.status === "PAID") {
+        showError(errorBox, "Payment submitted - awaiting verification.");
+      } else if (outstandingAmount <= 0) {
         showError(errorBox, "This order does not have an outstanding balance.");
       } else if (continueButton) {
         continueButton.disabled = false;
@@ -577,7 +587,9 @@
       amount = displayOutstanding(status);
       setText("summary-amount", money(amount));
       setText("checkout-title", method === "CASH" ? `Confirm ${money(amount)}` : `Pay ${money(amount)}`);
-      if (amount <= 0) {
+      if (status.status === "PAID") {
+        showError(errorBox, "Payment submitted - awaiting verification.");
+      } else if (amount <= 0) {
         showError(errorBox, "This order does not have an outstanding balance.");
       } else if (button) {
         button.disabled = false;
@@ -614,8 +626,10 @@
       } catch (error) {
         button.disabled = false;
         setText("summary-status", "Failed");
-        const message = error.status === 409
-          ? "This order is already paid or cannot accept this payment."
+        const message = error.status === 409 && error.body && error.body.message
+          ? error.body.message
+          : error.status === 409
+            ? "This order is already paid or has a payment awaiting verification."
           : "Payment failed. Please check the details and try again.";
         showError(errorBox, message);
       }

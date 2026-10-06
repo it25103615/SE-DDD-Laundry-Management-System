@@ -7,6 +7,7 @@ public class PaymentRecordResponse {
     private final Integer paymentID;
     private final Integer orderID;
     private final Integer customerID;
+    private final String customerName;
     private final BigDecimal amount;
     private final BigDecimal payableAmount;
     private final BigDecimal paidAmount;
@@ -15,12 +16,14 @@ public class PaymentRecordResponse {
     private final PaymentMethod paymentMethod;
     private final String transactionReference;
     private final LocalDateTime processedAt;
+    private final LocalDateTime recordDate;
     private final String orderStatus;
 
     public PaymentRecordResponse(
             Integer paymentID,
             Integer orderID,
             Integer customerID,
+            String customerName,
             BigDecimal amount,
             BigDecimal payableAmount,
             BigDecimal paidAmount,
@@ -29,11 +32,13 @@ public class PaymentRecordResponse {
             PaymentMethod paymentMethod,
             String transactionReference,
             LocalDateTime processedAt,
+            LocalDateTime recordDate,
             String orderStatus
     ) {
         this.paymentID = paymentID;
         this.orderID = orderID;
         this.customerID = customerID;
+        this.customerName = customerName;
         this.amount = amount;
         this.payableAmount = payableAmount;
         this.paidAmount = paidAmount;
@@ -42,6 +47,7 @@ public class PaymentRecordResponse {
         this.paymentMethod = paymentMethod;
         this.transactionReference = transactionReference;
         this.processedAt = processedAt;
+        this.recordDate = recordDate;
         this.orderStatus = orderStatus;
     }
 
@@ -55,6 +61,10 @@ public class PaymentRecordResponse {
 
     public Integer getCustomerID() {
         return customerID;
+    }
+
+    public String getCustomerName() {
+        return customerName;
     }
 
     public BigDecimal getAmount() {
@@ -87,6 +97,10 @@ public class PaymentRecordResponse {
 
     public LocalDateTime getProcessedAt() {
         return processedAt;
+    }
+
+    public LocalDateTime getRecordDate() {
+        return recordDate;
     }
 
     public String getOrderStatus() {

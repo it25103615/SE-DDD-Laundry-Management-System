@@ -10,9 +10,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class PaymentService {
@@ -141,12 +146,16 @@ public class PaymentService {
     public PaymentConfirmationResponse submitPayment(Integer orderID, Integer customerID, PaymentRequest request) {
         PaymentStatusResponse currentStatus = getPaymentStatus(orderID, customerID);
 
-        if (currentStatus.getStatus() == PaymentStatus.PAID) {
+        if (currentStatus.getStatus() == PaymentStatus.VERIFIED) {
             throw new IllegalStateException("This order is already paid");
         }
 
-        if (request.getAmount().compareTo(currentStatus.getOutstandingAmount()) != 0) {
-            throw new IllegalArgumentException("Payment amount must match the outstanding amount");
+        if (currentStatus.getStatus() == PaymentStatus.PAID) {
+            throw new IllegalStateException("Payment submitted - awaiting verification");
+        }
+
+        if (request.getAmount().compareTo(currentStatus.getPayableAmount()) != 0) {
+            throw new IllegalArgumentException("Payment amount must match the final payable amount");
         }
 
         Payment payment = new Payment(
@@ -217,13 +226,24 @@ public class PaymentService {
         paymentAccessService.requireManagementUser(managementUserID);
 
         String normalizedSearch = search == null ? null : search.trim().toLowerCase();
-        return paymentRepository.findAll().stream()
+        List<PaymentRecordResponse> paymentRecords = paymentRepository.findAll().stream()
                 .map(this::toPaymentRecord)
+                .toList();
+        Set<Integer> ordersWithPayments = paymentRecords.stream()
+                .map(PaymentRecordResponse::getOrderID)
+                .collect(HashSet::new, Set::add, Set::addAll);
+        List<PaymentRecordResponse> unpaidOrderRecords = paymentManagementRepository.findBillableOrderSummaries().stream()
+                .filter(order -> !ordersWithPayments.contains(order.getOrderID()))
+                .map(this::toUnpaidOrderRecord)
+                .toList();
+
+        return java.util.stream.Stream.concat(paymentRecords.stream(), unpaidOrderRecords.stream())
                 .filter(record -> orderID == null || Objects.equals(record.getOrderID(), orderID))
                 .filter(record -> customerID == null || Objects.equals(record.getCustomerID(), customerID))
                 .filter(record -> paymentStatus == null || record.getPaymentStatus() == paymentStatus)
                 .filter(record -> paymentMethod == null || record.getPaymentMethod() == paymentMethod)
                 .filter(record -> normalizedSearch == null || normalizedSearch.isBlank() || matchesPaymentSearch(record, normalizedSearch))
+                .sorted(managementRecordComparator())
                 .toList();
     }
 
@@ -257,8 +277,8 @@ public class PaymentService {
                 billingService.getBillingDetails(payment.getOrderID())
         );
 
-        if (currentStatus.getStatus() == PaymentStatus.UNPAID || currentStatus.getStatus() == PaymentStatus.PARTIALLY_PAID) {
-            throw new IllegalStateException("Only fully paid orders can be verified");
+        if (currentStatus.getStatus() != PaymentStatus.PAID) {
+            throw new IllegalStateException("Only submitted full payments can be verified");
         }
 
         PaymentOrderStatus previousOrderStatus = paymentManagementRepository.findOrderStatus(payment.getOrderID()).orElseThrow();
@@ -299,12 +319,6 @@ public class PaymentService {
         );
     }
 
-    private BigDecimal getPaidAmount(Integer orderID) {
-        return paymentRepository.findByOrderID(orderID).stream()
-                .map(payment -> BigDecimal.valueOf(payment.getAmount()))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
     private void validatePaymentRequest(PaymentCrudRequest request) {
         if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Payment amount must be greater than zero");
@@ -331,79 +345,92 @@ public class PaymentService {
         );
     }
 
-    private PaymentStatus calculateStatus(BigDecimal payableAmount, BigDecimal paidAmount) {
-        PaymentOrderStatus orderStatus = null;
-        return calculateStatus(payableAmount, paidAmount, orderStatus);
-    }
-
-    private PaymentStatus calculateStatus(BigDecimal payableAmount, BigDecimal paidAmount, PaymentOrderStatus orderStatus) {
-        return calculateStatus(payableAmount, paidAmount, orderStatus, false);
-    }
-
-    private PaymentStatus calculateStatus(
-            BigDecimal payableAmount,
-            BigDecimal paidAmount,
-            PaymentOrderStatus orderStatus,
-            boolean verifiedInHistory
-    ) {
-        if (orderStatus != null && PAYMENT_VERIFIED.equalsIgnoreCase(orderStatus.getStatusLabel())) {
-            return PaymentStatus.VERIFIED;
-        }
-
-        if (orderStatus != null && PAYMENT_FAILED.equalsIgnoreCase(orderStatus.getStatusLabel())) {
-            return PaymentStatus.REJECTED;
-        }
-
-        // An approved order moves on from "Payment Verified" to "Awaiting Pickup" (and later stages)
-        // straight away, so its log is what shows the payment was verified. Without this the
-        // payment would show as PAID again and the Approve/Reject buttons would reappear.
-        if (verifiedInHistory) {
-            return PaymentStatus.VERIFIED;
-        }
-
-        if (paidAmount.compareTo(BigDecimal.ZERO) == 0) {
-            return PaymentStatus.UNPAID;
-        }
-
-        if (paidAmount.compareTo(payableAmount) < 0) {
-            return PaymentStatus.PARTIALLY_PAID;
-        }
-
-        return PaymentStatus.PAID;
-    }
-
     private PaymentStatusResponse buildPaymentStatus(Integer orderID, BillingDetails billingDetails) {
         BigDecimal payableAmount = billingDetails.getFinalPayableAmount();
-        BigDecimal paidAmount = getPaidAmount(orderID);
-        BigDecimal outstandingAmount = payableAmount.subtract(paidAmount);
         PaymentOrderStatus orderStatus = paymentManagementRepository.findOrderStatus(orderID).orElseThrow();
-
-        if (outstandingAmount.compareTo(BigDecimal.ZERO) < 0) {
-            outstandingAmount = BigDecimal.ZERO;
-        } else if (outstandingAmount.compareTo(BigDecimal.ZERO) == 0) {
-            outstandingAmount = BigDecimal.ZERO;
-        }
+        List<Payment> fullPaymentAttempts = paymentRepository.findByOrderID(orderID).stream()
+                .filter(payment -> isFullPayment(payment, payableAmount))
+                .toList();
+        Optional<Payment> latestFullPayment = fullPaymentAttempts.stream()
+                .max(this::comparePaymentRecency);
+        PaymentStatus status = calculateFullPaymentStatus(orderID, orderStatus, latestFullPayment);
+        BigDecimal paidAmount = status == PaymentStatus.PAID || status == PaymentStatus.VERIFIED
+                ? payableAmount
+                : BigDecimal.ZERO;
+        BigDecimal outstandingAmount = status == PaymentStatus.PAID || status == PaymentStatus.VERIFIED
+                ? BigDecimal.ZERO
+                : payableAmount;
 
         return new PaymentStatusResponse(
                 orderID,
                 payableAmount,
                 paidAmount,
                 outstandingAmount,
-                calculateStatus(payableAmount, paidAmount, orderStatus,
-                        paymentManagementRepository.wasPaymentVerified(orderID)),
+                status,
                 orderStatus.getStatusLabel()
+        );
+    }
+
+    private PaymentStatus calculateFullPaymentStatus(
+            Integer orderID,
+            PaymentOrderStatus orderStatus,
+            Optional<Payment> latestFullPayment
+    ) {
+        if (latestFullPayment.isPresent()) {
+            Payment payment = latestFullPayment.get();
+            if (payment.getPaymentStatus() == PaymentStatus.REJECTED) {
+                return PaymentStatus.REJECTED;
+            }
+            if (payment.getPaymentStatus() == PaymentStatus.VERIFIED
+                    || PAYMENT_VERIFIED.equalsIgnoreCase(orderStatus.getStatusLabel())
+                    || paymentManagementRepository.wasPaymentVerified(orderID)) {
+                return PaymentStatus.VERIFIED;
+            }
+            return PaymentStatus.PAID;
+        }
+
+        return PaymentStatus.UNPAID;
+    }
+
+    private boolean isFullPayment(Payment payment, BigDecimal payableAmount) {
+        return BigDecimal.valueOf(payment.getAmount()).compareTo(payableAmount) == 0;
+    }
+
+    private int comparePaymentRecency(Payment left, Payment right) {
+        if (left.getProcessedAt() != null && right.getProcessedAt() != null) {
+            int dateComparison = left.getProcessedAt().compareTo(right.getProcessedAt());
+            if (dateComparison != 0) {
+                return dateComparison;
+            }
+        } else if (left.getProcessedAt() != null) {
+            return 1;
+        } else if (right.getProcessedAt() != null) {
+            return -1;
+        }
+
+        return Integer.compare(
+                left.getPaymentID() == null ? Integer.MIN_VALUE : left.getPaymentID(),
+                right.getPaymentID() == null ? Integer.MIN_VALUE : right.getPaymentID()
         );
     }
 
     private PaymentRecordResponse toPaymentRecord(Payment payment) {
         BillingDetails billingDetails = billingService.getBillingDetails(payment.getOrderID());
         PaymentStatusResponse status = buildPaymentStatus(payment.getOrderID(), billingDetails);
-        PaymentOrderStatus orderStatus = paymentManagementRepository.findOrderStatus(payment.getOrderID()).orElseThrow();
+        PaymentManagementOrderSummary orderSummary = paymentManagementRepository.findOrderSummary(payment.getOrderID())
+                .orElseGet(() -> new PaymentManagementOrderSummary(
+                        payment.getOrderID(),
+                        billingDetails.getUserID(),
+                        null,
+                        status.getOrderStatus(),
+                        null
+                ));
 
         return new PaymentRecordResponse(
                 payment.getPaymentID(),
                 payment.getOrderID(),
                 billingDetails.getUserID(),
+                orderSummary.getCustomerName(),
                 BigDecimal.valueOf(payment.getAmount()),
                 status.getPayableAmount(),
                 status.getPaidAmount(),
@@ -412,8 +439,46 @@ public class PaymentService {
                 payment.getPaymentMethod(),
                 payment.getTransactionReference(),
                 payment.getProcessedAt(),
-                orderStatus.getStatusLabel()
+                payment.getProcessedAt(),
+                orderSummary.getOrderStatus()
         );
+    }
+
+    private PaymentRecordResponse toUnpaidOrderRecord(PaymentManagementOrderSummary orderSummary) {
+        BillingDetails billingDetails = billingService.getBillingDetails(orderSummary.getOrderID());
+        PaymentStatusResponse status = buildPaymentStatus(orderSummary.getOrderID(), billingDetails);
+
+        return new PaymentRecordResponse(
+                null,
+                orderSummary.getOrderID(),
+                billingDetails.getUserID(),
+                orderSummary.getCustomerName(),
+                BigDecimal.ZERO,
+                status.getPayableAmount(),
+                status.getPaidAmount(),
+                status.getOutstandingAmount(),
+                status.getStatus(),
+                null,
+                null,
+                null,
+                orderSummary.getOrderDate(),
+                orderSummary.getOrderStatus()
+        );
+    }
+
+    private Comparator<PaymentRecordResponse> managementRecordComparator() {
+        return Comparator
+                .comparing(
+                        (PaymentRecordResponse record) -> record.getRecordDate() == null
+                                ? LocalDateTime.MIN
+                                : record.getRecordDate(),
+                        Comparator.reverseOrder()
+                )
+                .thenComparing(
+                        record -> record.getPaymentID() == null ? Integer.MIN_VALUE : record.getPaymentID(),
+                        Comparator.reverseOrder()
+                )
+                .thenComparing(PaymentRecordResponse::getOrderID, Comparator.reverseOrder());
     }
 
     private void verifyCanViewPaymentRecord(Integer requesterID, Payment payment) {
@@ -447,11 +512,13 @@ public class PaymentService {
         return contains(record.getPaymentID(), search)
                 || contains(record.getOrderID(), search)
                 || contains(record.getCustomerID(), search)
+                || contains(record.getCustomerName(), search)
                 || contains(record.getAmount(), search)
                 || contains(record.getPaymentStatus(), search)
                 || contains(record.getPaymentMethod(), search)
                 || contains(record.getTransactionReference(), search)
                 || contains(record.getProcessedAt(), search)
+                || contains(record.getRecordDate(), search)
                 || contains(record.getOrderStatus(), search);
     }
 

@@ -3,14 +3,10 @@ package _6.Y2.S1.MTR._6.LaundryLink.promotion;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.sql.Date;
-import java.sql.PreparedStatement;
-import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -25,26 +21,26 @@ public class PromotionJdbcRepository implements PromotionRepository {
 
     @Override
     public Promotion save(Promotion promotion) {
-        KeyHolder keyHolder = new GeneratedKeyHolder();
-        jdbcTemplate.update(connection -> {
-            PreparedStatement ps = connection.prepareStatement(
-                    """
-                            INSERT INTO promotions(
-                                promotionCode, promotionName, discountType, discountValue,
-                                minimumOrderAmount, validFrom, validTo, active
-                            )
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                            """,
-                    Statement.RETURN_GENERATED_KEYS
-            );
-            bindPromotion(ps, promotion, 1);
-            return ps;
-        }, keyHolder);
-
-        Number key = keyHolder.getKey();
-        if (key != null) {
-            promotion.setPromotionID(key.intValue());
-        }
+        Integer promotionID = jdbcTemplate.queryForObject(
+                """
+                        INSERT INTO promotions(
+                            promotionCode, promotionName, discountType, discountValue,
+                            minimumOrderAmount, validFrom, validTo, active
+                        )
+                        OUTPUT INSERTED.promotionID
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                Integer.class,
+                promotion.getPromotionCode(),
+                promotion.getPromotionName(),
+                promotion.getDiscountType().name(),
+                promotion.getDiscountValue(),
+                promotion.getMinimumOrderAmount(),
+                Date.valueOf(promotion.getValidFrom()),
+                Date.valueOf(promotion.getValidTo()),
+                promotion.isActive()
+        );
+        promotion.setPromotionID(promotionID);
         return promotion;
     }
 
@@ -159,17 +155,6 @@ public class PromotionJdbcRepository implements PromotionRepository {
                 promotionID,
                 discountAmount
         );
-    }
-
-    private void bindPromotion(PreparedStatement ps, Promotion promotion, int startIndex) throws java.sql.SQLException {
-        ps.setString(startIndex, promotion.getPromotionCode());
-        ps.setString(startIndex + 1, promotion.getPromotionName());
-        ps.setString(startIndex + 2, promotion.getDiscountType().name());
-        ps.setBigDecimal(startIndex + 3, promotion.getDiscountValue());
-        ps.setBigDecimal(startIndex + 4, promotion.getMinimumOrderAmount());
-        ps.setDate(startIndex + 5, Date.valueOf(promotion.getValidFrom()));
-        ps.setDate(startIndex + 6, Date.valueOf(promotion.getValidTo()));
-        ps.setBoolean(startIndex + 7, promotion.isActive());
     }
 
     private RowMapper<Promotion> mapper() {
