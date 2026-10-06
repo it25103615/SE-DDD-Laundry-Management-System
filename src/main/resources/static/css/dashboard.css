@@ -144,6 +144,10 @@
 tbody tr {
   transition: background-color 0.18s ease;
 }
+/* Order rows that open the order when clicked (My Orders). */
+tr.order_row {
+  cursor: pointer;
+}
 tbody tr:hover {
   background: rgba(233, 248, 255, 0.65);
 }

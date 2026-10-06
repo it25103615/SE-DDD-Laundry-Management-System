@@ -338,6 +338,12 @@
     const tbody = document.querySelector("tbody");
     if (!tbody) return;
     const message = (text) => { tbody.innerHTML = `<tr><td colspan="4">${text}</td></tr>`; };
+    // Clicking anywhere on an order row opens that order. A click on the View link itself is left
+    // to the link, so ctrl/middle-click still open it in a new tab.
+    tbody.addEventListener("click", (event) => {
+      const row = event.target.closest("tr[data-href]");
+      if (row && !event.target.closest("a")) window.location.href = row.dataset.href;
+    });
     message("Loading orders…");
     try {
       const userID = await currentUserID();
@@ -345,7 +351,10 @@
       tbody.innerHTML = orders.length ? orders.map((order) => {
         // Orders that can still be changed open the page that has the modify button.
         const editable = ELIGIBLE_STATUSES.has(order.statusLabel);
-        return `<tr><td><strong>#${order.orderID}</strong></td><td>${money(order.orderTotal)}</td><td><span class="status">${escapeHtml(order.statusLabel)}</span></td><td><a class="link" href="${editable ? "upcoming_order_details" : "order_details"}.html?userID=${userID}&orderID=${order.orderID}">View${editable ? " & modify" : ""}</a></td></tr>`;
+        const href = `${editable ? "upcoming_order_details" : "order_details"}.html?userID=${userID}&orderID=${order.orderID}`;
+        // data-href lets a click anywhere on the row open the order (see the click handler below);
+        // the View link stays so keyboard and screen reader users can still reach it.
+        return `<tr class="order_row" data-href="${href}"><td><strong>#${order.orderID}</strong></td><td>${money(order.orderTotal)}</td><td><span class="status">${escapeHtml(order.statusLabel)}</span></td><td><a class="link" href="${href}">View${editable ? " & modify" : ""}</a></td></tr>`;
       }).join("") : "";
       if (!orders.length) message("No orders found.");
     } catch (error) {
