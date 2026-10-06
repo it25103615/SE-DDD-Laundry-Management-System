@@ -1,6 +1,9 @@
 package _6.Y2.S1.MTR._6.LaundryLink.config;
 
 import _6.Y2.S1.MTR._6.LaundryLink.orders.OrderAccess;
+import _6.Y2.S1.MTR._6.LaundryLink.account.AccountSessionGuard;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -10,7 +13,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.provisioning.JdbcUserDetailsManager;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import javax.sql.DataSource;
@@ -41,7 +44,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, OrderAccess orderAccess) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, OrderAccess orderAccess, DataSource dataSource) throws Exception {
+        http.addFilterBefore(new AccountSessionGuard(new JdbcTemplate(dataSource)), AuthorizationFilter.class);
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/admin/**").hasAnyRole("OWNER", "ADMIN")
@@ -128,10 +132,15 @@ public class SecurityConfig {
 
     @Bean
     public UserDetailsService userDetailsService(DataSource dataSource) {
-        JdbcUserDetailsManager users = new JdbcUserDetailsManager(dataSource);
-        users.setUsersByUsernameQuery("SELECT email, password, active FROM users WHERE email = ?");
-        users.setAuthoritiesByUsernameQuery("SELECT email, CONCAT('ROLE_', UPPER(type)) FROM users WHERE email = ? AND active=1");
-        return users;
+        JdbcTemplate db = new JdbcTemplate(dataSource);
+        return email -> {
+            var users = db.query("SELECT userID,email,password,active,UPPER(type) AS role FROM users WHERE email=?",
+                    (rs, row) -> new AccountSessionGuard.AccountPrincipal(rs.getInt("userID"),
+                            rs.getString("email"), rs.getString("password"),
+                            rs.getBoolean("active"), rs.getString("role")), email);
+            if (users.isEmpty()) throw new UsernameNotFoundException("Invalid email or password.");
+            return users.getFirst();
+        };
     }
 
     @Bean

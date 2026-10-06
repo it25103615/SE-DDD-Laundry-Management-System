@@ -76,6 +76,34 @@ public class AccountProfileService {
     }
 
     @Transactional
+    public void deactivateAccount(String signedInEmail, ProfileRequests.Deletion input) {
+        // Keep the verified password and role stable until the transaction commits.
+        var rows = db.queryForList("SELECT userID AS id,password,UPPER(type) AS role FROM users WITH (UPDLOCK, HOLDLOCK) WHERE email=? AND active=1", signedInEmail);
+        if (rows.isEmpty()) throw new ResponseStatusException(UNAUTHORIZED, "Account not found or already inactive.");
+        var user = rows.getFirst();
+        if (!"CUSTOMER".equals(user.get("role")))
+            throw new ResponseStatusException(FORBIDDEN, "Only customers can deactivate their own account.");
+        if (!passwords.matches(input.currentPassword(), (String) user.get("password")))
+            throw new ResponseStatusException(BAD_REQUEST, "Current password is incorrect.");
+        String retiredEmail = replacementEmail(((Number) user.get("id")).intValue());
+        // The random secret is never retained or disclosed; the previous password no longer matches.
+        String retiredPassword = passwords.encode(UUID.randomUUID().toString());
+        int changed = db.update("UPDATE users SET active=0,email=?,password=? WHERE userID=? AND active=1 AND UPPER(type)='CUSTOMER'",
+                retiredEmail, retiredPassword, user.get("id"));
+        if (changed != 1) throw new ResponseStatusException(CONFLICT, "Account could not be deactivated. Try again.");
+    }
+
+    private String replacementEmail(int userId) {
+        for (int attempt = 0; attempt < 5; attempt++) {
+            String candidate = "deleted_" + userId + "_" + UUID.randomUUID().toString().replace("-", "") + "@deleted.invalid";
+            // Range locking reserves an unused candidate until this transaction commits.
+            Integer count = db.queryForObject("SELECT COUNT(*) FROM users WITH (UPDLOCK, HOLDLOCK) WHERE email=?", Integer.class, candidate);
+            if (Integer.valueOf(0).equals(count)) return candidate;
+        }
+        throw new ResponseStatusException(CONFLICT, "Account could not be deactivated. Try again.");
+    }
+
+    @Transactional
     public void updatePassword(String signedInEmail, ProfileRequests.Password input) {
         if(!input.newPassword().equals(input.confirmPassword()))
             throw new ResponseStatusException(BAD_REQUEST,"New passwords do not match.");
