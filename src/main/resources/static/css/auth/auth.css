@@ -86,6 +86,8 @@
 
 .form_message {
   display: none;
+  /* Keeps the banner from sitting flush against the form card below it. */
+  margin-bottom: 20px;
 }
 .form_message:target {
   display: block;
