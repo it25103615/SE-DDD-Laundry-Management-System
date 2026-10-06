@@ -104,12 +104,17 @@
     return { items, services, pricing };
   }
 
+  // Which order the page is about. Notification links arrive as ?orderId=N (lowercase d, no
+  // userID), while the order pages' own links use ?orderID=N&userID=M, so both spellings are
+  // accepted. userID is left as 0 when the URL has none: fetchOrderOrExplain then asks the server
+  // who is signed in instead of trusting an ID left in the browser draft by someone else.
   function orderContext() {
     const parameters = query();
     const draft = getDraft();
+    const urlOrderID = parameters.get("orderID") || parameters.get("orderId");
     return {
-      userID: Number(parameters.get("userID") || draft.userID || 0),
-      orderID: Number(parameters.get("orderID") || draft.lastOrderID || 0)
+      userID: Number(parameters.get("userID") || 0),
+      orderID: Number(urlOrderID || draft.lastOrderID || 0)
     };
   }
 
@@ -357,9 +362,14 @@
   }
 
   async function fetchOrderOrExplain(main) {
-    const { userID, orderID } = orderContext();
-    if (!userID || !orderID) { main.innerHTML = "<section class=\"card\"><h1>Order not selected</h1><p class=\"muted\">Open an order from My Orders.</p><a class=\"custom_button custom_button_bg\" href=\"my_orders.html\">My Orders</a></section>"; return null; }
-    try { return await api(`/orders/customer/${userID}/${orderID}`); }
+    const context = orderContext();
+    const { orderID } = context;
+    if (!orderID) { main.innerHTML = "<section class=\"card\"><h1>Order not selected</h1><p class=\"muted\">Open an order from My Orders.</p><a class=\"custom_button custom_button_bg\" href=\"my_orders.html\">My Orders</a></section>"; return null; }
+    try {
+      // No userID in the link (e.g. a notification): use the signed-in customer.
+      const userID = context.userID || await currentUserID();
+      return await api(`/orders/customer/${userID}/${orderID}`);
+    }
     catch (error) { main.innerHTML = `<section class="card"><h1>Unable to load order</h1><p class="muted">${escapeHtml(error.message)}</p><a class="custom_button custom_button_bg" href="my_orders.html">My Orders</a></section>`; return null; }
   }
 
