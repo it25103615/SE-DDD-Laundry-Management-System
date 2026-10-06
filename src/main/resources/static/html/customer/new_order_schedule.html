@@ -8,6 +8,25 @@
     <link rel="stylesheet" href="../../css/dashboard.css" />
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
+    <style>
+      .schedule-time-card:hover {
+        transform: none;
+      }
+      /* Keep native time-window popups opaque and stable when focused. */
+      #pickup-time {
+        color-scheme: light;
+        color: var(--color-text, #102a3b);
+        background-color: #fff;
+        transform: none;
+      }
+      #pickup-time option {
+        color: var(--color-text, #102a3b);
+        background-color: #fff;
+      }
+      #pickup-time option:disabled {
+        color: #667783;
+      }
+    </style>
 
   </head>
   <body>
@@ -28,7 +47,7 @@
       </ol>
       <form action="new_order_instructions.html" method="get">
         <div class="grid grid_two">
-          <section class="card">
+          <section class="card schedule-time-card">
             <h2>Pickup time</h2>
             <div class="field">
               <label for="pickup-date">Date</label
@@ -46,34 +65,6 @@
                 class="input"
                 id="pickup-time"
                 name="pickup_time"
-                required
-              >
-                <option value="">Choose a time</option>
-                <option>8:00 AM – 11:00 AM</option>
-                <option>11:00 AM – 2:00 PM</option>
-                <option>2:00 PM – 5:00 PM</option>
-                <option>5:00 PM – 8:00 PM</option>
-              </select>
-            </div>
-          </section>
-          <section class="card">
-            <h2>Delivery time</h2>
-            <div class="field">
-              <label for="delivery-date">Date</label
-              ><input
-                class="input"
-                id="delivery-date"
-                name="delivery_date"
-                type="date"
-                required
-              />
-            </div>
-            <div class="field">
-              <label for="delivery-time">Time window</label
-              ><select
-                class="input"
-                id="delivery-time"
-                name="delivery_time"
                 required
               >
                 <option value="">Choose a time</option>
@@ -119,15 +110,15 @@
         const key = "laundryLink.orderDraft";
         const form = document.querySelector("main form");
         const error = document.getElementById("schedule-error");
-        // Both scheduling cards use the same storage and validation rules.
-        const fields = ["pickup-date", "pickup-time", "delivery-date", "delivery-time"].map(id => document.getElementById(id));
-        const [pickupDate, pickupTime, deliveryDate, deliveryTime] = fields;
+        // Validate and restore only the customer pickup scheduling fields.
+        const fields = ["pickup-date", "pickup-time"].map(id => document.getElementById(id));
+        const [pickupDate, pickupTime] = fields;
         const readDraft = () => {
           try { return JSON.parse(sessionStorage.getItem(key)) || {}; }
           catch (_) { return {}; }
         };
         const schedule = readDraft().schedule || {};
-        fields.forEach((field, index) => { field.value = schedule[["date", "time", "deliveryDate", "deliveryTime"][index]] || ""; });
+        fields.forEach((field, index) => { field.value = schedule[["date", "time"][index]] || ""; });
         // Tick the address remembered in the order draft, if there is one. Runs now for the
         // "Use another address" row and again once the saved addresses have been loaded.
         function restoreAddressChoice() {
@@ -190,10 +181,8 @@
           });
         function save() {
           const draft = readDraft();
-          const keptSchedule = draft.schedule || {};
           sessionStorage.setItem(key, JSON.stringify({ ...draft, schedule: {
-            ...keptSchedule, date: pickupDate.value, time: pickupTime.value,
-            deliveryDate: deliveryDate.value, deliveryTime: deliveryTime.value,
+            date: pickupDate.value, time: pickupTime.value,
             address: form.querySelector("input[name=address]:checked")?.value
           } }));
         }
@@ -222,25 +211,27 @@
         function validate(showMissing) {
           const now = new Date();
           const today = isoDate(now);
-          const tomorrow = isoDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+          // Clamp the same day to the last day of next month (for example, January 31 to February 28).
+          const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          const lastDay = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate();
+          nextMonth.setDate(Math.min(now.getDate(), lastDay));
           const nowMinutes = now.getHours() * 60 + now.getMinutes();
-          // Once every pickup window for today has started, today can no longer be chosen at all.
-          pickupDate.min = limitSlots(pickupDate, pickupTime, today, nowMinutes) ? today : tomorrow;
-          deliveryDate.min = limitSlots(deliveryDate, deliveryTime, today, nowMinutes) ? today : tomorrow;
+          pickupDate.min = today;
+          pickupDate.max = isoDate(nextMonth);
+          limitSlots(pickupDate, pickupTime, today, nowMinutes);
           fields.forEach(field => field.setCustomValidity(""));
-          const labels = ["pickup date", "pickup time window", "delivery date", "delivery time window"];
+          const labels = ["pickup date", "pickup time window"];
           fields.forEach((field, index) => {
             if (!field.value) field.setCustomValidity(`Please select a ${labels[index]}.`);
           });
-          if (pickupDate.value && pickupDate.value < pickupDate.min) {
-            pickupDate.setCustomValidity(pickupDate.min === today
-              ? "Please choose today or a future date."
-              : "We will not be doing any more pickups for today. Please choose tomorrow or a later date.");
-          }
-          if (deliveryDate.value && deliveryDate.value < deliveryDate.min) {
-            deliveryDate.setCustomValidity(deliveryDate.min === today
-              ? "Please choose today or a future date."
-              : "We will not be doing any more deliveries for today. Please choose tomorrow or a later date.");
+          if (pickupDate.value) {
+            const outsideRange = pickupDate.value < pickupDate.min || pickupDate.value > pickupDate.max;
+            const differentYear = Number(pickupDate.value.split("-")[0]) !== now.getFullYear();
+            if (pickupDate.value > pickupDate.max || (differentYear && outsideRange)) {
+              pickupDate.setCustomValidity("Pickup can only be scheduled up to one month in advance.");
+            } else if (pickupDate.value < pickupDate.min) {
+              pickupDate.setCustomValidity("Please choose today or a future date.");
+            }
           }
           const invalid = fields.find(field => !field.validity.valid && (showMissing || field.value));
           error.textContent = invalid ? invalid.validationMessage : "";
@@ -262,6 +253,7 @@
           window.location.href = "new_order_instructions.html";
         });
         validate(false);
+        save(); // Also discard obsolete scheduling selections from older drafts.
         // Re-check every minute so a page left open greys out windows as they start.
         setInterval(() => { validate(false); save(); }, 60 * 1000);
       })();

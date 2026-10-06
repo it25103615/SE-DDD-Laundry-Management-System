@@ -30,6 +30,13 @@
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
   }
 
+  function resetCompletedDraft() {
+    const draft = getDraft();
+    if (!draft.completed) return;
+    // Keep existing-order navigation context, but start a fresh create-order draft.
+    saveDraft({ userID: draft.userID, lastOrderID: draft.lastOrderID, services: [], lines: [] });
+  }
+
   function toast(title, detail) {
     if (window.connectedToast) window.connectedToast(title, detail);
     else window.alert(`${title}${detail ? `\n${detail}` : ""}`);
@@ -119,6 +126,7 @@
   }
 
   async function initServices() {
+    resetCompletedDraft();
     const section = document.querySelector("main > section.grid");
     const form = document.getElementById("service-form");
     if (!section || !form) return;
@@ -317,7 +325,7 @@
           // The note and the ticked preferences from the instructions step are sent with the
           // order, so they are saved on it (orders.instructions and orders.preferences).
           const created = await api("/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userID, orderLines: lines, pickupScheduled: pickupDateTime(draft.schedule), addressID: pickupAddressID(draft.schedule), instructions: draft.instructions?.notes || "", preferences: draft.instructions?.preferences || [] }) });
-          saveDraft({ ...draft, userID, lastOrderID: created.orderID, lines: [] });
+          saveDraft({ ...draft, userID, lastOrderID: created.orderID, lines: [], completed: true });
           toast("Order created", `Order #${created.orderID} is ${created.statusLabel}.`);
           window.location.href = `upcoming_order_details.html?userID=${created.userID}&orderID=${created.orderID}`;
         } catch (error) {
@@ -384,7 +392,7 @@
     const preferences = (order.preferences || []).map((label) => escapeHtml(label)).join("<br>") || "None";
     const note = order.instructions ? escapeHtml(order.instructions) : "None";
     const instructions = `<p><strong>Preferences</strong><br><span class="muted">${preferences}</span></p><p><strong>Notes for our team</strong><br><span class="muted" style="white-space:pre-wrap;overflow-wrap:anywhere">${note}</span></p>`;
-    return `<header class="welcome_banner" style="margin-top:34px"><div class="top_bar"><div><div class="subtitle">CUSTOMER ORDER</div><h1>Order #${order.orderID}</h1></div><span class="status">${escapeHtml(order.statusLabel)}</span></div></header><section class="grid grid_two" style="margin-top:22px"><article class="card"><h2>Items and services</h2>${lines}<div class="top_bar"><h3>Order total</h3><h2>${money(order.orderTotal)}</h2></div></article><aside class="card"><h2>Order information</h2><p><strong>Customer ID</strong><br><span class="muted">${order.userID}</span></p><p><strong>Status</strong><br><span class="muted">${escapeHtml(order.statusLabel)}</span></p>${instructions}</aside></section>${includeActions ? `<div class="actions" style="margin-top:20px">${eligible ? `<a class="custom_button custom_button_bg" href="modify_order.html?userID=${order.userID}&orderID=${order.orderID}">Modify order</a>` : ""}<a class="custom_button custom_button_border pay-now-link" href="payments.html?orderID=${order.orderID}">Pay Now</a><a class="custom_button custom_button_nobg" href="my_orders.html">My Orders</a></div>${eligible ? "" : `<p class="muted small" style="margin-top:12px">${LOCKED_MESSAGE}</p>`}` : ""}<section class="card" style="margin-top:22px"><h2>Order history</h2>${history}</section>`;
+    return `<header class="welcome_banner" style="margin-top:34px"><div class="top_bar"><div><div class="subtitle">CUSTOMER ORDER</div><h1>Order #${order.orderID}</h1></div><span class="status">${escapeHtml(order.statusLabel)}</span></div></header><section class="grid grid_two" style="margin-top:22px"><article class="card"><h2>Items and services</h2>${lines}<div class="top_bar"><h3>Order total</h3><h2>${money(order.orderTotal)}</h2></div></article><aside class="card"><h2>Order information</h2><p><strong>Customer ID</strong><br><span class="muted">${order.userID}</span></p><p><strong>Status</strong><br><span class="muted">${escapeHtml(order.statusLabel)}</span></p>${instructions}</aside></section>${includeActions ? `<div class="actions" style="margin-top:20px">${eligible ? `<a class="custom_button custom_button_bg" href="modify_order.html?userID=${order.userID}&orderID=${order.orderID}">Modify order</a>` : ""}${order.statusID === 1 && order.statusLabel === "Unconfirmed" ? `<button id="cancel-order" class="custom_button custom_button_border" type="button">Cancel Order</button>` : ""}<a class="custom_button custom_button_border pay-now-link" href="payments.html?orderID=${order.orderID}">Pay Now</a><a class="custom_button custom_button_nobg" href="my_orders.html">My Orders</a></div>${eligible ? "" : `<p class="muted small" style="margin-top:12px">${LOCKED_MESSAGE}</p>`}` : ""}<section class="card" style="margin-top:22px"><h2>Order history</h2>${history}</section>`;
   }
 
   function preservePaymentContext(order) {
@@ -395,12 +403,69 @@
     saveDraft({ ...getDraft(), userID: Number(customerID) || customerID, lastOrderID: Number(orderID) || orderID });
   }
 
+  function bindCancelConfirmation(cancelButton, order) {
+    // Append to the body so the modal is independent of the order cards and their transforms.
+    const modalStyle = document.createElement("style");
+    modalStyle.textContent = `
+      #order-cancel-dialog {
+        position: fixed; inset: 0; margin: auto;
+        width: min(460px, calc(100vw - 32px)); box-sizing: border-box;
+        max-height: calc(100dvh - 32px); overflow: auto;
+        padding: 28px; border: 1px solid rgba(3, 75, 120, .16);
+        border-radius: 18px; background: #fff; color: var(--color-text);
+        font: inherit; box-shadow: 0 24px 64px rgba(3, 42, 72, .25);
+        z-index: 10000;
+      }
+      #order-cancel-dialog::backdrop { background: rgba(16, 42, 59, .5); }
+      #order-cancel-dialog h2 { margin-top: 0; }
+      #order-cancel-dialog .actions { flex-wrap: wrap; }
+    `;
+    const modal = document.createElement("dialog");
+    modal.id = "order-cancel-dialog";
+    modal.setAttribute("aria-labelledby", "order-cancel-title");
+    modal.setAttribute("aria-describedby", "order-cancel-message");
+    modal.innerHTML = `<h2 id="order-cancel-title">Cancel Order</h2>
+      <p id="order-cancel-message">Are you sure you want to cancel this order?</p>
+      <div class="actions">
+        <button class="custom_button custom_button_bg" type="button" data-confirm-cancel>Yes, Cancel Order</button>
+        <button class="custom_button custom_button_nobg" type="button" data-keep-order autofocus>Keep Order</button>
+      </div>`;
+    document.body.append(modalStyle, modal);
+    const confirmButton = modal.querySelector("[data-confirm-cancel]");
+    const keepButton = modal.querySelector("[data-keep-order]");
+    let cancelling = false;
+    cancelButton.addEventListener("click", () => {
+      if (!cancelButton.disabled && !modal.open) modal.showModal();
+    });
+    keepButton.addEventListener("click", () => modal.close());
+    modal.addEventListener("cancel", event => {
+      if (cancelling) event.preventDefault();
+    });
+    confirmButton.addEventListener("click", async () => {
+      if (cancelling) return;
+      cancelling = true;
+      cancelButton.disabled = confirmButton.disabled = keepButton.disabled = true;
+      try {
+        await api(`/orders/customer/${order.userID}/${order.orderID}/cancel`, { method: "POST" });
+        modal.close();
+        window.location.reload();
+      } catch (error) {
+        cancelling = false;
+        cancelButton.disabled = confirmButton.disabled = keepButton.disabled = false;
+        modal.close();
+        toast("Order could not be cancelled", error.message);
+      }
+    });
+  }
+
   async function initDetails(upcoming) {
     const main = document.querySelector("main");
     if (!main) return;
     const order = await fetchOrderOrExplain(main);
     if (order) {
-      main.innerHTML = detailMarkup(order, upcoming);
+      main.innerHTML = detailMarkup(order, upcoming || (order.statusID === 1 && order.statusLabel === "Unconfirmed"));
+      const cancelButton = main.querySelector("#cancel-order");
+      if (cancelButton) bindCancelConfirmation(cancelButton, order);
       const payNowLink = main.querySelector(".pay-now-link");
       if (payNowLink) payNowLink.addEventListener("click", () => preservePaymentContext(order));
     }

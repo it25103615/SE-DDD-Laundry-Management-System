@@ -59,6 +59,57 @@ class OrderServiceTest {
     }
 
     @Test
+    void cancellationRejectsNonUnconfirmedAndConcurrentStatusChanges() {
+        Order order = new Order();
+        order.setOrderID(100);
+        order.setUserID(1);
+        Status status = mock(Status.class);
+        order.setStatus(status);
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        when(orderRepository.findByOrderIDAndUserID(100, 1)).thenReturn(Optional.of(order));
+        for (int id = 2; id <= 20; id++) {
+            when(status.getStatusID()).thenReturn(id);
+            when(status.getStatusLabel()).thenReturn("Other status");
+            assertEquals(HttpStatus.CONFLICT, assertThrows(ResponseStatusException.class,
+                    () -> orderService.cancelCustomerOrder(1, 100)).getStatusCode());
+        }
+        verify(orderRepository, never()).cancelUnconfirmedOrder(any(), any(), any(), any());
+        when(status.getStatusID()).thenReturn(1);
+        when(status.getStatusLabel()).thenReturn("Unconfirmed");
+        Status cancelled = mock(Status.class);
+        when(cancelled.getStatusID()).thenReturn(20);
+        when(statusService.getByLabel("Cancelled")).thenReturn(cancelled);
+        when(orderRepository.cancelUnconfirmedOrder(100, 1, 1, 20)).thenReturn(0);
+        assertEquals(HttpStatus.CONFLICT, assertThrows(ResponseStatusException.class,
+                () -> orderService.cancelCustomerOrder(1, 100)).getStatusCode());
+    }
+
+    @Test
+    void cancellationReturnsCancelledOrder() {
+        Order order = new Order();
+        order.setOrderID(100);
+        order.setUserID(1);
+        Status initial = mock(Status.class);
+        when(initial.getStatusID()).thenReturn(1);
+        when(initial.getStatusLabel()).thenReturn("Unconfirmed");
+        order.setStatus(initial);
+        Status cancelled = mock(Status.class);
+        when(cancelled.getStatusID()).thenReturn(20);
+        when(cancelled.getStatusLabel()).thenReturn("Cancelled");
+        when(statusService.getByLabel("Cancelled")).thenReturn(cancelled);
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        when(orderRepository.findByOrderIDAndUserID(100, 1)).thenReturn(Optional.of(order));
+        when(logService.getLogsByOrder(100)).thenReturn(List.of());
+        when(orderRepository.cancelUnconfirmedOrder(100, 1, 1, 20)).thenAnswer(invocation -> {
+            order.setStatus(cancelled);
+            return 1;
+        });
+        OrderDetailResponse response = orderService.cancelCustomerOrder(1, 100);
+        assertEquals(20, response.getStatusID());
+        assertEquals("Cancelled", response.getStatusLabel());
+    }
+
+    @Test
     void createsOrderWithDatabaseCalculatedLinePriceAndUnconfirmedStatus() {
         ServicePricing pricing = pricingWithDetails(1, 1, 180.0);
         Status status = mock(Status.class);
