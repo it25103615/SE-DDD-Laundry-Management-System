@@ -39,6 +39,7 @@
   }
 
   function promotionError(error, action) {
+    if (error.body && error.body.message) return error.body.message;
     if (error.status === 404) return "Promotion could not be found.";
     if (error.status === 400) {
       return `${action} failed. Check for duplicate codes, invalid discount values, date range, minimum amount or unsupported discount type.`;
@@ -74,6 +75,11 @@
       if (!response.ok) {
         const error = new Error(`Request failed with status ${response.status}`);
         error.status = response.status;
+        try {
+          error.body = await response.json();
+        } catch (ignore) {
+          error.body = null;
+        }
         throw error;
       }
       if (response.status === 204) return null;
@@ -93,6 +99,30 @@
       validTo: data.get("validTo"),
       active: document.getElementById("promotion-active").checked,
     };
+  }
+
+  function validatePayload(payload) {
+    if (!payload.promotionCode) return "Promotion code is required.";
+    if (!payload.promotionName) return "Promotion name is required.";
+    if (payload.discountType !== "PERCENTAGE" && payload.discountType !== "FIXED_AMOUNT") {
+      return "Choose a valid discount type.";
+    }
+    if (!Number.isFinite(payload.discountValue) || payload.discountValue <= 0) {
+      return "Discount value must be greater than zero.";
+    }
+    if (payload.discountType === "PERCENTAGE" && payload.discountValue > 100) {
+      return "Percentage discount cannot exceed 100.";
+    }
+    if (!Number.isFinite(payload.minimumOrderAmount) || payload.minimumOrderAmount < 0) {
+      return "Minimum order amount must not be negative.";
+    }
+    if (!payload.validFrom || !payload.validTo) {
+      return "Promotion valid date range is required.";
+    }
+    if (payload.validTo < payload.validFrom) {
+      return "Promotion end date cannot be before start date.";
+    }
+    return "";
   }
 
   function renderTable() {
@@ -175,17 +205,24 @@
     const promotionID = document.getElementById("promotion-id").value;
     const editing = Boolean(promotionID);
     const action = editing ? "Update" : "Create";
+    const payload = promotionPayload();
+    const validationMessage = validatePayload(payload);
+    if (validationMessage) {
+      showMessage("promotion-error", validationMessage);
+      return;
+    }
 
     saveButton.disabled = true;
     try {
       await api(editing ? `/api/promotions/${encodeURIComponent(promotionID)}` : "/api/promotions", {
         method: editing ? "PUT" : "POST",
-        body: JSON.stringify(promotionPayload()),
+        body: JSON.stringify(payload),
       });
       resetForm();
       showMessage("promotion-success", editing ? "Promotion updated successfully." : "Promotion created successfully.");
       await loadPromotions();
     } catch (error) {
+      console.error("Promotion save failed", error);
       showMessage("promotion-error", promotionError(error, action));
     } finally {
       saveButton.disabled = false;
@@ -202,6 +239,7 @@
       showMessage("promotion-success", active ? "Promotion activated successfully." : "Promotion deactivated successfully.");
       await loadPromotions();
     } catch (error) {
+      console.error("Promotion status update failed", error);
       showMessage("promotion-error", promotionError(error, active ? "Activate" : "Deactivate"));
     }
   }

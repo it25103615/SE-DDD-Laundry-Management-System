@@ -13,6 +13,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 
 @Service
 public class PromotionService {
@@ -49,6 +50,7 @@ public class PromotionService {
     public Promotion createPromotion(PromotionRequest request) {
         Promotion promotion = toPromotion(null, request);
         validatePromotionDefinition(promotion);
+        ensurePromotionCodeAvailable(promotion);
         return promotionRepository.save(promotion);
     }
 
@@ -56,6 +58,7 @@ public class PromotionService {
         promotionRepository.findById(promotionID).orElseThrow();
         Promotion promotion = toPromotion(promotionID, request);
         validatePromotionDefinition(promotion);
+        ensurePromotionCodeAvailable(promotion);
         return promotionRepository.update(promotion);
     }
 
@@ -273,6 +276,14 @@ public class PromotionService {
         if (promotion.getValidTo().isBefore(promotion.getValidFrom())) {
             throw new IllegalArgumentException("Promotion end date cannot be before start date");
         }
+    }
+
+    private void ensurePromotionCodeAvailable(Promotion promotion) {
+        promotionRepository.findByCode(promotion.getPromotionCode())
+                .filter(existing -> !Objects.equals(existing.getPromotionID(), promotion.getPromotionID()))
+                .ifPresent(existing -> {
+                    throw new IllegalArgumentException("Promotion code already exists.");
+                });
     }
 
     private PromotionValidationResponse invalid(String message, BigDecimal subtotal) {

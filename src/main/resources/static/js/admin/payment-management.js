@@ -15,6 +15,20 @@
     return value == null || value === "" ? "N/A" : label(value);
   }
 
+  function paymentIdLabel(value) {
+    return value == null ? "-" : `#${value}`;
+  }
+
+  function methodLabel(value) {
+    return value == null || value === "" ? "Not paid" : label(value);
+  }
+
+  function customerLabel(record) {
+    const name = String(record.customerName || "").trim();
+    const fallback = record.customerID == null ? "Customer" : `Customer #${record.customerID}`;
+    return name ? `${name} (#${record.customerID})` : fallback;
+  }
+
   function dateTimeLabel(value) {
     if (!value) return "-";
     const parsed = new Date(value);
@@ -121,8 +135,16 @@
     const table = document.getElementById("manager-payment-table");
     try {
       const records = await paymentRecords(paymentFilterQuery());
-      const collected = records.reduce((total, record) => total + Number(record.paidAmount || 0), 0);
-      const outstanding = records.reduce((total, record) => total + Number(record.outstandingAmount || 0), 0);
+      const collected = records
+        .filter((record) => record.paymentStatus === "VERIFIED")
+        .reduce((total, record) => total + Number(record.amount || 0), 0);
+      const outstandingByOrder = new Map();
+      records.forEach((record) => {
+        if (record.orderID != null && !outstandingByOrder.has(record.orderID)) {
+          outstandingByOrder.set(record.orderID, Number(record.outstandingAmount || 0));
+        }
+      });
+      const outstanding = Array.from(outstandingByOrder.values()).reduce((total, value) => total + value, 0);
       const failed = records.filter((record) => record.paymentStatus === "REJECTED" || /failed/i.test(record.orderStatus || "")).length;
 
       setText("collected-total", money(collected));
@@ -131,31 +153,35 @@
 
       if (!table) return;
       if (!records.length) {
-        table.innerHTML = '<tr><td colspan="9">No payment records found.</td></tr>';
+        table.innerHTML = '<tr><td colspan="8">No payment or billing records found.</td></tr>';
         return;
       }
 
       table.innerHTML = records
-        .map(
-          (record) => `
+        .map((record) => {
+          const canOpenPayment = record.paymentID != null;
+          const action = canOpenPayment
+            ? `<a class="link" href="payment_detail.html?paymentID=${encodeURIComponent(record.paymentID)}">View</a>`
+            : '<span class="muted">No payment yet</span>';
+          return `
             <tr>
-              <td>#${record.paymentID}</td>
+              <td>${paymentIdLabel(record.paymentID)}</td>
               <td>#${record.orderID}</td>
-              <td>${money(record.amount)}</td>
-              <td>${escapeHtml(cleanValue(record.paymentMethod))}</td>
-              <td>${escapeHtml(cleanValue(record.transactionReference))}</td>
+              <td>${escapeHtml(customerLabel(record))}</td>
+              <td>${money(record.payableAmount)}</td>
+              <td>${escapeHtml(methodLabel(record.paymentMethod))}</td>
               <td>${statusMarkup(record.paymentStatus)}</td>
-              <td>${escapeHtml(dateTimeLabel(record.processedAt))}</td>
-              <td>${escapeHtml(label(record.orderStatus))}</td>
-              <td><a class="link" href="payment_detail.html?paymentID=${encodeURIComponent(record.paymentID)}">View</a></td>
-            </tr>`,
-        )
+              <td>${escapeHtml(dateTimeLabel(record.recordDate || record.processedAt))}</td>
+              <td>${action}</td>
+            </tr>`;
+        })
         .join("");
     } catch (error) {
+      console.error("Payment management records failed to load", error);
       setText("collected-total", "Unavailable");
       setText("outstanding-total", "Unavailable");
       setText("failed-total", "-");
-      if (table) table.innerHTML = '<tr><td colspan="9">Payment records could not be loaded.</td></tr>';
+      if (table) table.innerHTML = '<tr><td colspan="8">Payment and billing records could not be loaded.</td></tr>';
     }
   }
 

@@ -154,7 +154,7 @@ class PaymentServiceTest {
     }
 
     @Test
-    void preventsPaymentWhenAmountDoesNotMatchOutstandingAmount() {
+    void preventsPaymentWhenAmountDoesNotMatchFinalPayableAmount() {
         PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
         BillingService billingService = Mockito.mock(BillingService.class);
         PaymentService service = paymentService(
@@ -168,6 +168,54 @@ class PaymentServiceTest {
 
         assertThrows(IllegalArgumentException.class, () ->
                 service.submitPayment(1, 7, paymentRequest(BigDecimal.valueOf(100.0))));
+    }
+
+    @Test
+    void ignoresOldPartialPaymentRowsWhenCalculatingOutstandingAmount() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentService service = paymentService(
+                paymentRepository,
+                managementRepository("CUSTOMER", new PaymentOrderStatus(1, "Unconfirmed")),
+                billingService
+        );
+        Payment oldPartialPayment = new Payment(1998.0, 14);
+        oldPartialPayment.setPaymentID(25);
+
+        when(billingService.getBillingDetails(14)).thenReturn(billingDetails(14, 7, BigDecimal.valueOf(4995.0)));
+        when(paymentRepository.findByOrderID(14)).thenReturn(List.of(oldPartialPayment));
+
+        PaymentStatusResponse response = service.getPaymentStatus(14, 7);
+
+        assertEquals(PaymentStatus.UNPAID, response.getStatus());
+        assertEquals(BigDecimal.ZERO, response.getPaidAmount());
+        assertEquals(BigDecimal.valueOf(4995.0), response.getOutstandingAmount());
+    }
+
+    @Test
+    void acceptsFullPaymentEvenWhenOldPartialRowsExist() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentService service = paymentService(
+                paymentRepository,
+                managementRepository("CUSTOMER", new PaymentOrderStatus(1, "Unconfirmed")),
+                billingService
+        );
+        Payment oldPartialPayment = new Payment(2997.0, 14);
+        oldPartialPayment.setPaymentID(25);
+
+        when(billingService.getBillingDetails(14)).thenReturn(billingDetails(14, 7, BigDecimal.valueOf(4995.0)));
+        when(paymentRepository.findByOrderID(14)).thenReturn(List.of(oldPartialPayment));
+        when(paymentRepository.save(Mockito.any(Payment.class))).thenAnswer(invocation -> {
+            Payment payment = invocation.getArgument(0);
+            payment.setPaymentID(26);
+            return payment;
+        });
+
+        PaymentConfirmationResponse response = service.submitPayment(14, 7, paymentRequest(BigDecimal.valueOf(4995.0)));
+
+        assertEquals(26, response.getPaymentID());
+        assertEquals(BigDecimal.valueOf(4995.0), response.getAmount());
     }
 
     @Test
@@ -331,6 +379,37 @@ class PaymentServiceTest {
 
         assertThrows(IllegalStateException.class, () ->
                 service.submitPayment(1, 7, paymentRequest(BigDecimal.valueOf(1350.0))));
+    }
+
+    @Test
+    void rejectedPaymentDoesNotReduceOutstandingAndAllowsRetry() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentService service = paymentService(
+                paymentRepository,
+                managementRepository("CUSTOMER", new PaymentOrderStatus(16, "Payment Failed")),
+                billingService
+        );
+        Payment rejectedPayment = new Payment(4995.0, 14);
+        rejectedPayment.setPaymentID(25);
+        rejectedPayment.setPaymentStatus(PaymentStatus.REJECTED);
+
+        when(billingService.getBillingDetails(14)).thenReturn(billingDetails(14, 7, BigDecimal.valueOf(4995.0)));
+        when(paymentRepository.findByOrderID(14)).thenReturn(List.of(rejectedPayment));
+        when(paymentRepository.save(Mockito.any(Payment.class))).thenAnswer(invocation -> {
+            Payment payment = invocation.getArgument(0);
+            payment.setPaymentID(26);
+            return payment;
+        });
+
+        PaymentStatusResponse status = service.getPaymentStatus(14, 7);
+
+        assertEquals(PaymentStatus.REJECTED, status.getStatus());
+        assertEquals(BigDecimal.ZERO, status.getPaidAmount());
+        assertEquals(BigDecimal.valueOf(4995.0), status.getOutstandingAmount());
+
+        PaymentConfirmationResponse retry = service.submitPayment(14, 7, paymentRequest(BigDecimal.valueOf(4995.0)));
+        assertEquals(26, retry.getPaymentID());
     }
 
     @Test
@@ -499,7 +578,7 @@ class PaymentServiceTest {
         assertEquals(BigDecimal.valueOf(1000.0), receipt.getSubtotal());
         assertEquals(BigDecimal.valueOf(100.0), receipt.getDiscountAmount());
         assertEquals(BigDecimal.valueOf(900.0), receipt.getFinalPayableAmount());
-        assertEquals(PaymentStatus.PARTIALLY_PAID, receipt.getPaymentStatus());
+        assertEquals(PaymentStatus.UNPAID, receipt.getPaymentStatus());
     }
 
     @Test
@@ -589,6 +668,32 @@ class PaymentServiceTest {
         assertEquals(PaymentMethod.CARD, records.get(0).getPaymentMethod());
         assertNotNull(records.get(0).getTransactionReference());
         assertNotNull(records.get(0).getProcessedAt());
+    }
+
+    @Test
+    void managementRecordsIncludeUnpaidBillableOrdersWithoutCreatingPaymentRows() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentManagementRepository managementRepository = managementRepository("MANAGER", new PaymentOrderStatus(1, "Unconfirmed"));
+        PaymentService service = paymentService(paymentRepository, managementRepository, billingService);
+
+        when(paymentRepository.findAll()).thenReturn(List.of());
+        when(paymentRepository.findByOrderID(2)).thenReturn(List.of());
+        when(managementRepository.findBillableOrderSummaries()).thenReturn(List.of(
+                new PaymentManagementOrderSummary(2, 8, "Ravi Perera", "Unconfirmed", null)
+        ));
+        when(billingService.getBillingDetails(2)).thenReturn(billingDetails(2, 8, BigDecimal.valueOf(2500.0)));
+
+        List<PaymentRecordResponse> records = service.getPaymentRecords(11, null, null, null, null, null);
+
+        assertEquals(1, records.size());
+        assertNull(records.get(0).getPaymentID());
+        assertEquals(2, records.get(0).getOrderID());
+        assertEquals(8, records.get(0).getCustomerID());
+        assertEquals("Ravi Perera", records.get(0).getCustomerName());
+        assertEquals(PaymentStatus.UNPAID, records.get(0).getPaymentStatus());
+        assertEquals(BigDecimal.valueOf(2500.0), records.get(0).getOutstandingAmount());
+        Mockito.verify(paymentRepository, Mockito.never()).save(Mockito.any(Payment.class));
     }
 
     @Test
@@ -877,6 +982,16 @@ class PaymentServiceTest {
         PaymentManagementRepository repository = Mockito.mock(PaymentManagementRepository.class);
         when(repository.findUserType(Mockito.anyInt())).thenReturn(Optional.of(userType));
         when(repository.findOrderStatus(Mockito.anyInt())).thenReturn(Optional.of(orderStatus));
+        when(repository.findOrderSummary(Mockito.anyInt())).thenAnswer(invocation -> Optional.of(
+                new PaymentManagementOrderSummary(
+                        invocation.getArgument(0),
+                        7,
+                        "Test Customer",
+                        orderStatus.getStatusLabel(),
+                        null
+                )
+        ));
+        when(repository.findBillableOrderSummaries()).thenReturn(List.of());
         return repository;
     }
 

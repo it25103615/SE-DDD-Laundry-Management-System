@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 @RestController
@@ -147,7 +148,7 @@ public class PaymentController {
     }
 
     @PostMapping("/orders/{orderID}")
-    public ResponseEntity<PaymentConfirmationResponse> submitPayment(
+    public ResponseEntity<?> submitPayment(
             @PathVariable Integer orderID,
             Principal principal,
             @Valid @RequestBody PaymentRequest request
@@ -160,9 +161,9 @@ public class PaymentController {
         } catch (AccessDeniedException ex) {
             return ResponseEntity.status(403).build();
         } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
         } catch (IllegalStateException ex) {
-            return ResponseEntity.status(409).build();
+            return ResponseEntity.status(409).body(Map.of("message", ex.getMessage()));
         }
     }
 
