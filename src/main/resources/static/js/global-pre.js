@@ -98,6 +98,12 @@ if (location.protocol === "file:") {
           "/html/staff/issue_reports.html",
         ],
       },
+      {
+        label: "Payments & Billing",
+        href: "/html/admin/owner/payments_billing.html",
+        pages: ["/html/admin/owner/payment_detail.html"],
+      },
+      { label: "Promotions", href: "/html/admin/owner/promotions.html" },
       { label: "Assign Riders", href: "/html/admin/manager/assign_riders.html" },
       { label: "Service catalogue", href: "/html/admin/manager/service_catalog.html" },
       staffAccounts,

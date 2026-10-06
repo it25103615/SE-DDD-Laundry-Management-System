@@ -156,10 +156,7 @@
       const verifiedTotal = records
         .filter((record) => record.paymentStatus === "VERIFIED")
         .reduce((total, record) => total + Number(record.amount || 0), 0);
-      const refundedTotal = records
-        .filter((record) => record.paymentStatus === "REFUNDED")
-        .reduce((total, record) => total + Number(record.refundAmount || record.amount || 0), 0);
-      const collected = Math.max(0, verifiedTotal - refundedTotal);
+      const collected = verifiedTotal;
       const outstandingByOrder = new Map();
       records.forEach((record) => {
         if (record.orderID != null && !outstandingByOrder.has(record.orderID)) {
