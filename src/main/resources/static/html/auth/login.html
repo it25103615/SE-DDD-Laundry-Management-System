@@ -31,6 +31,14 @@
         >
           You have been signed out.
         </div>
+        <!-- Shown after register.js redirects here with ?registered=true -->
+        <div
+          id="registered-message"
+          class="alert alert_success form_message"
+          role="status"
+        >
+          Your account was created successfully. You can now log in.
+        </div>
         <form action="/login" method="post">
           <div class="field">
             <label for="email">Email</label
@@ -88,6 +96,9 @@
       // Confirm a sign-out, unless a failed login attempt is being reported instead
       document.getElementById("logout-message").style.display =
         query.has("logout") && !query.has("error") ? "block" : "none";
+      // Confirm a new account, again unless a failed login is being reported
+      document.getElementById("registered-message").style.display =
+        query.has("registered") && !query.has("error") ? "block" : "none";
     </script>
   </body>
 </html>
