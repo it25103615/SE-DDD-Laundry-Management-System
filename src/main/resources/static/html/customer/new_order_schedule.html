@@ -84,13 +84,6 @@
             <div id="pickup-addresses">
               <p class="muted" id="pickup-addresses-status">Loading your saved addresses…</p>
             </div>
-            <label class="radio_row"
-              ><input type="radio" name="address" value="other" /><span
-                ><strong>Use another address</strong><br /><span class="muted"
-                  >Add a different pickup location</span
-                ></span
-              ></label
-            >
           </section>
         </div>
         <div class="actions">
@@ -119,8 +112,7 @@
         };
         const schedule = readDraft().schedule || {};
         fields.forEach((field, index) => { field.value = schedule[["date", "time"][index]] || ""; });
-        // Tick the address remembered in the order draft, if there is one. Runs now for the
-        // "Use another address" row and again once the saved addresses have been loaded.
+        // Tick the remembered address once the customer's saved addresses have been loaded.
         function restoreAddressChoice() {
           const remembered = readDraft().schedule?.address;
           if (!remembered) return;
@@ -128,7 +120,6 @@
             if (input.value === String(remembered)) input.checked = true;
           });
         }
-        restoreAddressChoice();
 
         // Pickup addresses: ask the server for the signed-in customer's saved addresses and
         // show each one as a radio row. The API works out who the customer is from the login

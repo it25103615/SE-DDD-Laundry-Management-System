@@ -11,8 +11,8 @@ import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Integer> {
     // Read payment records without changing the Payment Management workflow.
-    @Query(value = "SELECT COUNT(*) FROM payments WHERE orderID = :orderID AND paymentStatus IN ('PAID', 'VERIFIED')", nativeQuery = true)
-    int countPaidOrVerifiedPayments(@Param("orderID") Integer orderID);
+    @Query(value = "SELECT COUNT(*) FROM payments WHERE orderID = :orderID AND paymentStatus IN ('PENDING', 'PAID', 'VERIFIED')", nativeQuery = true)
+    int countSubmittedOrSuccessfulPayments(@Param("orderID") Integer orderID);
 
     List<Order> findByUserID(Integer userID);
 
@@ -71,6 +71,26 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
     // order being placed against someone else's address.
     @Query(value = "SELECT COUNT(*) FROM addresses WHERE addressID = :addressID AND userID = :userID", nativeQuery = true)
     int countAddressesOwnedByCustomer(@Param("addressID") Integer addressID, @Param("userID") Integer userID);
+
+    @Query(value = "SELECT TOP 1 addressID FROM addresses WHERE userID = :userID AND isDefault = 1 ORDER BY addressID DESC", nativeQuery = true)
+    Optional<Integer> findDefaultAddressID(@Param("userID") Integer userID);
+
+    interface PickupDetails {
+        LocalDateTime getPickupScheduled();
+        Integer getAddressID();
+    }
+
+    @Query(value = "SELECT TOP 1 pickup_scheduled AS pickupScheduled, addressID AS addressID FROM delivery WHERE orderID = :orderID AND userID = :userID ORDER BY deliverID", nativeQuery = true)
+    Optional<PickupDetails> findPickupDetails(@Param("orderID") Integer orderID, @Param("userID") Integer userID);
+
+    // Customer modification changes the schedule and validated saved address; riders are preserved.
+    @Modifying
+    @Query(value = "UPDATE delivery SET pickup_scheduled = :pickupScheduled, addressID = :addressID WHERE orderID = :orderID AND userID = :userID", nativeQuery = true)
+    int updatePickupSchedule(
+            @Param("orderID") Integer orderID,
+            @Param("userID") Integer userID,
+            @Param("pickupScheduled") LocalDateTime pickupScheduled,
+            @Param("addressID") Integer addressID);
 
     // Every order needs a matching delivery row so the Rider module can assign pickup and
     // delivery riders to it later. Only the order, customer, requested pickup time and

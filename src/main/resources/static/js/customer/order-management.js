@@ -3,14 +3,14 @@
 
   const API = "/api";
   const DRAFT_KEY = "laundryLink.orderDraft";
-  // Customer edits allow Payment Failed, or Unconfirmed with no PAID/VERIFIED payment. The server
+  // Customer edits allow Payment Failed, or Unconfirmed with no PENDING/PAID/VERIFIED payment. The server
   // enforces this rule and supplies customerCanModify for links and direct page access.
   const ELIGIBLE_STATUSES = new Set(["Unconfirmed", "Payment Failed"]);
   const CANCELLABLE_STATUSES = new Set([
     "Unconfirmed", "Payment Verified", "Awaiting Pickup", "En Route To Pickup",
     "Picked Up", "En Route To Shop", "In Shop", "Verifying Items"
   ]);
-  const LOCKED_MESSAGE = "Only Payment Failed orders or Unconfirmed orders without a paid or verified payment can be modified.";
+  const LOCKED_MESSAGE = "Only Payment Failed orders or Unconfirmed orders without a pending, paid, or verified payment can be modified.";
 
   const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
@@ -81,8 +81,7 @@
 
   // The schedule step saves the chosen saved address as its addressID (a number, kept as text
   // in the draft). Returns that number so the API can store it on the delivery row, or null
-  // when no saved address was picked ("Use another address", or nothing chosen); the server
-  // then uses the customer's default address.
+  // when no saved address was picked; the server requires a valid customer-owned default.
   function pickupAddressID(schedule) {
     const id = Number(schedule?.address);
     return Number.isInteger(id) && id > 0 ? id : null;
@@ -300,15 +299,29 @@
     const draft = getDraft();
     if (!main) return;
     try {
-      const data = await catalog();
+      const [data, addresses] = await Promise.all([catalog(), api("/account/addresses")]);
+      const selectedAddressID = pickupAddressID(draft.schedule);
+      const selectedAddress = selectedAddressID === null
+        ? addresses.find((address) => address.isDefault)
+        : addresses.find((address) => address.addressID === selectedAddressID);
+      const reviewAddressID = selectedAddress?.addressID || null;
+      main.dataset.reviewPickupAddress = selectedAddress
+        ? [selectedAddress.nickname, selectedAddress.street, selectedAddress.city, selectedAddress.state]
+          .map((part) => String(part || "").trim()).filter(Boolean).join(", ")
+        : "Pickup address unavailable. Return to Schedule and select a saved address.";
       const lines = draft.lines || [];
       const total = lines.reduce((sum, line) => sum + (data.pricing.find((price) => price.itemID === line.itemID && price.serviceID === line.serviceID)?.price || 0) * line.quantity, 0);
       main.innerHTML = `<header class="page_header"><div class="subtitle">NEW ORDER · REVIEW</div><h1>Review your order</h1></header><ol class="step_list"><li class="done">1 Services</li><li class="done">2 Items</li><li class="done">3 Schedule</li><li class="done">4 Instructions</li><li class="active">5 Review</li></ol><section class="card"><h2>Items and services</h2>${lines.map((line) => { const item = data.items.find((entry) => entry.itemID === line.itemID); const service = data.services.find((entry) => entry.serviceID === line.serviceID); const price = data.pricing.find((entry) => entry.itemID === line.itemID && entry.serviceID === line.serviceID); return `<div class="activity_item"><span class="activity_dot"></span><div><strong>${line.quantity} × ${escapeHtml(item?.itemName || "Unknown item")}</strong><p class="muted small">${escapeHtml(service?.serviceName || "Unknown service")}</p></div><strong>${money((price?.price || 0) * line.quantity)}</strong></div>`; }).join("") || "<p class=\"muted\">No items have been selected.</p>"}<div class="top_bar"><h3>Order total</h3><h2>${money(total)}</h2></div></section><form id="confirm-order-form" style="margin-top:20px"><label class="check_row"><input type="checkbox" required>I confirm the item and service selections are correct.</label><div class="actions"><a class="custom_button custom_button_nobg" href="new_order_items.html">Edit items</a><button class="custom_button custom_button_bg" type="submit">Confirm order</button></div></form>`;
       const form = document.getElementById("confirm-order-form");
+      form.querySelector('button[type="submit"]').disabled = !reviewAddressID;
       let submitting = false;
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         if (submitting) return;
+        if (!reviewAddressID) {
+          toast("Pickup address unavailable", "Return to Schedule and select a saved address.");
+          return;
+        }
         if (lines.length === 0
           || (draft.services || []).some((serviceID) => !lines.some((line) => line.serviceID === serviceID))
           || !form.reportValidity()) {
@@ -324,7 +337,7 @@
           const userID = await currentUserID();
           // The note and the ticked preferences from the instructions step are sent with the
           // order, so they are saved on it (orders.instructions and orders.preferences).
-          const created = await api("/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userID, orderLines: lines, pickupScheduled: pickupDateTime(draft.schedule), addressID: pickupAddressID(draft.schedule), instructions: draft.instructions?.notes || "", preferences: draft.instructions?.preferences || [] }) });
+          const created = await api("/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userID, orderLines: lines, pickupScheduled: pickupDateTime(draft.schedule), addressID: reviewAddressID, instructions: draft.instructions?.notes || "", preferences: draft.instructions?.preferences || [] }) });
           saveDraft({ ...draft, userID, lastOrderID: created.orderID, lines: [], completed: true });
           toast("Order created", `Order #${created.orderID} is ${created.statusLabel}.`);
           window.location.href = `upcoming_order_details.html?userID=${created.userID}&orderID=${created.orderID}`;
@@ -471,6 +484,53 @@
     }
   }
 
+  function modificationDetailsMarkup(order, addresses) {
+    const preferenceLabels = {
+      "fragrance-free": "Fragrance-free detergent",
+      "hypoallergenic": "Hypoallergenic detergent",
+      "hang-dry": "Hang-dry delicate items",
+      "hangers": "Return shirts on hangers"
+    };
+    const windows = [["08:00", "8:00 AM – 11:00 AM"], ["11:00", "11:00 AM – 2:00 PM"],
+      ["14:00", "2:00 PM – 5:00 PM"], ["17:00", "5:00 PM – 8:00 PM"]];
+    return `<section class="grid grid_two" style="margin-top:22px"><article class="card"><h2>Pickup schedule</h2>
+      ${order.pickupScheduled ? `<p class="muted">Current pickup: ${escapeHtml(order.pickupScheduled.replace("T", " "))}</p>` : ""}
+      <div class="field"><label for="modify-pickup-date">Pickup date</label><input id="modify-pickup-date" class="input" type="date" required value="${escapeHtml((order.pickupScheduled || "").slice(0, 10))}"></div>
+      <div class="field"><label for="modify-pickup-time">Pickup time window</label><select id="modify-pickup-time" class="input" required><option value="">Choose a time</option>${windows.map(([value, label]) => `<option value="${value}" ${value === (order.pickupScheduled || "").slice(11, 16) ? "selected" : ""}>${label}</option>`).join("")}</select></div>
+      <div class="field"><label for="modify-pickup-address">Pickup address</label><select id="modify-pickup-address" class="input" required><option value="">Choose a saved address</option>${addresses.map(address => `<option value="${escapeHtml(String(address.addressID))}" ${address.addressID === order.pickupAddressID ? "selected" : ""}>${escapeHtml([address.nickname, address.street, address.city, address.state].filter(Boolean).join(", "))}</option>`).join("")}</select>${addresses.length ? "" : '<p class="muted">You have no saved addresses. Save an address before modifying the order.</p>'}</div>
+      </article><article class="card"><h2>Instructions and preferences</h2>
+      ${Object.entries(preferenceLabels).map(([code, label]) => `<label class="check_row"><input type="checkbox" name="modify-preference" value="${code}" ${(order.preferenceCodes || []).includes(code) ? "checked" : ""}>${label}</label>`).join("")}
+      <div class="field"><label for="modify-instructions">Notes for our team</label><textarea id="modify-instructions" class="input" maxlength="500" rows="4">${escapeHtml(order.instructions || "")}</textarea></div>
+      </article></section>`;
+  }
+
+  function bindModificationSchedule(form) {
+    const date = form.querySelector("#modify-pickup-date");
+    const time = form.querySelector("#modify-pickup-time");
+    const isoDate = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+    const validate = () => {
+      const now = new Date();
+      const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const lastDay = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate();
+      nextMonth.setDate(Math.min(now.getDate(), lastDay));
+      date.min = isoDate(now);
+      date.max = isoDate(nextMonth);
+      time.setCustomValidity("");
+      Array.from(time.options).forEach(option => {
+        if (!option.value) return;
+        const [hours, minutes] = option.value.split(":").map(Number);
+        option.disabled = date.value === date.min && hours * 60 + minutes <= now.getHours() * 60 + now.getMinutes();
+      });
+      if (time.selectedOptions[0]?.disabled) time.setCustomValidity("Choose a pickup window that has not started yet.");
+    };
+    date.addEventListener("change", validate);
+    time.addEventListener("change", validate);
+    validate();
+    const timer = setInterval(validate, 60000);
+    window.addEventListener("pagehide", () => clearInterval(timer), { once: true });
+    return validate;
+  }
+
   async function initModify() {
     const main = document.querySelector("main");
     if (!main) return;
@@ -478,20 +538,37 @@
     if (!order) return;
     if (!ELIGIBLE_STATUSES.has(order.statusLabel) || order.customerCanModify !== true) { main.innerHTML = `<section class="card"><h1>Order cannot be modified</h1><p class="muted">${LOCKED_MESSAGE} Current status: ${escapeHtml(order.statusLabel)}.</p><a class="custom_button custom_button_bg" href="order_details.html?userID=${order.userID}&orderID=${order.orderID}">View order</a></section>`; return; }
     try {
-      const data = await catalog();
+      const [data, addresses] = await Promise.all([catalog(), api("/account/addresses")]);
       const allServices = data.services.map((service) => service.serviceID);
       main.innerHTML = `<header class="page_header"><div class="subtitle">MODIFY ORDER</div><h1>Edit order #${order.orderID}</h1></header><form id="modify-order-form" style="margin-top:22px"><section class="card"><h2>Items and services</h2><div id="item-list"></div><button id="add-item" class="custom_button custom_button_nobg" type="button">+ Add another item</button></section><aside class="card" style="margin-top:20px"><div class="top_bar"><div><h2>Updated order total</h2></div><h2 id="estimated-total"></h2></div></aside><div class="actions"><a class="custom_button custom_button_nobg" href="order_details.html?userID=${order.userID}&orderID=${order.orderID}">Discard changes</a><button class="custom_button custom_button_bg" type="submit">Save order changes</button></div></form>`;
+      const form = document.getElementById("modify-order-form");
+      form.querySelector(".actions").insertAdjacentHTML("beforebegin", modificationDetailsMarkup(order, addresses));
+      const validateSchedule = bindModificationSchedule(form);
       const list = document.getElementById("item-list");
       list.innerHTML = order.orderLines.map((line) => lineRow(line, data, allServices)).join("");
       const updateTotal = () => { const total = Array.from(list.querySelectorAll(".item-row")).reduce((sum, row) => { const price = data.pricing.find((entry) => entry.itemID === Number(row.querySelector(".item-name").value) && entry.serviceID === Number(row.querySelector(".item-service").value)); return sum + (price ? price.price * Number(row.querySelector(".item-qty").value || 0) : 0); }, 0); document.getElementById("estimated-total").textContent = money(total); };
       const bindings = bindLineRows(list, data, allServices, updateTotal);
       document.getElementById("add-item").addEventListener("click", () => { list.insertAdjacentHTML("beforeend", lineRow({}, data, allServices)); bindings.bind(list.lastElementChild); updateTotal(); });
-      document.getElementById("modify-order-form").addEventListener("submit", async (event) => {
+      let saving = false;
+      form.addEventListener("submit", async (event) => {
         event.preventDefault();
+        if (saving) return;
+        validateSchedule();
+        if (!form.reportValidity()) return;
         const lines = Array.from(list.querySelectorAll(".item-row")).map((row) => ({ itemID: Number(row.querySelector(".item-name").value), serviceID: Number(row.querySelector(".item-service").value), quantity: Number(row.querySelector(".item-qty").value) }));
         if (!lines.length || lines.some((line) => !bindings.priceFor(line.itemID, line.serviceID) || line.quantity <= 0)) { toast("Invalid order lines", "Choose valid items, services, and quantities."); return; }
-        try { await api(`/orders/customer/${order.userID}/${order.orderID}/lines`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderLines: lines }) }); window.location.href = `order_details.html?userID=${order.userID}&orderID=${order.orderID}`; }
-        catch (error) { toast("Order could not be updated", error.message); }
+        const request = {
+          orderLines: lines,
+          addressID: Number(form.querySelector("#modify-pickup-address").value),
+          pickupScheduled: `${form.querySelector("#modify-pickup-date").value}T${form.querySelector("#modify-pickup-time").value}:00`,
+          instructions: form.querySelector("#modify-instructions").value,
+          preferences: Array.from(form.querySelectorAll('input[name="modify-preference"]:checked'), input => input.value)
+        };
+        const saveButton = form.querySelector('button[type="submit"]');
+        saving = true;
+        saveButton.disabled = true;
+        try { await api(`/orders/customer/${order.userID}/${order.orderID}/lines`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request) }); window.location.href = `order_details.html?userID=${order.userID}&orderID=${order.orderID}`; }
+        catch (error) { saving = false; saveButton.disabled = false; toast("Order could not be updated", error.message); }
       });
       updateTotal();
     } catch (error) { main.innerHTML = `<section class="card"><h1>Unable to prepare modification</h1><p class="muted">${escapeHtml(error.message)}</p></section>`; }

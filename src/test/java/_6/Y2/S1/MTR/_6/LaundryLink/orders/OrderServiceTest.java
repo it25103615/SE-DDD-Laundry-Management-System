@@ -45,6 +45,8 @@ class OrderServiceTest {
     @BeforeEach
     void setUp() {
         orderRepository = mock(OrderRepository.class);
+        when(orderRepository.countAddressesOwnedByCustomer(7, 1)).thenReturn(1);
+        when(orderRepository.findDefaultAddressID(1)).thenReturn(Optional.of(7));
         itemRepository = mock(ItemRepository.class);
         serviceRepository = mock(ServiceRepository.class);
         servicePricingRepository = mock(ServicePricingRepository.class);
@@ -138,8 +140,33 @@ class OrderServiceTest {
         assertEquals(360.0, response.getOrderLines().getFirst().getLinePrice());
         verify(orderRepository).save(any(Order.class));
         // The delivery row must be created for the saved order, with the customer's pickup time.
-        // No address was chosen, so null is passed and the query falls back to the default address.
-        verify(orderRepository).createDelivery(100, 1, pickup, null);
+        // No address was chosen, so the owned default is resolved before saving.
+        verify(orderRepository).createDelivery(100, 1, pickup, 7);
+    }
+
+    @Test
+    void rejectsInvalidCreatePickupSchedulesBeforeSaving() {
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        LocalDateTime now = LocalDateTime.now();
+        for (LocalDateTime pickup : new LocalDateTime[]{null, now.minusDays(1), now.plusMonths(1).plusDays(1),
+                now.plusDays(1).withHour(9).withMinute(0).withSecond(0).withNano(0)}) {
+            CreateOrderRequest request = request(1, line(1, 1, 2));
+            request.setPickupScheduled(pickup);
+            assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                    () -> orderService.createOrder(request)).getStatusCode());
+        }
+        verify(orderRepository, never()).save(any(Order.class));
+        verify(orderRepository, never()).createDelivery(any(), any(), any(), any());
+    }
+
+    @Test
+    void rejectsCreateWithoutAnExplicitOrDefaultPickupAddress() {
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        when(orderRepository.findDefaultAddressID(1)).thenReturn(Optional.empty());
+        assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                () -> orderService.createOrder(request(1, line(1, 1, 2)))).getStatusCode());
+        verify(orderRepository, never()).save(any(Order.class));
+        verify(orderRepository, never()).createDelivery(any(), any(), any(), any());
     }
 
     @Test
@@ -164,7 +191,7 @@ class OrderServiceTest {
 
         orderService.createOrder(request);
 
-        verify(orderRepository).createDelivery(100, 1, null, 7);
+        verify(orderRepository).createDelivery(100, 1, request.getPickupScheduled(), 7);
     }
 
     @Test
@@ -383,11 +410,11 @@ class OrderServiceTest {
     }
 
     @Test
-    void rejectsCustomerModificationWhenPaidOrVerifiedPaymentExists() {
+    void rejectsCustomerModificationWhenSubmittedOrSuccessfulPaymentExists() {
         Order order = orderWithLine(10, 1, 1, 1, 2, 360.0);
         when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
         when(orderRepository.findByOrderIDAndUserID(10, 1)).thenReturn(Optional.of(order));
-        when(orderRepository.countPaidOrVerifiedPayments(10)).thenReturn(1);
+        when(orderRepository.countSubmittedOrSuccessfulPayments(10)).thenReturn(1);
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> orderService.modifyCustomerOrder(1, 10, modifyRequest(line(1, 1, 3))));
@@ -418,20 +445,71 @@ class OrderServiceTest {
         ServicePricing pricing = pricingWithDetails(1, 1, 180.0);
         when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
         when(orderRepository.findByOrderIDAndUserID(10, 1)).thenReturn(Optional.of(order));
-        // No PAID/VERIFIED records, including when only REJECTED records exist.
-        when(orderRepository.countPaidOrVerifiedPayments(10)).thenReturn(0);
+        // No PENDING/PAID/VERIFIED records, including when only REJECTED records exist.
+        when(orderRepository.countSubmittedOrSuccessfulPayments(10)).thenReturn(0);
         when(itemRepository.existsById(1)).thenReturn(true);
         when(serviceRepository.existsById(1)).thenReturn(true);
         when(servicePricingRepository.findByItemIDAndServiceID(1, 1)).thenReturn(Optional.of(pricing));
         when(orderRepository.save(order)).thenReturn(order);
         when(logService.getLogsByOrder(10)).thenReturn(List.of());
 
-        OrderDetailResponse response = orderService.modifyCustomerOrder(1, 10, modifyRequest(line(1, 1, 3)));
+        ModifyOrderRequest request = modifyRequest(line(1, 1, 3));
+        request.setInstructions("  Handle the collar carefully.  ");
+        request.setPreferences(List.of("hangers", "fragrance-free", "hangers"));
+        when(orderRepository.updatePickupSchedule(10, 1, request.getPickupScheduled(), request.getAddressID())).thenReturn(1);
+        OrderRepository.PickupDetails pickup = mock(OrderRepository.PickupDetails.class);
+        when(pickup.getPickupScheduled()).thenReturn(request.getPickupScheduled());
+        when(pickup.getAddressID()).thenReturn(7);
+        when(orderRepository.findPickupDetails(10, 1)).thenReturn(Optional.of(pickup));
+
+        OrderDetailResponse response = orderService.modifyCustomerOrder(1, 10, request);
 
         assertEquals(1, response.getOrderLines().size());
         assertEquals(540.0, response.getOrderLines().getFirst().getLinePrice());
         assertEquals(true, response.isCustomerCanModify());
+        assertEquals(request.getPickupScheduled(), response.getPickupScheduled());
+        assertEquals(7, response.getPickupAddressID());
+        assertEquals("Handle the collar carefully.", response.getInstructions());
+        assertEquals(List.of("fragrance-free", "hangers"), response.getPreferenceCodes());
+        verify(orderRepository).updatePickupSchedule(10, 1, request.getPickupScheduled(), request.getAddressID());
+        verify(orderRepository, never()).findDefaultAddressID(1);
+        verify(orderRepository).countAddressesOwnedByCustomer(7, 1);
         verify(orderRepository).save(order);
+    }
+
+    @Test
+    void rejectsInvalidCustomerPickupSchedulesBeforeSavingAnyFields() {
+        Order order = orderWithLine(10, 1, 1, 1, 2, 360.0);
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        when(orderRepository.findByOrderIDAndUserID(10, 1)).thenReturn(Optional.of(order));
+        LocalDateTime now = LocalDateTime.now();
+        for (LocalDateTime pickup : new LocalDateTime[]{null, now.minusDays(1), now.plusMonths(1).plusDays(1),
+                now.plusDays(1).withHour(9).withMinute(0).withSecond(0).withNano(0)}) {
+            ModifyOrderRequest request = modifyRequest(line(1, 1, 3));
+            request.setPickupScheduled(pickup);
+            assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                    () -> orderService.modifyCustomerOrder(1, 10, request)).getStatusCode());
+        }
+        verify(orderRepository, never()).updatePickupSchedule(any(), any(), any(), any());
+        verify(orderRepository, never()).save(any(Order.class));
+        assertEquals(360.0, order.getOrderLines().getFirst().getLinePrice());
+    }
+
+    @Test
+    void rejectsInvalidCustomerNotesAndPreferencesBeforeSaving() {
+        Order order = orderWithLine(10, 1, 1, 1, 2, 360.0);
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        when(orderRepository.findByOrderIDAndUserID(10, 1)).thenReturn(Optional.of(order));
+        ModifyOrderRequest longNote = modifyRequest(line(1, 1, 3));
+        longNote.setInstructions("x".repeat(501));
+        ModifyOrderRequest invalidPreference = modifyRequest(line(1, 1, 3));
+        invalidPreference.setPreferences(List.of("unknown"));
+        for (ModifyOrderRequest request : List.of(longNote, invalidPreference)) {
+            assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                    () -> orderService.modifyCustomerOrder(1, 10, request)).getStatusCode());
+        }
+        verify(orderRepository, never()).updatePickupSchedule(any(), any(), any(), any());
+        verify(orderRepository, never()).save(any(Order.class));
     }
 
     @Test
@@ -523,7 +601,7 @@ class OrderServiceTest {
         ServicePricing pricing = pricingWithDetails(1, 1, 180.0);
         when(orderRepository.findById(10)).thenReturn(Optional.of(order));
         // The customer payment restriction must not prevent management edits.
-        when(orderRepository.countPaidOrVerifiedPayments(10)).thenReturn(1);
+        when(orderRepository.countSubmittedOrSuccessfulPayments(10)).thenReturn(1);
         when(itemRepository.existsById(1)).thenReturn(true);
         when(serviceRepository.existsById(1)).thenReturn(true);
         when(servicePricingRepository.findByItemIDAndServiceID(1, 1)).thenReturn(Optional.of(pricing));
@@ -533,6 +611,7 @@ class OrderServiceTest {
         OrderDetailResponse response = orderService.modifyManagementOrder(10, modifyRequest(line(1, 1, 3)));
 
         assertEquals(540.0, response.getOrderTotal());
+        verify(orderRepository, never()).updatePickupSchedule(any(), any(), any(), any());
         verify(orderRepository).save(order);
     }
 
@@ -567,6 +646,7 @@ class OrderServiceTest {
         CreateOrderRequest request = new CreateOrderRequest();
         request.setUserID(userID);
         request.setOrderLines(List.of(lines));
+        request.setPickupScheduled(LocalDateTime.now().plusDays(1).withHour(8).withMinute(0).withSecond(0).withNano(0));
         return request;
     }
 
@@ -581,6 +661,8 @@ class OrderServiceTest {
     private ModifyOrderRequest modifyRequest(CreateOrderLineRequest... lines) {
         ModifyOrderRequest request = new ModifyOrderRequest();
         request.setOrderLines(List.of(lines));
+        request.setAddressID(7);
+        request.setPickupScheduled(LocalDateTime.now().plusDays(1).withHour(8).withMinute(0).withSecond(0).withNano(0));
         return request;
     }
 

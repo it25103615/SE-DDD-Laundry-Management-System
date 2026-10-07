@@ -19,6 +19,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Comparator;
 import java.util.Set;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Service
 public class OrderService {
@@ -50,8 +52,9 @@ public class OrderService {
     @Transactional
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
         validateCustomer(request.getUserID());
+        validatePickupSchedule(request.getPickupScheduled());
         // Checked before anything is saved, so a bad address never leaves a half-made order.
-        validateAddress(request.getAddressID(), request.getUserID());
+        Integer pickupAddressID = validatedPickupAddress(request.getAddressID(), request.getUserID());
         // Also checked before anything is saved: an unknown preference code stops the order here.
         String preferences = toStoredPreferences(request.getPreferences());
 
@@ -73,13 +76,12 @@ public class OrderService {
         // The save above has already inserted the order, so its generated orderID is available.
         // Creating the delivery row in this same @Transactional method means the order, its
         // lines and its delivery row are either all saved or all rolled back together.
-        // The chosen address goes on the delivery row; when none was chosen the query stores
-        // the customer's default address instead.
+        // The validated chosen/default address goes on the delivery row.
         orderRepository.createDelivery(
                 savedOrder.getOrderID(),
                 savedOrder.getUserID(),
                 request.getPickupScheduled(),
-                request.getAddressID());
+                pickupAddressID);
 
         return toCreateOrderResponse(savedOrder);
     }
@@ -130,9 +132,27 @@ public class OrderService {
 
         if (!canCustomerModify(order)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Only Payment Failed orders or Unconfirmed orders without a paid or verified payment can be modified.");
+                    "Only Payment Failed orders or Unconfirmed orders without a pending, paid, or verified payment can be modified.");
         }
-        return modifyOrderLines(order, request);
+        validatePickupSchedule(request.getPickupScheduled());
+        if (request.getAddressID() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select an existing pickup address.");
+        }
+        Integer pickupAddressID = validatedPickupAddress(request.getAddressID(), userID);
+        if (request.getInstructions() != null && request.getInstructions().length() > 500) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Instructions must not exceed 500 characters.");
+        }
+        String preferences = toStoredPreferences(request.getPreferences());
+        // Validate every line before mutating the order or its pickup details.
+        List<OrderLine> updatedLines = validatedOrderLines(request);
+        if (orderRepository.updatePickupSchedule(orderID, userID,
+                request.getPickupScheduled(), pickupAddressID) != 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "The order must have exactly one pickup record. No changes were saved.");
+        }
+        order.setInstructions(trimToNull(request.getInstructions()));
+        order.setPreferences(preferences);
+        return replaceOrderLines(order, updatedLines);
     }
 
     @Transactional
@@ -190,11 +210,20 @@ public class OrderService {
 
     // Each caller validates its own eligibility before this shared line-update operation.
     private OrderDetailResponse modifyOrderLines(Order order, ModifyOrderRequest request) {
+        return replaceOrderLines(order, validatedOrderLines(request));
+    }
 
-        List<OrderLine> updatedLines = request.getOrderLines().stream()
+    private List<OrderLine> validatedOrderLines(ModifyOrderRequest request) {
+        if (request.getOrderLines() == null || request.getOrderLines().isEmpty()
+                || request.getOrderLines().stream().anyMatch(java.util.Objects::isNull)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select at least one valid order line.");
+        }
+        return request.getOrderLines().stream()
                 .map(orderLineService::createOrderLine)
                 .toList();
+    }
 
+    private OrderDetailResponse replaceOrderLines(Order order, List<OrderLine> updatedLines) {
         order.getOrderLines().clear();
         updatedLines.forEach(line -> {
             line.setOrder(order);
@@ -206,6 +235,8 @@ public class OrderService {
     }
 
     private OrderDetailResponse toOrderDetailResponse(Order order) {
+        OrderRepository.PickupDetails pickup = orderRepository
+                .findPickupDetails(order.getOrderID(), order.getUserID()).orElse(null);
         List<OrderHistoryResponse> history = logService.getLogsByOrder(order.getOrderID()).stream()
                 .sorted(Comparator
                         .comparing(Log::getLogDate, Comparator.nullsLast(Comparator.naturalOrder()))
@@ -231,7 +262,13 @@ public class OrderService {
                 order.getInstructions(),
                 // Stored as codes; the pages are given the readable labels.
                 OrderPreference.labelsOf(order.getPreferences()),
-                canCustomerModify(order));
+                canCustomerModify(order),
+                pickup == null ? null : pickup.getPickupScheduled(),
+                pickup == null ? null : pickup.getAddressID(),
+                java.util.Arrays.stream(OrderPreference.values())
+                        .filter(preference -> order.getPreferences() != null
+                                && java.util.Arrays.asList(order.getPreferences().split(",")).contains(preference.getCode()))
+                        .map(OrderPreference::getCode).toList());
     }
 
     private OrderSummaryResponse toOrderSummaryResponse(Order order) {
@@ -246,7 +283,27 @@ public class OrderService {
     private boolean canCustomerModify(Order order) {
         return "Payment Failed".equals(order.getStatus().getStatusLabel())
                 || (INITIAL_STATUS_LABEL.equals(order.getStatus().getStatusLabel())
-                    && orderRepository.countPaidOrVerifiedPayments(order.getOrderID()) == 0);
+                    && orderRepository.countSubmittedOrSuccessfulPayments(order.getOrderID()) == 0);
+    }
+
+    private void validatePickupSchedule(LocalDateTime pickupScheduled) {
+        LocalDateTime now = LocalDateTime.now();
+        if (pickupScheduled == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select a pickup date and time window.");
+        }
+        if (pickupScheduled.toLocalDate().isBefore(now.toLocalDate())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Please choose today or a future date.");
+        }
+        if (!pickupScheduled.isAfter(now)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a pickup window that has not started yet.");
+        }
+        if (pickupScheduled.toLocalDate().isAfter(now.toLocalDate().plusMonths(1))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pickup can only be scheduled up to one calendar month in advance.");
+        }
+        if (!Set.of(LocalTime.of(8, 0), LocalTime.of(11, 0), LocalTime.of(14, 0), LocalTime.of(17, 0))
+                .contains(pickupScheduled.toLocalTime())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select a valid pickup time window.");
+        }
     }
 
     private List<OrderLineDetailResponse> toOrderLineDetails(Order order) {
@@ -274,12 +331,16 @@ public class OrderService {
         }
     }
 
-    // An order may only use one of the customer's own saved addresses. No address at all is
-    // fine: the delivery row then falls back to the customer's default address.
-    private void validateAddress(Integer addressID, Integer userID) {
-        if (addressID != null && orderRepository.countAddressesOwnedByCustomer(addressID, userID) == 0) {
+    // Resolve the existing default fallback before saving; never leave pickup without an address.
+    private Integer validatedPickupAddress(Integer addressID, Integer userID) {
+        Integer resolvedAddressID = addressID == null
+                ? orderRepository.findDefaultAddressID(userID).orElseThrow(() ->
+                    new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select an existing pickup address or save a default address."))
+                : addressID;
+        if (resolvedAddressID <= 0 || orderRepository.countAddressesOwnedByCustomer(resolvedAddressID, userID) == 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pickup address not found for this customer");
         }
+        return resolvedAddressID;
     }
 
     // Turns the preference codes sent by the form into the string stored in orders.preferences.

@@ -1,7 +1,6 @@
 package _6.Y2.S1.MTR._6.LaundryLink.orders.dto;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -24,14 +23,12 @@ public class CreateOrderRequest {
     @Valid
     private List<CreateOrderLineRequest> orderLines;
 
-    // Start of the pickup window the customer chose on the schedule step. Optional so callers
-    // that do not schedule a pickup still work; it is stored in delivery.pickup_scheduled.
-    @FutureOrPresent
+    // Required window start; OrderService validates date range and supported slots for both flows.
+    @NotNull(message = "Select a pickup date and time window.")
     private LocalDateTime pickupScheduled;
 
     // The saved address the customer chose on the schedule step; stored in delivery.addressID.
-    // Optional: when it is left out, the customer's default address is used. It must be one of
-    // the customer's own addresses (OrderService checks this).
+    // Optional only when a valid saved default exists. OrderService resolves and checks ownership.
     @Positive
     private Integer addressID;
 
