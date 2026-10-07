@@ -14,6 +14,18 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
 
     Optional<Order> findByOrderIDAndUserID(Integer orderID, Integer userID);
 
+    // Check and change the status in one statement so a concurrent payment cannot be cancelled.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            UPDATE orders SET statusID = :cancelledStatusID
+            WHERE orderID = :orderID AND userID = :userID AND statusID = :unconfirmedStatusID
+            """, nativeQuery = true)
+    int cancelUnconfirmedOrder(
+            @Param("orderID") Integer orderID,
+            @Param("userID") Integer userID,
+            @Param("unconfirmedStatusID") Integer unconfirmedStatusID,
+            @Param("cancelledStatusID") Integer cancelledStatusID);
+
     @Query(value = """
             SELECT o.orderID AS orderID,
                    o.userID AS userID,

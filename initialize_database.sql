@@ -751,7 +751,8 @@ IF OBJECT_ID('dbo.status', 'U') IS NOT NULL
         (16, 'Payment Failed'),
         (17, 'Pickup Failed'),
         (18, 'Delivery Failed'),
-        (19, 'Dry Clean');
+        (19, 'Dry Clean'),
+        (20, 'Cancelled');
     GO
 -- ================ Populate Status Table - End ===============
 -- ============================================================

@@ -76,6 +76,93 @@
     return String(status || "Unknown").replaceAll("_", " ");
   }
 
+  function refundLabel(payment) {
+    if (!payment.refundStatus) return "";
+    const parts = [];
+    parts.push(`Refund ${statusLabel(payment.refundStatus)}`);
+    if (payment.refundStatus === "REQUESTED" && payment.refundRequestedAt) parts.push(dateTimeLabel(payment.refundRequestedAt));
+    if (payment.refundStatus === "REFUNDED" && payment.refundAmount != null) parts.push(money(payment.refundAmount));
+    if (payment.refundStatus === "REFUNDED" && payment.refundedAt) parts.push(dateTimeLabel(payment.refundedAt));
+    if (payment.refundStatus === "REJECTED" && payment.refundProcessedAt) parts.push(dateTimeLabel(payment.refundProcessedAt));
+    return ` · ${parts.join(" · ")}`;
+  }
+
+  function canRequestRefund(payment) {
+    return payment && payment.paymentStatus === "VERIFIED" && !payment.refundStatus;
+  }
+
+  function ensureRefundDialog() {
+    let dialog = document.getElementById("refund-request-dialog");
+    if (dialog) return dialog;
+    dialog = document.createElement("div");
+    dialog.id = "refund-request-dialog";
+    dialog.className = "card";
+    dialog.hidden = true;
+    dialog.style.cssText = "position:fixed;inset:10% auto auto 50%;transform:translateX(-50%);z-index:50;max-width:520px;width:calc(100% - 32px);box-shadow:0 18px 48px rgba(0,0,0,.22)";
+    dialog.innerHTML = `
+      <span class="muted small">REQUEST REFUND</span>
+      <h2 id="refund-dialog-title">Request Refund</h2>
+      <p class="muted" id="refund-dialog-payment">Payment</p>
+      <p class="muted" id="refund-dialog-amount">Refund amount</p>
+      <div class="field">
+        <label for="refund-dialog-reason">Reason</label>
+        <textarea class="input" id="refund-dialog-reason" rows="4" maxlength="255" placeholder="Enter refund reason"></textarea>
+      </div>
+      <p class="alert alert_error" id="refund-dialog-error" hidden></p>
+      <div class="actions">
+        <button class="custom_button custom_button_bg" id="refund-dialog-submit" type="button">Submit Refund Request</button>
+        <button class="custom_button custom_button_nobg" id="refund-dialog-cancel" type="button">Cancel</button>
+      </div>`;
+    document.body.appendChild(dialog);
+    return dialog;
+  }
+
+  function openRefundDialog(payment, afterSubmit) {
+    const dialog = ensureRefundDialog();
+    const reason = document.getElementById("refund-dialog-reason");
+    const error = document.getElementById("refund-dialog-error");
+    const submit = document.getElementById("refund-dialog-submit");
+    const cancel = document.getElementById("refund-dialog-cancel");
+    setText("refund-dialog-title", `Payment #${payment.paymentID}`);
+    setText("refund-dialog-payment", `Order #${payment.orderID}`);
+    setText("refund-dialog-amount", `Refund amount: ${money(payment.amount)}`);
+    if (reason) reason.value = "";
+    showError(error, "");
+    dialog.hidden = false;
+    if (reason) reason.focus();
+
+    const close = () => {
+      dialog.hidden = true;
+      if (submit) submit.onclick = null;
+      if (cancel) cancel.onclick = null;
+    };
+    if (cancel) cancel.onclick = close;
+    if (submit) submit.onclick = async () => {
+      const text = reason ? reason.value.trim() : "";
+      showError(error, "");
+      if (!text) {
+        showError(error, "Enter a refund reason.");
+        return;
+      }
+      submit.disabled = true;
+      try {
+        await api(`/api/payments/${payment.paymentID}/refund-request`, {
+          method: "POST",
+          body: JSON.stringify({ reason: text }),
+        });
+        close();
+        if (afterSubmit) await afterSubmit();
+      } catch (requestError) {
+        const message = requestError.body && requestError.body.message
+          ? requestError.body.message
+          : "Refund request could not be submitted.";
+        showError(error, message);
+      } finally {
+        submit.disabled = false;
+      }
+    };
+  }
+
   function cleanValue(value) {
     return value == null || value === "" ? "N/A" : String(value);
   }
@@ -373,6 +460,9 @@
         .filter((payment) => payment && payment.paymentID && payment.orderID)
         .map((payment) => {
           const receiptUrl = `receipt.html?paymentID=${encodeURIComponent(payment.paymentID)}&orderID=${encodeURIComponent(payment.orderID)}`;
+          const action = canRequestRefund(payment)
+            ? `<button class="custom_button custom_button_border refund-request-button" type="button" data-payment-id="${payment.paymentID}">Request Refund</button>`
+            : `<a class="link" href="${receiptUrl}">View Receipt</a>`;
           return `
             <tr>
               <td>Payment #${payment.paymentID}</td>
@@ -380,12 +470,18 @@
               <td>${money(payment.amount)}</td>
               <td>${methodLabel(payment.paymentMethod)}</td>
               <td>${cleanValue(payment.transactionReference)}</td>
-              <td>${statusLabel(payment.paymentStatus)}${payment.orderStatus ? ` · ${payment.orderStatus}` : ""}</td>
+              <td>${statusLabel(payment.paymentStatus)}${refundLabel(payment)}${payment.orderStatus ? ` · ${payment.orderStatus}` : ""}</td>
               <td>${dateTimeLabel(payment.processedAt)}</td>
-              <td><a class="link" href="${receiptUrl}">View Receipt</a></td>
+              <td>${action}</td>
             </tr>`;
         })
         .join("");
+      historyBody.querySelectorAll(".refund-request-button").forEach((button) => {
+        button.addEventListener("click", () => {
+          const payment = history.find((item) => String(item.paymentID) === String(button.dataset.paymentId));
+          if (payment) openRefundDialog(payment, () => window.location.reload());
+        });
+      });
       if (!historyBody.innerHTML) {
         historyBody.innerHTML = '<tr><td colspan="8">Payment history could not be loaded.</td></tr>';
       }
@@ -640,6 +736,7 @@
     const queryPaymentID = params().get("paymentID");
     const queryOrderID = params().get("orderID");
     const paymentsLink = document.getElementById("receipt-payments-link");
+    const refundRequestButton = document.getElementById("receipt-refund-request");
     if (paymentsLink && queryOrderID) paymentsLink.href = paymentFlowUrl("payments.html", queryOrderID);
 
     if (!queryPaymentID || !queryOrderID) {
@@ -653,6 +750,9 @@
       setText("receipt-total-discount", "Unavailable");
       setText("receipt-final-amount", "Unavailable");
       setText("receipt-status", "Status: Unavailable");
+      setText("receipt-refund-amount", "");
+      setText("receipt-refund-time", "");
+      if (refundRequestButton) refundRequestButton.hidden = true;
       setText("receipt-method", "Method: Not recorded");
       setText("receipt-time", "Date/time: Not recorded");
       return;
@@ -670,6 +770,40 @@
       setText("receipt-total-discount", `- ${money(receipt.totalDiscount ?? receipt.discountAmount)}`);
       setText("receipt-final-amount", money(receipt.finalPayableAmount));
       setText("receipt-status", `Status: ${String(receipt.paymentStatus || "Unknown").replaceAll("_", " ")}`);
+      const refundAmount = document.getElementById("receipt-refund-amount");
+      const refundTime = document.getElementById("receipt-refund-time");
+      if (receipt.refundStatus) {
+        if (refundAmount) {
+          refundAmount.hidden = false;
+          refundAmount.textContent = receipt.refundStatus === "REQUESTED"
+            ? "Refund status: REQUESTED - waiting for review."
+            : receipt.refundStatus === "REJECTED"
+              ? "Refund status: REJECTED."
+              : `Refund amount: ${money(receipt.refundAmount)}`;
+        }
+        if (refundTime) {
+          refundTime.hidden = false;
+          refundTime.textContent = receipt.refundStatus === "REQUESTED"
+            ? `Requested at: ${dateTimeLabel(receipt.refundRequestedAt)}`
+            : receipt.refundStatus === "REJECTED"
+              ? `Reviewed at: ${dateTimeLabel(receipt.refundProcessedAt)}`
+              : `Refunded at: ${dateTimeLabel(receipt.refundedAt)}`;
+        }
+      } else {
+        if (refundAmount) refundAmount.hidden = true;
+        if (refundTime) refundTime.hidden = true;
+      }
+      if (refundRequestButton) {
+        const payment = {
+          paymentID: receipt.paymentID,
+          orderID: receipt.orderID,
+          amount: receipt.amountPaid,
+          paymentStatus: receipt.paymentStatus,
+          refundStatus: receipt.refundStatus,
+        };
+        refundRequestButton.hidden = !canRequestRefund(payment);
+        refundRequestButton.onclick = () => openRefundDialog(payment, () => window.location.reload());
+      }
       setText("receipt-method", `Method: ${methodLabel(receipt.paymentMethod)}`);
       setText("receipt-time", `Date/time: ${dateTimeLabel(receipt.processedAt)}`);
       if (paymentsLink) paymentsLink.href = paymentFlowUrl("payments.html", receipt.orderID);
@@ -684,6 +818,9 @@
       setText("receipt-total-discount", "Unavailable");
       setText("receipt-final-amount", "Unavailable");
       setText("receipt-status", "Status: Unavailable");
+      setText("receipt-refund-amount", "");
+      setText("receipt-refund-time", "");
+      if (refundRequestButton) refundRequestButton.hidden = true;
       setText("receipt-method", "Method: Not recorded");
       setText("receipt-time", "Date/time: Not recorded");
     }

@@ -90,6 +90,11 @@
       if (!response.ok) {
         const error = new Error(`Request failed with status ${response.status}`);
         error.status = response.status;
+        try {
+          error.body = await response.json();
+        } catch (ignore) {
+          error.body = null;
+        }
         throw error;
       }
       if (response.status === 204) return null;
@@ -125,19 +130,33 @@
     if (status === "PAID" || status === "VERIFIED") {
       return `<span class="status status_success">${readable}</span>`;
     }
+    if (status === "REFUNDED") {
+      return `<span class="status">${readable}</span>`;
+    }
     if (status === "REJECTED") {
       return `<span class="status status_error">${readable}</span>`;
     }
     return `<span class="status status_warning">${readable}</span>`;
   }
 
+  function refundStatusMarkup(status) {
+    if (!status) return "";
+    const className = status === "REFUNDED"
+      ? "status_success"
+      : status === "REJECTED"
+        ? "status_error"
+        : "status_warning";
+    return `<br><span class="status ${className}">Refund ${label(status)}</span>`;
+  }
+
   async function loadListPage() {
     const table = document.getElementById("manager-payment-table");
     try {
       const records = await paymentRecords(paymentFilterQuery());
-      const collected = records
+      const verifiedTotal = records
         .filter((record) => record.paymentStatus === "VERIFIED")
         .reduce((total, record) => total + Number(record.amount || 0), 0);
+      const collected = verifiedTotal;
       const outstandingByOrder = new Map();
       records.forEach((record) => {
         if (record.orderID != null && !outstandingByOrder.has(record.orderID)) {
@@ -170,7 +189,7 @@
               <td>${escapeHtml(customerLabel(record))}</td>
               <td>${money(record.payableAmount)}</td>
               <td>${escapeHtml(methodLabel(record.paymentMethod))}</td>
-              <td>${statusMarkup(record.paymentStatus)}</td>
+              <td>${statusMarkup(record.paymentStatus)}${refundStatusMarkup(record.refundStatus)}</td>
               <td>${escapeHtml(dateTimeLabel(record.recordDate || record.processedAt))}</td>
               <td>${action}</td>
             </tr>`;
@@ -202,6 +221,22 @@
     setText("detail-payable", money(billing && billing.finalPayableAmount != null ? billing.finalPayableAmount : record.payableAmount));
     setText("detail-paid", money(record.paidAmount));
     setText("detail-outstanding", money(record.outstandingAmount));
+    setText("detail-refund-amount", money(record.refundAmount));
+    setText("detail-refund-date", dateTimeLabel(record.refundedAt));
+    setText("detail-refund-reason", cleanValue(record.refundReason));
+    setText("detail-refund-status", cleanValue(record.refundStatus));
+    setText("detail-refund-requested", dateTimeLabel(record.refundRequestedAt));
+    setText("detail-refund-requested-by", record.refundRequestedBy == null ? "Customer" : `Customer #${record.refundRequestedBy}`);
+
+    const refunded = record.paymentStatus === "REFUNDED";
+    const refundRequested = record.refundStatus === "REQUESTED";
+    const hasRefundWorkflow = !!record.refundStatus;
+    ["detail-refund-amount-row", "detail-refund-reason-row", "detail-refund-status-row", "detail-refund-requested-row", "detail-refund-requested-by-row"].forEach((id) => {
+      const element = document.getElementById(id);
+      if (element) element.hidden = !hasRefundWorkflow;
+    });
+    const refundDate = document.getElementById("detail-refund-date-row");
+    if (refundDate) refundDate.hidden = !refunded;
 
     const verified = record.paymentStatus === "VERIFIED";
     const rejected = record.paymentStatus === "REJECTED";
@@ -209,6 +244,7 @@
     const canVerify = payable && Number(record.outstandingAmount || 0) === 0;
     const approve = document.getElementById("approve-payment");
     const reject = document.getElementById("reject-payment");
+    const refundPanel = document.getElementById("refund-panel");
     const finalStatus = document.getElementById("detail-final-status");
 
     if (approve) {
@@ -219,14 +255,23 @@
       reject.hidden = !canVerify;
       reject.disabled = !canVerify;
     }
+    if (refundPanel) {
+      refundPanel.hidden = !refundRequested;
+    }
+    setText("refund-panel-amount", money(record.amount));
+    setText("refund-panel-reason", cleanValue(record.refundReason));
 
     if (finalStatus) {
-      if (verified || rejected) {
+      if (verified || rejected || refunded) {
         finalStatus.hidden = false;
-        finalStatus.className = `alert ${verified ? "alert_success" : "alert_error"}`;
+        finalStatus.className = `alert ${rejected ? "alert_error" : "alert_success"}`;
         finalStatus.textContent = verified
-          ? "This payment has already been accepted. No further action is required."
-          : "This payment has already been rejected. No further action is available.";
+          ? (refundRequested
+            ? "This payment has a refund request waiting for review."
+            : "This payment has already been accepted. No further action is required.")
+          : rejected
+            ? "This payment has already been rejected. No further action is available."
+            : "This verified payment has been refunded. No further action is available.";
       } else if (!canVerify) {
         finalStatus.hidden = false;
         finalStatus.className = "alert";
@@ -242,6 +287,8 @@
     const paymentID = Number(params().get("paymentID"));
     const approve = document.getElementById("approve-payment");
     const reject = document.getElementById("reject-payment");
+    const approveRefund = document.getElementById("approve-refund");
+    const rejectRefund = document.getElementById("reject-refund");
     let currentRecord = null;
 
     async function refresh() {
@@ -274,6 +321,27 @@
       }
     }
 
+    async function updateRefund(action) {
+      if (!currentRecord) return;
+      showMessage("detail-success", "");
+      showMessage("detail-error", "");
+      if (approveRefund) approveRefund.disabled = true;
+      if (rejectRefund) rejectRefund.disabled = true;
+      try {
+        const result = await api(`/api/payments/management/${currentRecord.paymentID}/refund/${action}`, { method: "POST" });
+        showMessage("detail-success", result.message || "Refund request updated.");
+        await refresh();
+      } catch (error) {
+        const message = error.body && error.body.message
+          ? error.body.message
+          : "Refund request could not be updated.";
+        showMessage("detail-error", message);
+      } finally {
+        if (approveRefund && currentRecord && currentRecord.refundStatus === "REQUESTED") approveRefund.disabled = false;
+        if (rejectRefund && currentRecord && currentRecord.refundStatus === "REQUESTED") rejectRefund.disabled = false;
+      }
+    }
+
     if (!paymentID) {
       showMessage("detail-error", "Payment ID is missing.");
       return;
@@ -281,6 +349,8 @@
 
     if (approve) approve.addEventListener("click", () => updateStatus("approve"));
     if (reject) reject.addEventListener("click", () => updateStatus("reject"));
+    if (approveRefund) approveRefund.addEventListener("click", () => updateRefund("approve"));
+    if (rejectRefund) rejectRefund.addEventListener("click", () => updateRefund("reject"));
 
     try {
       await refresh();

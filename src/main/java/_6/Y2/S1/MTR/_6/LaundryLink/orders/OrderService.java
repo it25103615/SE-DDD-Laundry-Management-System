@@ -128,6 +128,25 @@ public class OrderService {
         return modifyOrderLines(order, request);
     }
 
+    @Transactional
+    public OrderDetailResponse cancelCustomerOrder(Integer userID, Integer orderID) {
+        validateCustomer(userID);
+        Order order = orderRepository.findByOrderIDAndUserID(orderID, userID)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+        if (!INITIAL_STATUS_LABEL.equals(order.getStatus().getStatusLabel())
+                || !Integer.valueOf(1).equals(order.getStatus().getStatusID())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only Unconfirmed orders can be cancelled.");
+        }
+        Status cancelled = statusService.getByLabel("Cancelled");
+        if (!Integer.valueOf(20).equals(cancelled.getStatusID())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "The cancellation status is not configured correctly.");
+        }
+        if (orderRepository.cancelUnconfirmedOrder(orderID, userID, 1, cancelled.getStatusID()) != 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only Unconfirmed orders can be cancelled.");
+        }
+        return getCustomerOrder(userID, orderID);
+    }
+
     @Transactional(readOnly = true)
     public List<ManagerOrderSummaryResponse> searchManagementOrders(String search, Integer statusID) {
         String normalizedSearch = search == null || search.isBlank() ? null : search.trim();

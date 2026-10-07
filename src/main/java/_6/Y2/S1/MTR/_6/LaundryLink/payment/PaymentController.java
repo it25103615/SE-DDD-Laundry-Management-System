@@ -71,6 +71,26 @@ public class PaymentController {
         }
     }
 
+    @PostMapping("/{paymentID}/refund-request")
+    public ResponseEntity<?> requestRefund(
+            @PathVariable Integer paymentID,
+            Principal principal,
+            @Valid @RequestBody RefundRequest request
+    ) {
+        try {
+            Integer customerID = paymentAccessService.resolveCustomerID(principal);
+            return ResponseEntity.ok(paymentService.requestRefund(customerID, paymentID, request));
+        } catch (NoSuchElementException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(409).body(Map.of("message", ex.getMessage()));
+        }
+    }
+
     @GetMapping
     public ResponseEntity<List<PaymentResponse>> getPayments(
             Principal principal
@@ -290,6 +310,40 @@ public class PaymentController {
             return ResponseEntity.status(403).build();
         } catch (IllegalStateException ex) {
             return ResponseEntity.status(409).build();
+        }
+    }
+
+    @PostMapping("/management/{paymentID}/refund/approve")
+    public ResponseEntity<?> approveRefund(
+            @PathVariable Integer paymentID,
+            Principal principal
+    ) {
+        try {
+            Integer userID = paymentAccessService.resolveUserID(principal);
+            return ResponseEntity.ok(paymentService.approveRefund(userID, paymentID));
+        } catch (NoSuchElementException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(409).body(Map.of("message", ex.getMessage()));
+        }
+    }
+
+    @PostMapping("/management/{paymentID}/refund/reject")
+    public ResponseEntity<?> rejectRefund(
+            @PathVariable Integer paymentID,
+            Principal principal
+    ) {
+        try {
+            Integer userID = paymentAccessService.resolveUserID(principal);
+            return ResponseEntity.ok(paymentService.rejectRefund(userID, paymentID));
+        } catch (NoSuchElementException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(409).body(Map.of("message", ex.getMessage()));
         }
     }
 }
