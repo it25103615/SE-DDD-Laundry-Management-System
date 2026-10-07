@@ -49,12 +49,13 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/admin/**").hasAnyRole("OWNER", "ADMIN")
+                        .requestMatchers("/html/customer/**").hasRole("CUSTOMER")
                         .requestMatchers("/html/admin/owner/**").hasAnyRole("OWNER", "ADMIN")
                         .requestMatchers("/html/admin/manager/**").hasAnyRole("MANAGER", "OWNER", "ADMIN")
                         .requestMatchers("/html/admin/customer-service-manager/**").hasAnyRole("CSM", "CUSTOMER_SERVICE_MANAGER", "MANAGER", "OWNER", "ADMIN")
                         .requestMatchers("/api/support/**").authenticated()
                         .requestMatchers("/api/notifications/**").authenticated()
-                        .requestMatchers("/api/customer/dashboard").authenticated()
+                        .requestMatchers("/api/customer/dashboard").hasRole("CUSTOMER")
                         .requestMatchers("/api/account/**").authenticated()
                         // Laundry processing: the staff pages and their API are for staff, managers and owners only.
                         .requestMatchers("/api/processing/**", "/html/staff/**").hasAnyRole("STAFF", "MANAGER", "OWNER", "ADMIN")

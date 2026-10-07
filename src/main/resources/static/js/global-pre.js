@@ -31,6 +31,115 @@ if (location.protocol === "file:") {
     ADMIN: "/html/admin/owner/dashboard.html",
   };
 
+  const IDENTITY_KEY = "laundryLink.pageIdentity";
+  if (location.pathname === "/html/auth/login.html") {
+    const root = document.documentElement;
+    const visibility = root.style.getPropertyValue("visibility");
+    const priority = root.style.getPropertyPriority("visibility");
+    const hide = () => root.style.setProperty("visibility", "hidden", "important");
+    let generation = 0;
+    const verifyLoginPage = async () => {
+      const current = ++generation;
+      hide();
+      try {
+        const response = await fetch("/api/account/profile", {
+          headers: { Accept: "application/json" }, cache: "no-store",
+          signal: AbortSignal.timeout(10000),
+        });
+        if (response.ok && !response.redirected) {
+          const profile = await response.json();
+          if (current !== generation) return;
+          const destination = Number.isInteger(profile?.id) && typeof profile.role === "string"
+            ? DASHBOARDS[profile.role.toUpperCase()] : null;
+          if (destination) { location.replace(destination); return; }
+        }
+      } catch {
+        // Keep login available when the session is absent or verification is unavailable.
+      }
+      if (current !== generation) return;
+      if (visibility) root.style.setProperty("visibility", visibility, priority);
+      else root.style.removeProperty("visibility");
+    };
+    window.addEventListener("pagehide", () => { ++generation; hide(); });
+    window.addEventListener("pageshow", event => { if (event.persisted) verifyLoginPage(); });
+    verifyLoginPage();
+  }
+  const HISTORY_IDENTITY_KEY = "laundryLink.protectedIdentity";
+  const clearAccountStorage = () => {
+    try {
+      for (const key of Object.keys(sessionStorage)) {
+        if ([IDENTITY_KEY, "laundryLink.nav", "laundryLink.orderDraft", "laundrylinkCustomerID"].includes(key)
+            || key.startsWith("laundrylinkPromotionCode:")) sessionStorage.removeItem(key);
+      }
+    } catch {}
+  };
+  const pageRoles = [
+    ["/html/customer/", ["CUSTOMER"]],
+    ["/html/admin/owner/", ["OWNER", "ADMIN"]],
+    ["/html/admin/manager/", ["MANAGER", "OWNER", "ADMIN"]],
+    ["/html/admin/customer-service-manager/", ["CSM", "CUSTOMER_SERVICE_MANAGER", "MANAGER", "OWNER", "ADMIN"]],
+    ["/html/staff/", ["STAFF", "MANAGER", "OWNER", "ADMIN"]],
+    ["/html/rider/", ["RIDER"]],
+    ["/html/account/", Object.keys(DASHBOARDS)],
+  ].find(([prefix]) => location.pathname.startsWith(prefix));
+  if (pageRoles) {
+    const root = document.documentElement;
+    const visibility = root.style.getPropertyValue("visibility");
+    const priority = root.style.getPropertyPriority("visibility");
+    const hide = () => root.style.setProperty("visibility", "hidden", "important");
+    let pageIdentity, generation = 0;
+    hide();
+    const verify = async (restored = false) => {
+      const current = ++generation;
+      hide();
+      try {
+        const response = await fetch("/api/account/profile", {
+          headers: { Accept: "application/json" }, cache: "no-store",
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!response.ok || response.redirected) throw new Error("Sign in required");
+        const profile = await response.json();
+        if (!Number.isInteger(profile.id) || typeof profile.role !== "string") throw new Error("Invalid account");
+        if (current !== generation) return;
+        const role = profile.role.toUpperCase();
+        const identity = JSON.stringify([profile.id, role]);
+        const entryState = history.state;
+        // Preserve other features' state; do not silently convert unsupported state values.
+        if (entryState !== null && (typeof entryState !== "object" || Array.isArray(entryState)))
+          throw new Error("Unsupported history state");
+        const entryIdentity = entryState?.[HISTORY_IDENTITY_KEY];
+        let previous;
+        try { previous = sessionStorage.getItem(IDENTITY_KEY); } catch {}
+        const entryChanged = entryIdentity !== undefined && entryIdentity !== identity;
+        const changed = entryChanged || (pageIdentity && pageIdentity !== identity) || (previous && previous !== identity);
+        if (changed) clearAccountStorage();
+        try { sessionStorage.setItem(IDENTITY_KEY, identity); } catch {}
+        if (entryChanged || (pageIdentity && pageIdentity !== identity) || !pageRoles[1].includes(role)) {
+          // The replacement dashboard must not inherit the previous account's marker.
+          const nextState = { ...entryState };
+          delete nextState[HISTORY_IDENTITY_KEY];
+          history.replaceState(nextState, "");
+          location.replace(DASHBOARDS[role] || "/html/auth/login.html");
+          return;
+        }
+        // Navigation metadata only; the server profile and Spring Security decide access.
+        history.replaceState({ ...entryState, [HISTORY_IDENTITY_KEY]: identity }, "");
+        // Never reveal a restored DOM: its data and pending callbacks belong to the old page.
+        if (restored || changed) { location.reload(); return; }
+        pageIdentity = identity;
+        if (visibility) root.style.setProperty("visibility", visibility, priority);
+        else root.style.removeProperty("visibility");
+      } catch {
+        if (current !== generation) return;
+        clearAccountStorage();
+        location.replace("/html/auth/login.html");
+      }
+    };
+    window.addEventListener("pagehide", () => { ++generation; hide(); });
+    window.addEventListener("pageshow", event => { if (event.persisted) verify(true); });
+    verify();
+  }
+
   //Links that more than one role shares, written once so the label and the
   //  address stay the same everywhere
   const supportCases = { label: "Support cases", href: SUPPORT + "/complaints.html" };
@@ -365,6 +474,7 @@ if (location.protocol === "file:") {
         const loginPage = "/html/auth/login.html";
         if (!response.ok || new URL(response.url).pathname !== loginPage)
           throw new Error("Unable to log out. Please try again.");
+        clearAccountStorage();
         storeUser(null);
         location.href = loginPage + "?logout=true";
       } catch (error) {
