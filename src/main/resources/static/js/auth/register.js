@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const strengthLabel = document.getElementById("strength-label");
   const strengthBar = document.querySelector("#strength-meter span");
   let csrf;
+  button.disabled = true;
 
   phone.addEventListener("input", () => {
     phone.value = phone.value.replace(/\D/g, "").slice(0, 10);
@@ -23,14 +24,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   password.addEventListener("input", validatePasswords);
   confirmation.addEventListener("input", validatePasswords);
-
-  try {
-    csrf = await fetch("/api/auth/csrf").then((response) => response.json());
-  } catch {
-    message.hidden = false;
-    message.className = "alert alert_error form_message";
-    message.textContent = "The server is unavailable. Start the application and try again.";
-  }
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -52,7 +45,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         body: JSON.stringify(payload),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.message || "Registration failed. Check your details.");
+      if (response.redirected || response.status !== 201) throw new Error(data.message || "Registration failed. Check your details.");
       location.href = "login.html?registered=true";
     } catch (error) {
       message.hidden = false;
@@ -62,4 +55,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       button.disabled = false;
     }
   });
+
+  try {
+    const response = await fetch("/api/auth/csrf");
+    if (!response.ok || response.redirected) throw new Error("CSRF initialization failed.");
+    const token = await response.json();
+    if (!token || typeof token.headerName !== "string" || !token.headerName.trim()
+        || typeof token.token !== "string" || !token.token.trim()) throw new Error("Invalid CSRF token.");
+    csrf = token;
+    button.disabled = false;
+  } catch {
+    message.hidden = false;
+    message.className = "alert alert_error form_message";
+    message.textContent = "Unable to prepare secure registration. Open this page through the running LaundryLink application and reload to try again.";
+  }
 });

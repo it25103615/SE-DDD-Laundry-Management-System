@@ -18,7 +18,7 @@
         <h1>Create your account</h1>
         <p class="muted">Book your first pickup in a couple of minutes.</p>
         <div id="register-message" class="alert form_message" role="status" hidden></div>
-        <form id="register-form">
+        <form id="register-form" action="/api/auth/register" method="post">
           <div class="grid grid_two">
             <div class="field">
               <label for="name">Full name</label
