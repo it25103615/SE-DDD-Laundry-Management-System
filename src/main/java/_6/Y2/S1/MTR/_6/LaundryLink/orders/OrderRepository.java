@@ -10,20 +10,27 @@ import java.util.List;
 import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Integer> {
+    // Read payment records without changing the Payment Management workflow.
+    @Query(value = "SELECT COUNT(*) FROM payments WHERE orderID = :orderID AND paymentStatus IN ('PAID', 'VERIFIED')", nativeQuery = true)
+    int countPaidOrVerifiedPayments(@Param("orderID") Integer orderID);
+
     List<Order> findByUserID(Integer userID);
 
     Optional<Order> findByOrderIDAndUserID(Integer orderID, Integer userID);
 
-    // Check and change the status in one statement so a concurrent payment cannot be cancelled.
+    // Require the checked status and an allowed label when updating, including concurrent requests.
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = """
             UPDATE orders SET statusID = :cancelledStatusID
-            WHERE orderID = :orderID AND userID = :userID AND statusID = :unconfirmedStatusID
+            WHERE orderID = :orderID AND userID = :userID AND statusID = :expectedStatusID
+              AND statusID IN (SELECT statusID FROM status WHERE statusLabel IN
+                  ('Unconfirmed', 'Payment Verified', 'Awaiting Pickup', 'En Route To Pickup',
+                   'Picked Up', 'En Route To Shop', 'In Shop', 'Verifying Items'))
             """, nativeQuery = true)
-    int cancelUnconfirmedOrder(
+    int cancelEligibleOrder(
             @Param("orderID") Integer orderID,
             @Param("userID") Integer userID,
-            @Param("unconfirmedStatusID") Integer unconfirmedStatusID,
+            @Param("expectedStatusID") Integer expectedStatusID,
             @Param("cancelledStatusID") Integer cancelledStatusID);
 
     @Query(value = """

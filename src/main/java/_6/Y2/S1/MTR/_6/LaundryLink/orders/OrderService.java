@@ -23,6 +23,9 @@ import java.util.Set;
 @Service
 public class OrderService {
     private static final String INITIAL_STATUS_LABEL = "Unconfirmed";
+    private static final Set<String> CANCELLABLE_STATUS_LABELS = Set.of(
+            "Unconfirmed", "Payment Verified", "Awaiting Pickup", "En Route To Pickup",
+            "Picked Up", "En Route To Shop", "In Shop", "Verifying Items");
     private static final Set<String> MODIFIABLE_STATUS_LABELS = Set.of(
             "Unconfirmed",
             "Payment Verified",
@@ -125,6 +128,10 @@ public class OrderService {
         Order order = orderRepository.findByOrderIDAndUserID(orderID, userID)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
 
+        if (!canCustomerModify(order)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Only Payment Failed orders or Unconfirmed orders without a paid or verified payment can be modified.");
+        }
         return modifyOrderLines(order, request);
     }
 
@@ -133,16 +140,15 @@ public class OrderService {
         validateCustomer(userID);
         Order order = orderRepository.findByOrderIDAndUserID(orderID, userID)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
-        if (!INITIAL_STATUS_LABEL.equals(order.getStatus().getStatusLabel())
-                || !Integer.valueOf(1).equals(order.getStatus().getStatusID())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only Unconfirmed orders can be cancelled.");
+        if (!CANCELLABLE_STATUS_LABELS.contains(order.getStatus().getStatusLabel())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Orders can only be cancelled up to and including Verifying Items.");
         }
         Status cancelled = statusService.getByLabel("Cancelled");
         if (!Integer.valueOf(20).equals(cancelled.getStatusID())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "The cancellation status is not configured correctly.");
         }
-        if (orderRepository.cancelUnconfirmedOrder(orderID, userID, 1, cancelled.getStatusID()) != 1) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only Unconfirmed orders can be cancelled.");
+        if (orderRepository.cancelEligibleOrder(orderID, userID, order.getStatus().getStatusID(), cancelled.getStatusID()) != 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "The order status changed. Refresh the order before attempting cancellation again.");
         }
         return getCustomerOrder(userID, orderID);
     }
@@ -174,16 +180,16 @@ public class OrderService {
     public OrderDetailResponse modifyManagementOrder(Integer orderID, ModifyOrderRequest request) {
         Order order = orderRepository.findById(orderID)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
-        return modifyOrderLines(order, request);
-    }
-
-    private OrderDetailResponse modifyOrderLines(Order order, ModifyOrderRequest request) {
-
         if (!MODIFIABLE_STATUS_LABELS.contains(order.getStatus().getStatusLabel())) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "This order can no longer be modified after pickup processing begins");
         }
+        return modifyOrderLines(order, request);
+    }
+
+    // Each caller validates its own eligibility before this shared line-update operation.
+    private OrderDetailResponse modifyOrderLines(Order order, ModifyOrderRequest request) {
 
         List<OrderLine> updatedLines = request.getOrderLines().stream()
                 .map(orderLineService::createOrderLine)
@@ -224,7 +230,8 @@ public class OrderService {
                 history,
                 order.getInstructions(),
                 // Stored as codes; the pages are given the readable labels.
-                OrderPreference.labelsOf(order.getPreferences()));
+                OrderPreference.labelsOf(order.getPreferences()),
+                canCustomerModify(order));
     }
 
     private OrderSummaryResponse toOrderSummaryResponse(Order order) {
@@ -232,7 +239,14 @@ public class OrderService {
                 order.getOrderID(),
                 order.getStatus().getStatusID(),
                 order.getStatus().getStatusLabel(),
-                calculateOrderTotal(order));
+                calculateOrderTotal(order),
+                canCustomerModify(order));
+    }
+
+    private boolean canCustomerModify(Order order) {
+        return "Payment Failed".equals(order.getStatus().getStatusLabel())
+                || (INITIAL_STATUS_LABEL.equals(order.getStatus().getStatusLabel())
+                    && orderRepository.countPaidOrVerifiedPayments(order.getOrderID()) == 0);
     }
 
     private List<OrderLineDetailResponse> toOrderLineDetails(Order order) {

@@ -59,7 +59,7 @@ class OrderServiceTest {
     }
 
     @Test
-    void cancellationRejectsNonUnconfirmedAndConcurrentStatusChanges() {
+    void cancellationRejectsDisallowedLabelsAndConcurrentStatusChanges() {
         Order order = new Order();
         order.setOrderID(100);
         order.setUserID(1);
@@ -73,13 +73,13 @@ class OrderServiceTest {
             assertEquals(HttpStatus.CONFLICT, assertThrows(ResponseStatusException.class,
                     () -> orderService.cancelCustomerOrder(1, 100)).getStatusCode());
         }
-        verify(orderRepository, never()).cancelUnconfirmedOrder(any(), any(), any(), any());
+        verify(orderRepository, never()).cancelEligibleOrder(any(), any(), any(), any());
         when(status.getStatusID()).thenReturn(1);
         when(status.getStatusLabel()).thenReturn("Unconfirmed");
         Status cancelled = mock(Status.class);
         when(cancelled.getStatusID()).thenReturn(20);
         when(statusService.getByLabel("Cancelled")).thenReturn(cancelled);
-        when(orderRepository.cancelUnconfirmedOrder(100, 1, 1, 20)).thenReturn(0);
+        when(orderRepository.cancelEligibleOrder(100, 1, 1, 20)).thenReturn(0);
         assertEquals(HttpStatus.CONFLICT, assertThrows(ResponseStatusException.class,
                 () -> orderService.cancelCustomerOrder(1, 100)).getStatusCode());
     }
@@ -100,7 +100,7 @@ class OrderServiceTest {
         when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
         when(orderRepository.findByOrderIDAndUserID(100, 1)).thenReturn(Optional.of(order));
         when(logService.getLogsByOrder(100)).thenReturn(List.of());
-        when(orderRepository.cancelUnconfirmedOrder(100, 1, 1, 20)).thenAnswer(invocation -> {
+        when(orderRepository.cancelEligibleOrder(100, 1, 1, 20)).thenAnswer(invocation -> {
             order.setStatus(cancelled);
             return 1;
         });
@@ -383,11 +383,43 @@ class OrderServiceTest {
     }
 
     @Test
+    void rejectsCustomerModificationWhenPaidOrVerifiedPaymentExists() {
+        Order order = orderWithLine(10, 1, 1, 1, 2, 360.0);
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        when(orderRepository.findByOrderIDAndUserID(10, 1)).thenReturn(Optional.of(order));
+        when(orderRepository.countPaidOrVerifiedPayments(10)).thenReturn(1);
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> orderService.modifyCustomerOrder(1, 10, modifyRequest(line(1, 1, 3))));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        assertEquals(360.0, order.getOrderLines().getFirst().getLinePrice());
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
+    void rejectsCustomerModificationAtVerifiedAndAwaitingPickupStatuses() {
+        Order order = orderWithLine(10, 1, 1, 1, 2, 360.0);
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        when(orderRepository.findByOrderIDAndUserID(10, 1)).thenReturn(Optional.of(order));
+
+        for (Status status : List.of(status(2, "Payment Verified"), status(3, "Awaiting Pickup"))) {
+            order.setStatus(status);
+            ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                    () -> orderService.modifyCustomerOrder(1, 10, modifyRequest(line(1, 1, 3))));
+            assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        }
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
     void modifiesEligibleOrderWithDatabaseCalculatedPrices() {
         Order order = orderWithLine(10, 1, 1, 1, 2, 360.0);
         ServicePricing pricing = pricingWithDetails(1, 1, 180.0);
         when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
         when(orderRepository.findByOrderIDAndUserID(10, 1)).thenReturn(Optional.of(order));
+        // No PAID/VERIFIED records, including when only REJECTED records exist.
+        when(orderRepository.countPaidOrVerifiedPayments(10)).thenReturn(0);
         when(itemRepository.existsById(1)).thenReturn(true);
         when(serviceRepository.existsById(1)).thenReturn(true);
         when(servicePricingRepository.findByItemIDAndServiceID(1, 1)).thenReturn(Optional.of(pricing));
@@ -398,6 +430,7 @@ class OrderServiceTest {
 
         assertEquals(1, response.getOrderLines().size());
         assertEquals(540.0, response.getOrderLines().getFirst().getLinePrice());
+        assertEquals(true, response.isCustomerCanModify());
         verify(orderRepository).save(order);
     }
 
@@ -489,6 +522,8 @@ class OrderServiceTest {
         Order order = orderWithLine(10, 1, 1, 1, 2, 360.0);
         ServicePricing pricing = pricingWithDetails(1, 1, 180.0);
         when(orderRepository.findById(10)).thenReturn(Optional.of(order));
+        // The customer payment restriction must not prevent management edits.
+        when(orderRepository.countPaidOrVerifiedPayments(10)).thenReturn(1);
         when(itemRepository.existsById(1)).thenReturn(true);
         when(serviceRepository.existsById(1)).thenReturn(true);
         when(servicePricingRepository.findByItemIDAndServiceID(1, 1)).thenReturn(Optional.of(pricing));

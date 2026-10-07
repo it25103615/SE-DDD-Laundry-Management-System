@@ -3,14 +3,14 @@
 
   const API = "/api";
   const DRAFT_KEY = "laundryLink.orderDraft";
-  // The only status in which a customer may still change an order. Once finance verifies the
-  // payment the order moves to "Payment Verified" (then on to "Awaiting Pickup" and the later
-  // stages), so those statuses are deliberately NOT listed: editing would leave the verified
-  // payment out of step with the order total. This one set drives the "View & modify" link on
-  // My Orders, the "Modify order" button on the order page and the guard on modify_order.html.
-  // NOTE: this is a front-end block only; the server still accepts edits for these statuses.
-  const ELIGIBLE_STATUSES = new Set(["Unconfirmed"]);
-  const LOCKED_MESSAGE = "This order can no longer be changed because its payment has been verified.";
+  // Customer edits allow Payment Failed, or Unconfirmed with no PAID/VERIFIED payment. The server
+  // enforces this rule and supplies customerCanModify for links and direct page access.
+  const ELIGIBLE_STATUSES = new Set(["Unconfirmed", "Payment Failed"]);
+  const CANCELLABLE_STATUSES = new Set([
+    "Unconfirmed", "Payment Verified", "Awaiting Pickup", "En Route To Pickup",
+    "Picked Up", "En Route To Shop", "In Shop", "Verifying Items"
+  ]);
+  const LOCKED_MESSAGE = "Only Payment Failed orders or Unconfirmed orders without a paid or verified payment can be modified.";
 
   const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
@@ -358,7 +358,7 @@
       const orders = await api(`/orders/customer/${userID}`);
       tbody.innerHTML = orders.length ? orders.map((order) => {
         // Orders that can still be changed open the page that has the modify button.
-        const editable = ELIGIBLE_STATUSES.has(order.statusLabel);
+        const editable = ELIGIBLE_STATUSES.has(order.statusLabel) && order.customerCanModify === true;
         const href = `${editable ? "upcoming_order_details" : "order_details"}.html?userID=${userID}&orderID=${order.orderID}`;
         // data-href lets a click anywhere on the row open the order (see the click handler below);
         // the View link stays so keyboard and screen reader users can still reach it.
@@ -385,14 +385,14 @@
   function detailMarkup(order, includeActions) {
     const lines = order.orderLines.map((line) => `<div class="activity_item"><span class="activity_dot"></span><div><strong>${line.quantity} × ${escapeHtml(line.itemName)}</strong><p class="muted small">${escapeHtml(line.serviceName)}</p></div><strong>${money(line.linePrice)}</strong></div>`).join("");
     const history = order.history.length ? order.history.map((entry) => `<div class="activity_item"><span class="activity_dot"></span><div><strong>${escapeHtml(entry.statusAfterLabel || "Status updated")}</strong><p class="muted small">${escapeHtml(entry.statusBeforeLabel || "Initial status")} → ${escapeHtml(entry.statusAfterLabel || "")}</p></div><small>${escapeHtml(entry.logDate || "")} ${escapeHtml(entry.logTime || "")}</small></div>`).join("") : "<p class=\"muted\">No status-history entries have been recorded yet.</p>";
-    const eligible = ELIGIBLE_STATUSES.has(order.statusLabel);
+    const eligible = ELIGIBLE_STATUSES.has(order.statusLabel) && order.customerCanModify === true;
     // What the customer asked for when placing the order. order.preferences holds the ticked
     // options as readable labels and order.instructions the note; both are shown escaped, and
     // "None" is shown when the order has neither.
     const preferences = (order.preferences || []).map((label) => escapeHtml(label)).join("<br>") || "None";
     const note = order.instructions ? escapeHtml(order.instructions) : "None";
     const instructions = `<p><strong>Preferences</strong><br><span class="muted">${preferences}</span></p><p><strong>Notes for our team</strong><br><span class="muted" style="white-space:pre-wrap;overflow-wrap:anywhere">${note}</span></p>`;
-    return `<header class="welcome_banner" style="margin-top:34px"><div class="top_bar"><div><div class="subtitle">CUSTOMER ORDER</div><h1>Order #${order.orderID}</h1></div><span class="status">${escapeHtml(order.statusLabel)}</span></div></header><section class="grid grid_two" style="margin-top:22px"><article class="card"><h2>Items and services</h2>${lines}<div class="top_bar"><h3>Order total</h3><h2>${money(order.orderTotal)}</h2></div></article><aside class="card"><h2>Order information</h2><p><strong>Customer ID</strong><br><span class="muted">${order.userID}</span></p><p><strong>Status</strong><br><span class="muted">${escapeHtml(order.statusLabel)}</span></p>${instructions}</aside></section>${includeActions ? `<div class="actions" style="margin-top:20px">${eligible ? `<a class="custom_button custom_button_bg" href="modify_order.html?userID=${order.userID}&orderID=${order.orderID}">Modify order</a>` : ""}${order.statusID === 1 && order.statusLabel === "Unconfirmed" ? `<button id="cancel-order" class="custom_button custom_button_border" type="button">Cancel Order</button>` : ""}<a class="custom_button custom_button_border pay-now-link" href="payments.html?orderID=${order.orderID}">Pay Now</a><a class="custom_button custom_button_nobg" href="my_orders.html">My Orders</a></div>${eligible ? "" : `<p class="muted small" style="margin-top:12px">${LOCKED_MESSAGE}</p>`}` : ""}<section class="card" style="margin-top:22px"><h2>Order history</h2>${history}</section>`;
+    return `<header class="welcome_banner" style="margin-top:34px"><div class="top_bar"><div><div class="subtitle">CUSTOMER ORDER</div><h1>Order #${order.orderID}</h1></div><span class="status">${escapeHtml(order.statusLabel)}</span></div></header><section class="grid grid_two" style="margin-top:22px"><article class="card"><h2>Items and services</h2>${lines}<div class="top_bar"><h3>Order total</h3><h2>${money(order.orderTotal)}</h2></div></article><aside class="card"><h2>Order information</h2><p><strong>Customer ID</strong><br><span class="muted">${order.userID}</span></p><p><strong>Status</strong><br><span class="muted">${escapeHtml(order.statusLabel)}</span></p>${instructions}</aside></section>${includeActions ? `<div class="actions" style="margin-top:20px">${eligible ? `<a class="custom_button custom_button_bg" href="modify_order.html?userID=${order.userID}&orderID=${order.orderID}">Modify order</a>` : ""}${CANCELLABLE_STATUSES.has(order.statusLabel) ? `<button id="cancel-order" class="custom_button custom_button_border" type="button">Cancel Order</button>` : ""}<a class="custom_button custom_button_border pay-now-link" href="payments.html?orderID=${order.orderID}">Pay Now</a><a class="custom_button custom_button_nobg" href="my_orders.html">My Orders</a></div>${eligible ? "" : `<p class="muted small" style="margin-top:12px">${LOCKED_MESSAGE}</p>`}` : ""}<section class="card" style="margin-top:22px"><h2>Order history</h2>${history}</section>`;
   }
 
   function preservePaymentContext(order) {
@@ -463,7 +463,7 @@
     if (!main) return;
     const order = await fetchOrderOrExplain(main);
     if (order) {
-      main.innerHTML = detailMarkup(order, upcoming || (order.statusID === 1 && order.statusLabel === "Unconfirmed"));
+      main.innerHTML = detailMarkup(order, upcoming || order.customerCanModify === true || CANCELLABLE_STATUSES.has(order.statusLabel));
       const cancelButton = main.querySelector("#cancel-order");
       if (cancelButton) bindCancelConfirmation(cancelButton, order);
       const payNowLink = main.querySelector(".pay-now-link");
@@ -476,7 +476,7 @@
     if (!main) return;
     const order = await fetchOrderOrExplain(main);
     if (!order) return;
-    if (!ELIGIBLE_STATUSES.has(order.statusLabel)) { main.innerHTML = `<section class="card"><h1>Order cannot be modified</h1><p class="muted">${LOCKED_MESSAGE} Current status: ${escapeHtml(order.statusLabel)}.</p><a class="custom_button custom_button_bg" href="order_details.html?userID=${order.userID}&orderID=${order.orderID}">View order</a></section>`; return; }
+    if (!ELIGIBLE_STATUSES.has(order.statusLabel) || order.customerCanModify !== true) { main.innerHTML = `<section class="card"><h1>Order cannot be modified</h1><p class="muted">${LOCKED_MESSAGE} Current status: ${escapeHtml(order.statusLabel)}.</p><a class="custom_button custom_button_bg" href="order_details.html?userID=${order.userID}&orderID=${order.orderID}">View order</a></section>`; return; }
     try {
       const data = await catalog();
       const allServices = data.services.map((service) => service.serviceID);
