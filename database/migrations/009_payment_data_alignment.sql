@@ -19,7 +19,7 @@ BEGIN TRY
         ALTER TABLE dbo.payments ADD transactionReference VARCHAR(50) NULL;
 
     IF COL_LENGTH('dbo.payments', 'paymentStatus') IS NULL
-        ALTER TABLE dbo.payments ADD paymentStatus VARCHAR(20) NOT NULL CONSTRAINT df_payments_status DEFAULT 'PAID';
+        ALTER TABLE dbo.payments ADD paymentStatus VARCHAR(20) NOT NULL CONSTRAINT df_payments_status DEFAULT 'PENDING';
 
     IF COL_LENGTH('dbo.payments', 'processedAt') IS NULL
         ALTER TABLE dbo.payments ADD processedAt DATETIME2 NOT NULL CONSTRAINT df_payments_processed DEFAULT SYSDATETIME();

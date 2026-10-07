@@ -88,7 +88,7 @@
   }
 
   function canRequestRefund(payment) {
-    return payment && payment.paymentStatus === "VERIFIED" && !payment.refundStatus;
+    return payment && (payment.paymentStatus === "PAID" || payment.paymentStatus === "VERIFIED") && !payment.refundStatus;
   }
 
   function ensureRefundDialog() {
@@ -316,13 +316,13 @@
   function displayPaymentStatus(id, status, payLink) {
     const outstandingAmount = displayOutstanding(status);
     setText("outstanding-amount", money(outstandingAmount));
-    const statusText = status.status === "PAID"
+    const statusText = status.status === "PENDING"
       ? "Payment submitted - awaiting verification"
       : status.status.replaceAll("_", " ");
     setText("payment-order-line", `Order #${id} · ${statusText}`);
     if (payLink) {
       payLink.href = paymentFlowUrl("payment_method.html", id);
-      if (status.status === "PAID") {
+      if (status.status === "PENDING") {
         payLink.textContent = "Awaiting verification";
         payLink.setAttribute("aria-disabled", "true");
         payLink.removeAttribute("href");
@@ -510,7 +510,7 @@
       const { status } = await refreshBillingAndStatus(id);
       const outstandingAmount = displayOutstanding(status);
       setText("method-amount", money(outstandingAmount));
-      if (status.status === "PAID") {
+      if (status.status === "PENDING") {
         showError(errorBox, "Payment submitted - awaiting verification.");
       } else if (outstandingAmount <= 0) {
         showError(errorBox, "This order does not have an outstanding balance.");
@@ -683,7 +683,7 @@
       amount = displayOutstanding(status);
       setText("summary-amount", money(amount));
       setText("checkout-title", method === "CASH" ? `Confirm ${money(amount)}` : `Pay ${money(amount)}`);
-      if (status.status === "PAID") {
+      if (status.status === "PENDING") {
         showError(errorBox, "Payment submitted - awaiting verification.");
       } else if (amount <= 0) {
         showError(errorBox, "This order does not have an outstanding balance.");
@@ -736,8 +736,10 @@
     const queryPaymentID = params().get("paymentID");
     const queryOrderID = params().get("orderID");
     const paymentsLink = document.getElementById("receipt-payments-link");
+    const pdfLink = document.getElementById("receipt-pdf-link");
     const refundRequestButton = document.getElementById("receipt-refund-request");
     if (paymentsLink && queryOrderID) paymentsLink.href = paymentFlowUrl("payments.html", queryOrderID);
+    if (pdfLink) pdfLink.hidden = true;
 
     if (!queryPaymentID || !queryOrderID) {
       setText("receipt-title", "Receipt unavailable");
@@ -750,6 +752,7 @@
       setText("receipt-total-discount", "Unavailable");
       setText("receipt-final-amount", "Unavailable");
       setText("receipt-status", "Status: Unavailable");
+      setText("receipt-status-message", "");
       setText("receipt-refund-amount", "");
       setText("receipt-refund-time", "");
       if (refundRequestButton) refundRequestButton.hidden = true;
@@ -770,6 +773,13 @@
       setText("receipt-total-discount", `- ${money(receipt.totalDiscount ?? receipt.discountAmount)}`);
       setText("receipt-final-amount", money(receipt.finalPayableAmount));
       setText("receipt-status", `Status: ${String(receipt.paymentStatus || "Unknown").replaceAll("_", " ")}`);
+      setText("receipt-status-message", receipt.paymentStatus === "PENDING"
+        ? "Your payment has been submitted and is waiting for verification."
+        : receipt.paymentStatus === "PAID" || receipt.paymentStatus === "VERIFIED"
+          ? "Your payment has been verified successfully."
+          : receipt.paymentStatus === "REJECTED"
+            ? "Your payment was rejected."
+            : "");
       const refundAmount = document.getElementById("receipt-refund-amount");
       const refundTime = document.getElementById("receipt-refund-time");
       if (receipt.refundStatus) {
@@ -807,6 +817,10 @@
       setText("receipt-method", `Method: ${methodLabel(receipt.paymentMethod)}`);
       setText("receipt-time", `Date/time: ${dateTimeLabel(receipt.processedAt)}`);
       if (paymentsLink) paymentsLink.href = paymentFlowUrl("payments.html", receipt.orderID);
+      if (pdfLink) {
+        pdfLink.hidden = false;
+        pdfLink.href = `/api/payments/${encodeURIComponent(receipt.paymentID)}/receipt.pdf?orderID=${encodeURIComponent(receipt.orderID)}`;
+      }
     } catch (error) {
       setText("receipt-title", "Receipt unavailable");
       setText("receipt-reference", error.status === 403 ? "You do not have access to this receipt" : "Receipt could not be loaded");
@@ -818,9 +832,11 @@
       setText("receipt-total-discount", "Unavailable");
       setText("receipt-final-amount", "Unavailable");
       setText("receipt-status", "Status: Unavailable");
+      setText("receipt-status-message", "");
       setText("receipt-refund-amount", "");
       setText("receipt-refund-time", "");
       if (refundRequestButton) refundRequestButton.hidden = true;
+      if (pdfLink) pdfLink.hidden = true;
       setText("receipt-method", "Method: Not recorded");
       setText("receipt-time", "Date/time: Not recorded");
     }

@@ -1,6 +1,8 @@
 package _6.Y2.S1.MTR._6.LaundryLink.payment;
 
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
@@ -62,6 +64,28 @@ public class PaymentController {
         try {
             Integer customerID = paymentAccessService.resolveCustomerID(principal);
             return ResponseEntity.ok(paymentService.getCustomerReceipt(customerID, paymentID, orderID));
+        } catch (NoSuchElementException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(403).build();
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping(value = "/{paymentID}/receipt.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> downloadReceiptPdf(
+            @PathVariable Integer paymentID,
+            @RequestParam(required = false) Integer orderID,
+            Principal principal
+    ) {
+        try {
+            Integer customerID = paymentAccessService.resolveCustomerID(principal);
+            byte[] pdf = paymentService.getCustomerReceiptPdf(customerID, paymentID, orderID);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"laundrylink-receipt-" + paymentID + ".pdf\"")
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .body(pdf);
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
         } catch (AccessDeniedException ex) {
