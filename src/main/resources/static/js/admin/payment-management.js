@@ -154,7 +154,7 @@
     try {
       const records = await paymentRecords(paymentFilterQuery());
       const verifiedTotal = records
-        .filter((record) => record.paymentStatus === "VERIFIED")
+        .filter((record) => record.paymentStatus === "PAID" || record.paymentStatus === "VERIFIED")
         .reduce((total, record) => total + Number(record.amount || 0), 0);
       const collected = verifiedTotal;
       const outstandingByOrder = new Map();
@@ -238,10 +238,10 @@
     const refundDate = document.getElementById("detail-refund-date-row");
     if (refundDate) refundDate.hidden = !refunded;
 
-    const verified = record.paymentStatus === "VERIFIED";
+    const verified = record.paymentStatus === "PAID" || record.paymentStatus === "VERIFIED";
     const rejected = record.paymentStatus === "REJECTED";
-    const payable = record.paymentStatus === "PAID";
-    const canVerify = payable && Number(record.outstandingAmount || 0) === 0;
+    const pending = record.paymentStatus === "PENDING";
+    const canVerify = pending && Number(record.outstandingAmount || 0) === 0;
     const approve = document.getElementById("approve-payment");
     const reject = document.getElementById("reject-payment");
     const refundPanel = document.getElementById("refund-panel");
@@ -316,8 +316,8 @@
         showMessage("detail-error", error.status === 409
           ? "This payment cannot be updated until the full amount has been paid."
           : "Payment status could not be updated.");
-        if (approve && currentRecord.paymentStatus === "PAID") approve.disabled = false;
-        if (reject && currentRecord.paymentStatus === "PAID") reject.disabled = false;
+        if (approve && currentRecord.paymentStatus === "PENDING") approve.disabled = false;
+        if (reject && currentRecord.paymentStatus === "PENDING") reject.disabled = false;
       }
     }
 

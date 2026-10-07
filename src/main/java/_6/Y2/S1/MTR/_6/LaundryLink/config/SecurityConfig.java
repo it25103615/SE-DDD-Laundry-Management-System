@@ -93,6 +93,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/payments/orders/*/status").hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.POST, "/api/payments/orders/*").hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.GET, "/api/payments/orders/*").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/payments/*/receipt.pdf").hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.GET, "/api/payments/*/receipt").hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.GET, "/api/payments/*").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/payments").hasAnyRole(FINANCE_MANAGEMENT_ROLES)

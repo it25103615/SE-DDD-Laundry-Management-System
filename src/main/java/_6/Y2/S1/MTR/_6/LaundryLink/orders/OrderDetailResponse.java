@@ -19,4 +19,5 @@ public class OrderDetailResponse {
     private String instructions;
     // The ticked preferences as display labels (e.g. "Fragrance-free detergent"); empty when none.
     private List<String> preferences;
+    private boolean customerCanModify;
 }
