@@ -32,7 +32,7 @@ BEGIN TRY
     IF COL_LENGTH('services', 'version') IS NULL
         ALTER TABLE services ADD version INT NOT NULL CONSTRAINT df_services_version DEFAULT 0;
     IF COL_LENGTH('payments', 'paymentStatus') IS NULL
-        ALTER TABLE payments ADD paymentStatus VARCHAR(20) NOT NULL CONSTRAINT df_payments_status DEFAULT 'PAID';
+        ALTER TABLE payments ADD paymentStatus VARCHAR(20) NOT NULL CONSTRAINT df_payments_status DEFAULT 'PENDING';
     IF COL_LENGTH('payments', 'processedAt') IS NULL
         ALTER TABLE payments ADD processedAt DATETIME2 NOT NULL CONSTRAINT df_payments_processed DEFAULT SYSDATETIME();
     IF OBJECT_ID('dbo.notifications', 'U') IS NULL

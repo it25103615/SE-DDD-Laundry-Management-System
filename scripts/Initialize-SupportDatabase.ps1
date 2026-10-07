@@ -9,7 +9,7 @@ param(
     [switch]$SampleData
 )
 # Fresh database: creates the complete current schema (initialize_database.sql).
-# Existing database: applies migrations 003, 004, 005, 006, 007, 008, 009, 010 and 011 (all safe to re-run).
+# Existing database: applies migrations 003 through 012 (all safe to re-run).
 # Migration 005 runs after the sample data: it creates the laundry processing tables when they
 # are missing and, once the sample data exists, adds the processing test orders after it.
 # Migration 006 runs next: it adds delivery.addressID when missing and fills it in for
@@ -20,7 +20,8 @@ param(
 # Migration 009 runs next: it adds the payment method, reference, status and processed-at
 # columns to dbo.payments when missing.
 # Migration 010 runs next: it fixes the payment notification's receipt link.
-# Migration 011 runs last: it creates the refunds table when missing.
+# Migration 011 runs next: it creates the refunds table when missing.
+# Migration 012 runs last: it changes new customer payments to start as pending.
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 
@@ -99,6 +100,9 @@ try {
     # because Hibernate checks the tables at startup. Safe to re-run.
     Invoke-SqlFile $command 'database/migrations/011_refunds.sql'
     Write-Output 'Migration 011 applied (refunds).'
+
+    Invoke-SqlFile $command 'database/migrations/012_pending_payment_verification.sql'
+    Write-Output 'Migration 012 applied (pending payment verification).'
 
     # Report which orders the laundry processing test cases (TC-LP01 to LP10) should use.
     $connection.ChangeDatabase('laundryLinkDB')
