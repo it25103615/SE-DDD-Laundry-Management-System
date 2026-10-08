@@ -18,7 +18,7 @@ class SupportServiceTest {
     SupportRepository repo;
     SupportService service;
     final Actor customer=new Actor(1,"Customer","CUSTOMER",false);
-    final Actor admin=new Actor(9,"Admin","ADMIN",false);
+    final Actor admin=new Actor(9,"Customer Service Manager","CSM",false);
     @BeforeEach void setup() {
         repo=mock(SupportRepository.class);
         service=new SupportService(repo,new SupportAccess(null),mock(NotificationService.class));
@@ -137,6 +137,14 @@ class SupportServiceTest {
         when(repo.update(anyString(),any(Object[].class))).thenReturn(1);
         assertDoesNotThrow(()->service.message(staff,1,new MessageInput("I will check the garment.")));
         verify(repo).update(contains("INSERT INTO chat"),eq("I will check the garment."),eq(6),eq(1));
+    }
+    @Test void csmFeedbackReplyDoesNotResolveOrAssignIt() {
+        var feedback=assignedItem("In Review",9); feedback.put("type","Feedback");
+        when(repo.query(anyString(),eq(1))).thenReturn(List.of(feedback));
+        when(repo.update(anyString(),any(Object[].class))).thenReturn(1);
+        service.message(admin,1,new MessageInput("Thank you for your feedback."));
+        verify(repo,never()).update(contains("caseStatus='Resolved'"),eq(1));
+        verify(repo,never()).audit(eq(1),eq(9),eq("Case updated"),anyString());
     }
     @Test void replyPersistsToChatAndAudit() {
         found("In Review");

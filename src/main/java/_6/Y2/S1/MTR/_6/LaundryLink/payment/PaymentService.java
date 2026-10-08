@@ -165,6 +165,7 @@ public class PaymentService {
         paymentRepository.delete(payment);
     }
 
+    @Transactional
     public PaymentConfirmationResponse submitPayment(Integer orderID, Integer customerID, PaymentRequest request) {
         PaymentStatusResponse currentStatus = getPaymentStatus(orderID, customerID);
 
@@ -198,6 +199,13 @@ public class PaymentService {
         );
         payment.ensureRecordedPaymentFields();
         Payment savedPayment = paymentRepository.save(payment);
+
+        notificationService.notifyRoles(
+                Set.of("MANAGER"), "PAYMENT", "Payment approval needed",
+                "Payment for order #" + orderID + " is awaiting your review.",
+                "/html/admin/owner/payment_detail.html?paymentID=" + savedPayment.getPaymentID(),
+                "PAYMENT", savedPayment.getPaymentID(), null
+        );
 
         return new PaymentConfirmationResponse(
                 savedPayment.getPaymentID(),

@@ -13,6 +13,7 @@ window.Support = (() => {
     $('notice').textContent=message;$('notice').className='notice '+kind;$('notice').hidden=!message;
     const inline=$('detail-notice');
     if(inline){inline.textContent=message;inline.className='notice '+kind;inline.hidden=!message;}
+    if(inline&&!$('case-detail').hidden)$('notice').hidden=true;
   }
   async function api(path,method='GET',body) {
     const headers={'Accept':'application/json'};

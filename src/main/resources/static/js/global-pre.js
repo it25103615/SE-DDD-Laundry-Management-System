@@ -177,6 +177,7 @@ if (location.protocol === "file:") {
         ],
       },
       { label: "Support", href: "/html/customer/feedback.html" },
+      { label: "Feedback", href: "/html/customer/reviews.html" },
     ],
     STAFF: [
       { label: "Dashboard", href: DASHBOARDS.STAFF },
@@ -239,6 +240,7 @@ if (location.protocol === "file:") {
     ],
   };
   //Two role names mean the same thing in the database, so they share one list
+  LINKS.CSM.push({label:"Feedback",href:"/html/support/feedback.html"});
   LINKS.CUSTOMER_SERVICE_MANAGER = LINKS.CSM;
   LINKS.ADMIN = LINKS.OWNER;
 
