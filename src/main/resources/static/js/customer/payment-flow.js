@@ -167,6 +167,18 @@
     return value == null || value === "" ? "N/A" : String(value);
   }
 
+  // Turns HTML special characters into harmless text. Use it on any saved value
+  // (promotion code, promotion name, ...) before placing it in an innerHTML string,
+  // so text such as <img onerror=...> is shown as text instead of running as markup.
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
   function promotionDiscountLabel(promotion) {
     const value = Number(promotion.discountValue || 0);
     if (promotion.discountType === "PERCENTAGE") {
@@ -285,12 +297,12 @@
     list.innerHTML = promotions
       .map((promotion) => `
         <article class="card">
-          <span class="muted small">${cleanValue(promotion.promotionName)}</span>
-          <h3>${cleanValue(promotion.promotionCode)}</h3>
+          <span class="muted small">${escapeHtml(cleanValue(promotion.promotionName))}</span>
+          <h3>${escapeHtml(cleanValue(promotion.promotionCode))}</h3>
           <p><strong>${promotionDiscountLabel(promotion)}</strong></p>
           <p class="muted">Minimum order: ${money(promotion.minimumOrderAmount)}</p>
           <p class="muted">Valid until: ${dateLabel(promotion.validTo)}</p>
-          <button class="custom_button custom_button_border" type="button" data-promotion-code="${cleanValue(promotion.promotionCode)}">Apply</button>
+          <button class="custom_button custom_button_border" type="button" data-promotion-code="${escapeHtml(cleanValue(promotion.promotionCode))}">Apply</button>
         </article>`)
       .join("");
 
@@ -481,7 +493,7 @@
               <td>#${payment.orderID}</td>
               <td>${money(payment.amount)}</td>
               <td>${methodLabel(payment.paymentMethod)}</td>
-              <td>${cleanValue(payment.transactionReference)}</td>
+              <td>${escapeHtml(cleanValue(payment.transactionReference))}</td>
               <td>${statusLabel(payment.paymentStatus)}${refundLabel(payment)}${payment.orderStatus ? ` · ${payment.orderStatus}` : ""}</td>
               <td>${dateTimeLabel(payment.processedAt)}</td>
               <td>${action}</td>
