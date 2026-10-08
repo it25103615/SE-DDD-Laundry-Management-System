@@ -80,7 +80,8 @@
 .case-table-wrap thead { background:#f6f9fb; }
 .case-table-wrap th { padding:13px 18px; color:#687b89; font-size:.73rem; letter-spacing:.075em; text-align:left; text-transform:uppercase; white-space:nowrap; }
 .case-table-wrap td { padding:17px 18px; border-top:1px solid #edf1f4; vertical-align:middle; }
-.case-row { position:relative; transition:background .18s ease,box-shadow .18s ease; }
+/* The whole row opens the case (cases.js), so show the hand cursor over all of it */
+.case-row { position:relative; cursor:pointer; transition:background .18s ease,box-shadow .18s ease; }
 .case-row:hover { background:#f5fbfe; box-shadow:inset 3px 0 #1592bc; }
 .case-row.needs-attention { background:linear-gradient(90deg,rgba(255,245,224,.72),transparent 32%); }
 .case-row.needs-attention:hover { background:#fff9ed; box-shadow:inset 3px 0 #d98800; }

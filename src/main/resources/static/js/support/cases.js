@@ -109,7 +109,15 @@
  $('clear-filters').onclick=clearFilters;
  $('case-summary').onclick=event=>{const card=event.target.closest('[data-summary-status]');if(!card)return;$('filter-status').value='';page=0;setSummarySelection(card.dataset.summaryStatus);run(load,card);};
  $('previous').onclick=()=>{if(page>0){page--;run(load);}};$('next').onclick=()=>{page++;run(load);};
- $('cases').onclick=event=>{const clear=event.target.closest('[data-clear-empty]');if(clear){clearFilters();return;}const button=event.target.closest('[data-open]');if(button)run(()=>open(button.dataset.open),button);};
+ $('cases').onclick=event=>{const clear=event.target.closest('[data-clear-empty]');if(clear){clearFilters();return;}
+   // A click anywhere on a row opens its case, not only the "View" button. The button stays so the
+   // case can still be opened with the keyboard. A click that ends a text selection (dragging over
+   // the subject to copy it) is ignored, so selecting text does not open the panel.
+   const row=event.target.closest('[data-case-id]');if(!row)return;
+   const button=row.querySelector('[data-open]');
+   if(!event.target.closest('[data-open]')&&String(getSelection()))return;
+   run(()=>open(row.dataset.caseId),button);
+ };
  $('close-detail').onclick=closeDetail;$('detail-backdrop').onclick=closeDetail;
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('case-detail').hidden)closeDetail();});
  $('edit-case').onclick=()=>{editing={id:current.id,version:current.version};for(const [id,key] of [['type','type'],['order','orderId'],['subject','subject'],['message','message'],['rating','rating']])$(id).value=current[key]??'';$('editor-title').textContent='Edit case #'+current.id;$('save-case').textContent='Save changes';$('cancel-edit').hidden=false;rating();closeDetail();$('subject').focus();};
