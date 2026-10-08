@@ -167,6 +167,18 @@
     return value == null || value === "" ? "N/A" : String(value);
   }
 
+  // Turns HTML special characters into harmless text. Use it on any saved value
+  // (promotion code, promotion name, ...) before placing it in an innerHTML string,
+  // so text such as <img onerror=...> is shown as text instead of running as markup.
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
   function promotionDiscountLabel(promotion) {
     const value = Number(promotion.discountValue || 0);
     if (promotion.discountType === "PERCENTAGE") {
@@ -285,12 +297,12 @@
     list.innerHTML = promotions
       .map((promotion) => `
         <article class="card">
-          <span class="muted small">${cleanValue(promotion.promotionName)}</span>
-          <h3>${cleanValue(promotion.promotionCode)}</h3>
+          <span class="muted small">${escapeHtml(cleanValue(promotion.promotionName))}</span>
+          <h3>${escapeHtml(cleanValue(promotion.promotionCode))}</h3>
           <p><strong>${promotionDiscountLabel(promotion)}</strong></p>
           <p class="muted">Minimum order: ${money(promotion.minimumOrderAmount)}</p>
           <p class="muted">Valid until: ${dateLabel(promotion.validTo)}</p>
-          <button class="custom_button custom_button_border" type="button" data-promotion-code="${cleanValue(promotion.promotionCode)}">Apply</button>
+          <button class="custom_button custom_button_border" type="button" data-promotion-code="${escapeHtml(cleanValue(promotion.promotionCode))}">Apply</button>
         </article>`)
       .join("");
 
@@ -313,6 +325,14 @@
     return { invoice, status };
   }
 
+  // A cancelled order can no longer be paid. The server refuses the payment as well; this just
+  // keeps the pages from offering it. status.orderStatus is the order's current status label.
+  const CANCELLED_ORDER_MESSAGE = "This order has been cancelled and can no longer be paid.";
+
+  function isCancelledOrder(status) {
+    return String((status && status.orderStatus) || "").toLowerCase() === "cancelled";
+  }
+
   function displayPaymentStatus(id, status, payLink) {
     const outstandingAmount = displayOutstanding(status);
     setText("outstanding-amount", money(outstandingAmount));
@@ -322,7 +342,11 @@
     setText("payment-order-line", `Order #${id} · ${statusText}`);
     if (payLink) {
       payLink.href = paymentFlowUrl("payment_method.html", id);
-      if (status.status === "PENDING") {
+      if (isCancelledOrder(status)) {
+        payLink.textContent = "Order cancelled";
+        payLink.setAttribute("aria-disabled", "true");
+        payLink.removeAttribute("href");
+      } else if (status.status === "PENDING") {
         payLink.textContent = "Awaiting verification";
         payLink.setAttribute("aria-disabled", "true");
         payLink.removeAttribute("href");
@@ -469,7 +493,7 @@
               <td>#${payment.orderID}</td>
               <td>${money(payment.amount)}</td>
               <td>${methodLabel(payment.paymentMethod)}</td>
-              <td>${cleanValue(payment.transactionReference)}</td>
+              <td>${escapeHtml(cleanValue(payment.transactionReference))}</td>
               <td>${statusLabel(payment.paymentStatus)}${refundLabel(payment)}${payment.orderStatus ? ` · ${payment.orderStatus}` : ""}</td>
               <td>${dateTimeLabel(payment.processedAt)}</td>
               <td>${action}</td>
@@ -510,7 +534,9 @@
       const { status } = await refreshBillingAndStatus(id);
       const outstandingAmount = displayOutstanding(status);
       setText("method-amount", money(outstandingAmount));
-      if (status.status === "PENDING") {
+      if (isCancelledOrder(status)) {
+        showError(errorBox, CANCELLED_ORDER_MESSAGE);
+      } else if (status.status === "PENDING") {
         showError(errorBox, "Payment submitted - awaiting verification.");
       } else if (outstandingAmount <= 0) {
         showError(errorBox, "This order does not have an outstanding balance.");
@@ -683,7 +709,9 @@
       amount = displayOutstanding(status);
       setText("summary-amount", money(amount));
       setText("checkout-title", method === "CASH" ? `Confirm ${money(amount)}` : `Pay ${money(amount)}`);
-      if (status.status === "PENDING") {
+      if (isCancelledOrder(status)) {
+        showError(errorBox, CANCELLED_ORDER_MESSAGE);
+      } else if (status.status === "PENDING") {
         showError(errorBox, "Payment submitted - awaiting verification.");
       } else if (amount <= 0) {
         showError(errorBox, "This order does not have an outstanding balance.");

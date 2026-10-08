@@ -870,6 +870,7 @@ class PaymentServiceTest {
         when(billingService.getBillingDetails(1)).thenReturn(billingDetails(1, 7, BigDecimal.valueOf(1350.0)));
         when(paymentRepository.findByOrderID(1)).thenReturn(List.of(payment));
         when(managementRepository.findOrderStatus(1)).thenReturn(Optional.of(new PaymentOrderStatus(1, "Unconfirmed")));
+        when(managementRepository.updateOrderStatus(Mockito.any(), Mockito.any())).thenReturn(1);
         when(statusService.getByLabel("Payment Verified")).thenReturn(verified);
         when(statusService.getByLabel("Awaiting Pickup")).thenReturn(awaitingPickup);
         when(statusService.getById(1)).thenReturn(unconfirmed);
@@ -934,6 +935,7 @@ class PaymentServiceTest {
         when(billingService.getBillingDetails(1)).thenReturn(billingDetails(1, 7, BigDecimal.valueOf(1350.0)));
         when(paymentRepository.findByOrderID(1)).thenReturn(List.of(payment));
         when(managementRepository.findOrderStatus(1)).thenReturn(Optional.of(new PaymentOrderStatus(1, "Unconfirmed")));
+        when(managementRepository.updateOrderStatus(Mockito.any(), Mockito.any())).thenReturn(1);
         when(statusService.getByLabel("Payment Failed")).thenReturn(failed);
         when(statusService.getById(1)).thenReturn(unconfirmed);
         when(paymentRepository.save(Mockito.any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -974,6 +976,7 @@ class PaymentServiceTest {
         when(billingService.getBillingDetails(1)).thenReturn(billingDetails(1, 7, BigDecimal.valueOf(1350.0)));
         when(paymentRepository.findByOrderID(1)).thenReturn(List.of(payment));
         when(managementRepository.findOrderStatus(1)).thenReturn(Optional.of(new PaymentOrderStatus(1, "Unconfirmed")));
+        when(managementRepository.updateOrderStatus(Mockito.any(), Mockito.any())).thenReturn(1);
         when(statusService.getByLabel("Payment Failed")).thenReturn(failed);
         when(statusService.getById(1)).thenReturn(unconfirmed);
         when(paymentRepository.save(Mockito.any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -1006,6 +1009,7 @@ class PaymentServiceTest {
         when(billingService.getBillingDetails(1)).thenReturn(billingDetails(1, 7, BigDecimal.valueOf(1350.0)));
         when(paymentRepository.findByOrderID(1)).thenReturn(List.of(payment));
         when(managementRepository.findOrderStatus(1)).thenReturn(Optional.of(new PaymentOrderStatus(1, "Unconfirmed")));
+        when(managementRepository.updateOrderStatus(Mockito.any(), Mockito.any())).thenReturn(1);
         when(statusService.getByLabel("Payment Verified")).thenReturn(verified);
         when(statusService.getByLabel("Awaiting Pickup")).thenReturn(awaitingPickup);
         when(paymentRepository.save(Mockito.any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -1035,6 +1039,7 @@ class PaymentServiceTest {
         when(billingService.getBillingDetails(1)).thenReturn(billingDetails(1, 7, BigDecimal.valueOf(1350.0)));
         when(paymentRepository.findByOrderID(1)).thenReturn(List.of(payment));
         when(managementRepository.findOrderStatus(1)).thenReturn(Optional.of(new PaymentOrderStatus(1, "Unconfirmed")));
+        when(managementRepository.updateOrderStatus(Mockito.any(), Mockito.any())).thenReturn(1);
         when(statusService.getByLabel("Payment Failed")).thenReturn(failed);
         when(paymentRepository.save(Mockito.any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -1466,6 +1471,111 @@ class PaymentServiceTest {
         assertNotNull(receipt.getRefundProcessedAt());
     }
 
+    // ---- Cancelled orders: they cannot be paid, and a payment decision never revives them ----
+
+    @Test
+    void preventsPaymentForCancelledOrder() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentManagementRepository managementRepository = managementRepository("CUSTOMER", new PaymentOrderStatus(20, "Cancelled"));
+        PaymentService service = paymentService(paymentRepository, managementRepository, billingService);
+
+        when(billingService.getBillingDetails(1)).thenReturn(billingDetails(1, 7, BigDecimal.valueOf(1350.0)));
+        when(paymentRepository.findByOrderID(1)).thenReturn(List.of());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () ->
+                service.submitPayment(1, 7, paymentRequest(BigDecimal.valueOf(1350.0))));
+
+        assertEquals("This order has been cancelled and can no longer be paid", error.getMessage());
+        Mockito.verify(paymentRepository, Mockito.never()).save(Mockito.any(Payment.class));
+    }
+
+    @Test
+    void preventsManagerFromRecordingPaymentForCancelledOrder() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentManagementRepository managementRepository = managementRepository("MANAGER", new PaymentOrderStatus(20, "Cancelled"));
+        PaymentService service = paymentService(paymentRepository, managementRepository, billingService);
+
+        assertThrows(IllegalArgumentException.class, () ->
+                service.createPayment(11, paymentCrudRequest(BigDecimal.valueOf(250.0), 1)));
+
+        Mockito.verify(paymentRepository, Mockito.never()).save(Mockito.any(Payment.class));
+    }
+
+    @Test
+    void approvingPendingPaymentDoesNotReviveCancelledOrder() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentManagementRepository managementRepository = managementRepository("MANAGER", new PaymentOrderStatus(20, "Cancelled"));
+        PaymentService service = paymentService(paymentRepository, managementRepository, billingService);
+        Payment payment = new Payment(1350.0, 1);
+        payment.setPaymentID(4);
+
+        when(paymentRepository.findById(4)).thenReturn(Optional.of(payment));
+        when(billingService.getBillingDetails(1)).thenReturn(billingDetails(1, 7, BigDecimal.valueOf(1350.0)));
+        when(paymentRepository.findByOrderID(1)).thenReturn(List.of(payment));
+
+        assertThrows(IllegalStateException.class, () -> service.approvePayment(11, 4));
+
+        // Nothing changed: the payment is still pending and the order was never touched.
+        assertEquals(PaymentStatus.PENDING, payment.getPaymentStatus());
+        Mockito.verify(paymentRepository, Mockito.never()).save(Mockito.any(Payment.class));
+        Mockito.verify(managementRepository, Mockito.never()).updateOrderStatus(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    void rejectingPendingPaymentLeavesCancelledOrderCancelled() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentManagementRepository managementRepository = managementRepository("MANAGER", new PaymentOrderStatus(20, "Cancelled"));
+        PaymentService service = paymentService(paymentRepository, managementRepository, billingService);
+        Payment payment = new Payment(1350.0, 1);
+        payment.setPaymentID(4);
+
+        when(paymentRepository.findById(4)).thenReturn(Optional.of(payment));
+        when(billingService.getBillingDetails(1)).thenReturn(billingDetails(1, 7, BigDecimal.valueOf(1350.0)));
+        when(paymentRepository.findByOrderID(1)).thenReturn(List.of(payment));
+        when(paymentRepository.save(Mockito.any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentVerificationResponse response = service.rejectPayment(11, 4);
+
+        // The payment is closed, but the order is not moved to "Payment Failed".
+        assertEquals(PaymentStatus.REJECTED, payment.getPaymentStatus());
+        assertEquals("Cancelled", response.getPreviousOrderStatus());
+        assertEquals("Cancelled", response.getUpdatedOrderStatus());
+        Mockito.verify(managementRepository, Mockito.never()).updateOrderStatus(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    void approvalFailsWhenOrderIsCancelledBeforeTheStatusUpdate() {
+        PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
+        BillingService billingService = Mockito.mock(BillingService.class);
+        PaymentManagementRepository managementRepository = Mockito.mock(PaymentManagementRepository.class);
+        StatusService statusService = Mockito.mock(StatusService.class);
+        PaymentService service = new PaymentService(paymentRepository, refundRepository(), managementRepository, billingService,
+                new PaymentAccessService(managementRepository, userRepository(11)), statusService, Mockito.mock(NotificationService.class));
+        Payment payment = new Payment(1350.0, 1);
+        payment.setPaymentID(4);
+        Status verified = status(2, "Payment Verified");
+
+        when(managementRepository.findUserType(11)).thenReturn(Optional.of("MANAGER"));
+        when(paymentRepository.findById(4)).thenReturn(Optional.of(payment));
+        when(billingService.getBillingDetails(1)).thenReturn(billingDetails(1, 7, BigDecimal.valueOf(1350.0)));
+        when(paymentRepository.findByOrderID(1)).thenReturn(List.of(payment));
+        // The order looked open when it was read, but the guarded update then changes no rows,
+        // which is what happens when the customer cancels in between.
+        when(managementRepository.findOrderStatus(1)).thenReturn(Optional.of(new PaymentOrderStatus(1, "Unconfirmed")));
+        when(managementRepository.updateOrderStatus(1, 2)).thenReturn(0);
+        when(statusService.getByLabel("Payment Verified")).thenReturn(verified);
+        when(paymentRepository.save(Mockito.any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertThrows(IllegalStateException.class, () -> service.approvePayment(11, 4));
+
+        // The order is never released for pickup.
+        Mockito.verify(managementRepository, Mockito.never()).updateOrderStatus(1, 3);
+    }
+
     private PaymentRequest paymentRequest(BigDecimal amount) {
         PaymentRequest request = new PaymentRequest();
         request.setPaymentMethod(PaymentMethod.CARD);
@@ -1590,6 +1700,8 @@ class PaymentServiceTest {
                 )
         ));
         when(repository.findBillableOrderSummaries()).thenReturn(List.of());
+        // One row updated, as for any order that is not cancelled.
+        when(repository.updateOrderStatus(Mockito.any(), Mockito.any())).thenReturn(1);
         return repository;
     }
 

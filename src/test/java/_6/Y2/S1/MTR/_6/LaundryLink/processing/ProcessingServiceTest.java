@@ -27,9 +27,11 @@ import static org.mockito.Mockito.*;
 class ProcessingServiceTest {
 
     static final int ORDER = 6;
-    static final int IRONING_SERVICE = 2;
-    static final int WASH_SERVICE = 1;
-    static final int DRY_CLEANING_SERVICE = 3;
+    // Service names as stored in the services table; the order's route is picked from them.
+    static final String WASH_SERVICE = "Wash and Fold";
+    static final String IRONING_SERVICE = "Ironing";
+    static final String DRY_CLEANING_SERVICE = "Dry Cleaning";
+    static final String SHOE_CLEANING_SERVICE = "Shoe Cleaning";
 
     ProcessingRepository repository;
     ProcessingIssueRepository issueRepository;
@@ -41,9 +43,8 @@ class ProcessingServiceTest {
         repository = mock(ProcessingRepository.class);
         issueRepository = mock(ProcessingIssueRepository.class);
         service = new ProcessingService(repository, issueRepository);
-        when(repository.findServiceIdByName("Dry Cleaning")).thenReturn(Optional.of(DRY_CLEANING_SERVICE));
         when(repository.findStatusLabels()).thenReturn(Map.of(7, "In Shop", 8, "Verifying Items", 9, "Washing",
-                10, "Drying", 11, "Ironing", 12, "Awaiting Delivery", 19, "Dry Clean"));
+                10, "Drying", 11, "Ironing", 12, "Awaiting Delivery", 19, "Dry Clean", 21, "Quality Inspection"));
     }
 
     /** Puts order #6 at the given status. */
@@ -53,16 +54,17 @@ class ProcessingServiceTest {
                         "Treat the collar stain", "fragrance-free,hangers")));
     }
 
-    /** The TC-LP01 order: Shirt / Blouse x4 and Trousers / Skirt x2 (wash route). */
+    /** The TC-LP01 order: Shirt / Blouse x4 and Trousers / Skirt x2 (ironing route). */
     void shirtsAndTrousers() {
         when(repository.findLines(ORDER)).thenReturn(List.of(
-                new LineRow(101, "Shirt / Blouse", IRONING_SERVICE, "Ironing", 4, null, null),
-                new LineRow(102, "Trousers / Skirt", IRONING_SERVICE, "Ironing", 2, null, null)));
+                new LineRow(101, "Shirt / Blouse", 2, IRONING_SERVICE, 4, null, null),
+                new LineRow(102, "Trousers / Skirt", 2, IRONING_SERVICE, 2, null, null)));
     }
 
-    void singleLine(int serviceID) {
+    /** An order with one line of the given service (the service decides the route). */
+    void singleLine(String serviceName) {
         when(repository.findLines(ORDER)).thenReturn(List.of(
-                new LineRow(201, "Shirt / Blouse", serviceID, "Service", 3, null, null)));
+                new LineRow(201, "Shirt / Blouse", 1, serviceName, 3, null, null)));
     }
 
     static ReceiveItemsRequest counts(int shirts, int trousers) {
@@ -207,11 +209,64 @@ class ProcessingServiceTest {
         verify(repository).updateStatus(ORDER, 11);
     }
 
+    @Test
+    void shoeOrderSkipsIroning() {
+        orderAt(10, "Drying");
+        singleLine(SHOE_CLEANING_SERVICE);
+
+        // Shoe cleaning lines: Ironing is refused, Drying leads straight to Quality Inspection.
+        var error = assertThrows(ApiException.class, () -> service.changeStatus(ORDER, 11));
+        assertTrue(error.getMessage().contains("The next stage is Quality Inspection"));
+        service.changeStatus(ORDER, 21);
+
+        verify(repository, never()).updateStatus(ORDER, 11);
+        verify(repository).updateStatus(ORDER, 21);
+    }
+
+    @Test
+    void ironingOrderSkipsWashingAndDrying() {
+        orderAt(8, "Verifying Items");
+        singleLine(IRONING_SERVICE);
+
+        // Ironing lines: Washing is refused, Verifying Items leads straight to Ironing.
+        assertThrows(ApiException.class, () -> service.changeStatus(ORDER, 9));
+        service.changeStatus(ORDER, 11);
+
+        verify(repository, never()).updateStatus(ORDER, 9);
+        verify(repository).updateStatus(ORDER, 11);
+    }
+
+    @Test
+    void lastCleaningStageMovesToQualityInspection() {
+        orderAt(11, "Ironing");
+        singleLine(WASH_SERVICE);
+
+        // Releasing straight from Ironing is refused; the order goes to Quality Inspection first.
+        assertThrows(ApiException.class, () -> service.changeStatus(ORDER, 12));
+        service.changeStatus(ORDER, 21);
+
+        verify(repository).updateStatus(ORDER, 21);
+    }
+
+    @Test
+    void orderDetailOffersTheRoutesNextStageAndReworkStages() {
+        orderAt(21, "Quality Inspection");
+        singleLine(SHOE_CLEANING_SERVICE);
+        when(repository.findLatestQualityCheck(ORDER)).thenReturn(Optional.empty());
+
+        var detail = service.getOrder(ORDER);
+
+        assertEquals("SHOE_CLEAN", detail.route());
+        assertNull(detail.nextStatus());                 // left only by the quality check and release
+        // A shoe order can be reworked at Washing or Drying, never Ironing.
+        assertEquals(List.of(9, 10), detail.reworkOptions().stream().map(option -> option.statusID()).toList());
+    }
+
     // ---------------------------------------------------------------- quality check (LP09)
 
     @Test
     void failedCheckSendsOrderBackToReworkStage() {                     // TC-LP09
-        orderAt(11, "Ironing");
+        orderAt(21, "Quality Inspection");
         singleLine(WASH_SERVICE);
 
         service.recordQualityCheck(ORDER, new QualityCheckRequest("Failed", 9, null, "Stain remains"), staff);
@@ -221,19 +276,30 @@ class ProcessingServiceTest {
     }
 
     @Test
-    void reworkAtIroningOnlyRecordsTheCheck() {
-        orderAt(11, "Ironing");
+    void reworkAtIroningMovesTheOrderBackToIroning() {
+        orderAt(21, "Quality Inspection");
         singleLine(WASH_SERVICE);
 
         service.recordQualityCheck(ORDER, new QualityCheckRequest("Failed", 11, null, null), staff);
 
         verify(repository).insertQualityCheck(ORDER, "Failed", 11, false, null, 11);
+        verify(repository).updateStatus(ORDER, 11);
+    }
+
+    @Test
+    void passedCheckKeepsTheOrderAtQualityInspection() {
+        orderAt(21, "Quality Inspection");
+        singleLine(SHOE_CLEANING_SERVICE);
+
+        service.recordQualityCheck(ORDER, new QualityCheckRequest("Passed", null, true, null), staff);
+
+        verify(repository).insertQualityCheck(ORDER, "Passed", null, true, null, 11);
         verify(repository, never()).updateStatus(anyInt(), anyInt());
     }
 
     @Test
     void reworkStageMustBeOnTheRoute() {
-        orderAt(11, "Ironing");
+        orderAt(21, "Quality Inspection");
         singleLine(DRY_CLEANING_SERVICE);
 
         var error = assertThrows(ApiException.class,
@@ -244,8 +310,8 @@ class ProcessingServiceTest {
     }
 
     @Test
-    void qualityCheckOnlyAfterIroning() {
-        orderAt(10, "Drying");
+    void qualityCheckOnlyAtQualityInspection() {
+        orderAt(11, "Ironing");
         singleLine(WASH_SERVICE);
 
         var error = assertThrows(ApiException.class,
@@ -257,7 +323,7 @@ class ProcessingServiceTest {
 
     @Test
     void readyRequiresPassedAndPacked() {                               // TC-LP10
-        orderAt(11, "Ironing");
+        orderAt(21, "Quality Inspection");
         singleLine(WASH_SERVICE);
 
         // No check yet, then a passed but unpacked check: both refused.
@@ -267,7 +333,7 @@ class ProcessingServiceTest {
         assertThrows(ApiException.class, () -> service.markReady(ORDER));
         verify(repository, never()).updateStatus(anyInt(), anyInt());
 
-        // Passed and packed: Ironing -> Awaiting Delivery.
+        // Passed and packed: Quality Inspection -> Awaiting Delivery.
         when(repository.findLatestQualityCheck(ORDER)).thenReturn(Optional.of(check("Passed", true)));
         service.markReady(ORDER);
         verify(repository).updateStatus(ORDER, 12);
@@ -275,7 +341,7 @@ class ProcessingServiceTest {
 
     @Test
     void packOnlyAfterAPassedCheck() {
-        orderAt(11, "Ironing");
+        orderAt(21, "Quality Inspection");
         singleLine(WASH_SERVICE);
         when(repository.findLatestQualityCheck(ORDER)).thenReturn(Optional.of(check("Failed", false)));
 
@@ -285,6 +351,18 @@ class ProcessingServiceTest {
         when(repository.findLatestQualityCheck(ORDER)).thenReturn(Optional.of(check("Passed", false)));
         service.pack(ORDER);
         verify(repository).markLatestPassedCheckPacked(ORDER);
+    }
+
+    @Test
+    void packAndReadyAreRefusedBeforeQualityInspection() {
+        // A passed, packed check left over from before does not release an order still at Ironing.
+        orderAt(11, "Ironing");
+        singleLine(WASH_SERVICE);
+        when(repository.findLatestQualityCheck(ORDER)).thenReturn(Optional.of(check("Passed", true)));
+
+        assertThrows(ApiException.class, () -> service.pack(ORDER));
+        assertThrows(ApiException.class, () -> service.markReady(ORDER));
+        verify(repository, never()).updateStatus(anyInt(), anyInt());
     }
 
     // ---------------------------------------------------------------- access

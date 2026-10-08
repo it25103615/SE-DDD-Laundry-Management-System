@@ -286,7 +286,7 @@ public class PaymentController {
     }
 
     @PostMapping("/management/{paymentID}/verify")
-    public ResponseEntity<PaymentVerificationResponse> verifyPayment(
+    public ResponseEntity<?> verifyPayment(
             @PathVariable Integer paymentID,
             Principal principal,
             @Valid @RequestBody PaymentVerificationRequest request
@@ -299,12 +299,13 @@ public class PaymentController {
         } catch (AccessDeniedException ex) {
             return ResponseEntity.status(403).build();
         } catch (IllegalStateException ex) {
-            return ResponseEntity.status(409).build();
+            // The message says why, e.g. that the order was cancelled.
+            return ResponseEntity.status(409).body(Map.of("message", ex.getMessage()));
         }
     }
 
     @PostMapping("/management/{paymentID}/approve")
-    public ResponseEntity<PaymentVerificationResponse> approvePayment(
+    public ResponseEntity<?> approvePayment(
             @PathVariable Integer paymentID,
             Principal principal
     ) {
@@ -316,12 +317,13 @@ public class PaymentController {
         } catch (AccessDeniedException ex) {
             return ResponseEntity.status(403).build();
         } catch (IllegalStateException ex) {
-            return ResponseEntity.status(409).build();
+            // The message says why, e.g. that the order was cancelled.
+            return ResponseEntity.status(409).body(Map.of("message", ex.getMessage()));
         }
     }
 
     @PostMapping("/management/{paymentID}/reject")
-    public ResponseEntity<PaymentVerificationResponse> rejectPayment(
+    public ResponseEntity<?> rejectPayment(
             @PathVariable Integer paymentID,
             Principal principal
     ) {
@@ -333,7 +335,8 @@ public class PaymentController {
         } catch (AccessDeniedException ex) {
             return ResponseEntity.status(403).build();
         } catch (IllegalStateException ex) {
-            return ResponseEntity.status(409).build();
+            // The message says why, e.g. that the order was cancelled.
+            return ResponseEntity.status(409).body(Map.of("message", ex.getMessage()));
         }
     }
 

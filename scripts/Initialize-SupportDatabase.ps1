@@ -9,7 +9,7 @@ param(
     [switch]$SampleData
 )
 # Fresh database: creates the complete current schema (initialize_database.sql).
-# Existing database: applies migrations 003 through 013 (all safe to re-run).
+# Existing database: applies migrations 003 through 014 (all safe to re-run).
 # Migration 005 runs after the sample data: it creates the laundry processing tables when they
 # are missing and, once the sample data exists, adds the processing test orders after it.
 # Migration 006 runs next: it adds delivery.addressID when missing and fills it in for
@@ -22,6 +22,8 @@ param(
 # Migration 010 runs next: it fixes the payment notification's receipt link.
 # Migration 011 creates the refunds table. The two 012 migrations add email recovery
 # tokens and pending payment verification; 013 adds support case topics.
+# Migration 014 runs last: it adds status 21 (Quality Inspection) when missing and, once the
+# processing test customer exists, a Shoe Cleaning test order for the new processing routes.
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 
@@ -112,6 +114,11 @@ try {
 
     Invoke-SqlFile $command 'database/migrations/012_pending_payment_verification.sql'
     Write-Output 'Migration 012 applied (pending payment verification).'
+
+    # 014: status 21 (Quality Inspection), which the processing module needs to finish an order,
+    # and the Shoe Cleaning test order. Runs after 005, which creates the test customer.
+    Invoke-SqlFile $command 'database/migrations/014_quality_inspection_and_routes.sql'
+    Write-Output 'Migration 014 applied (quality inspection status and processing routes).'
 
     # Report which orders the laundry processing test cases (TC-LP01 to LP10) should use.
     $connection.ChangeDatabase('laundryLinkDB')

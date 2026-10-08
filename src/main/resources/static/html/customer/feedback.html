@@ -14,6 +14,12 @@
 <script src="../../js/support/cases.js" defer>
 </script>
 </head>
+<!-- This page shares js/support/cases.js with the staff pages (support/cases.html and
+     admin/customer-service-manager/complaints.html). The script looks up its elements by id
+     and stops at the first one that is missing, so every id, the "case-table-wrap" class and
+     the tab panels below must stay in step with those pages.
+     data-audience="customer" lets support.css hide the staff-only parts (summary cards, type
+     tabs, filters, table header); cases.js sets it again once it knows who is signed in. -->
 <body data-page="cases" data-audience="customer">
 <nav class="dashboard_nav"></nav>
 <main class="support-page">
@@ -25,9 +31,12 @@
 </header>
 <div id="notice" class="notice" role="status" aria-live="polite" hidden>
 </div>
+<!-- New request form. It starts hidden; cases.js shows it once it knows a customer is signed in. -->
 <section class="card section" id="case-editor" hidden>
 <h2 id="editor-title">Create a support request</h2>
-<form id="case-form"><div class="case-type-choices" aria-label="Choose a support request type">
+<form id="case-form">
+<!-- Request type picker. cases.js keeps these buttons and the "Message type" select below in step. -->
+<div class="case-type-choices" aria-label="Choose a support request type">
 <button type="button" data-message-type="Feedback" aria-pressed="false"><strong>Feedback</strong><span>Tell us about your experience</span></button>
 <button type="button" data-message-type="Question" aria-pressed="false"><strong>Question</strong><span>Ask for information or help</span></button>
 <button type="button" data-message-type="Complaint" aria-pressed="true"><strong>Complaint</strong><span>Report something that went wrong</span></button>
@@ -41,6 +50,7 @@
 <option>Question</option>
 </select>
 </div>
+<!-- Topic of the request, saved in feedback.topic (migration 013) -->
 <div class="field" id="topic-field"><label for="topic">What is this about?</label><select id="topic" class="input" required><option value="">Choose a topic</option><option>Payments &amp; billing</option><option>Laundry &amp; items</option><option>Pickup &amp; delivery</option><option>Account &amp; booking</option><option value="General">Something else / general enquiry</option></select></div><div class="field">
 <label for="order">Related order (optional)</label>
 <select id="order" class="input">
@@ -74,6 +84,9 @@
 </div>
 </form>
 </section>
+<!-- Summary cards: case counts. Clicking a card filters the list below by its
+     data-summary-status value. Staff only: hidden for customers by support.css, but cases.js
+     still fills in the counts, so the elements have to exist. -->
 <section class="support-summary" id="case-summary" aria-label="Case summary">
 <button class="summary-card is-active" type="button" data-summary-status="" aria-pressed="true"><span class="summary-icon" aria-hidden="true">◎</span><span><small>All cases</small><strong id="summary-total">—</strong><em>Complete queue</em></span></button>
 <button class="summary-card" type="button" data-summary-status="pending" aria-pressed="false"><span class="summary-icon pending" aria-hidden="true">!</span><span><small>Pending</small><strong id="summary-pending">—</strong><em>Needs attention</em></span></button>
@@ -81,7 +94,9 @@
 <button class="summary-card" type="button" data-summary-status="resolved" aria-pressed="false"><span class="summary-icon resolved" aria-hidden="true">✓</span><span><small>Resolved</small><strong id="summary-resolved">—</strong><em>Completed cases</em></span></button>
 </section>
 <section class="section support-queue card" aria-labelledby="queue-title">
-<div class="queue-heading"><div><div class="subtitle">CASE QUEUE</div><h2 id="queue-title">My support requests</h2><p class="muted" id="queue-description">Search, prioritise and open a customer case.</p></div><span class="queue-count" id="visible-count" aria-live="polite">Loading…</span></div>
+<!-- cases.js replaces the title and description below with wording for the signed-in role -->
+<div class="queue-heading"><div><div class="subtitle">YOUR CASES</div><h2 id="queue-title">My support requests</h2><p class="muted" id="queue-description">Search, prioritise and open a customer case.</p></div><span class="queue-count" id="visible-count" aria-live="polite">Loading…</span></div>
+<!-- Staff-only type tabs and filters (hidden for customers by support.css) -->
 <div class="case-type-tabs" aria-label="Browse support cases by type"><button type="button" data-queue-type="" aria-pressed="true">All requests</button><button type="button" data-queue-type="Feedback" aria-pressed="false">Feedback</button><button type="button" data-queue-type="Question" aria-pressed="false">Questions</button><button type="button" data-queue-type="Complaint" aria-pressed="false">Complaints</button></div><form id="filters" class="toolbar">
 <div class="field">
 <label for="search">Search</label>
@@ -112,7 +127,9 @@
 <label for="filter-priority">Priority</label>
 <select class="input" id="filter-priority"><option value="">All priorities</option><option>High</option><option>Normal</option><option>Low</option></select>
 </div>
-<div class="field" id="assignee-filter-field">
+<!-- Only customer service sees this filter. It starts hidden and cases.js decides whether to
+     show it, but the script still reads it when it loads the list, so it has to exist. -->
+<div class="field" id="assignee-filter-field" hidden>
 <label for="filter-assignee">Assigned staff</label>
 <select class="input" id="filter-assignee"><option value="">Anyone</option></select>
 </div>
@@ -142,6 +159,8 @@
 <button class="custom_button" id="next">Next</button>
 </div>
 </section>
+<!-- Case panel: opens over the page when a request is clicked. The backdrop dims the page
+     behind it and closes the panel when clicked. -->
 <div id="detail-backdrop" class="detail-backdrop" hidden></div>
 <section id="case-detail" class="card detail section" hidden tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="detail-title">
 <div class="top_bar">
@@ -151,14 +170,20 @@
 </div>
 <p id="detail-meta" class="muted">
 </p>
-<div id="detail-notice" class="notice" role="alert" hidden></div><div class="case-detail-tabs" role="tablist" aria-label="Case views"><button type="button" id="tab-details" role="tab" aria-controls="panel-details" aria-selected="true" tabindex="0" data-case-tab="details">Details &amp; assignment</button><button type="button" id="tab-chats" role="tab" aria-controls="panel-chats" aria-selected="false" tabindex="-1" data-case-tab="chats">Conversation</button><button type="button" id="tab-history" role="tab" aria-controls="panel-history" aria-selected="false" tabindex="-1" data-case-tab="history">Case history</button></div>
+<div id="detail-notice" class="notice" role="alert" hidden></div>
+<!-- Tabs of the case panel. Each button's aria-controls names the panel it shows. -->
+<div class="case-detail-tabs" role="tablist" aria-label="Case views"><button type="button" id="tab-details" role="tab" aria-controls="panel-details" aria-selected="true" tabindex="0" data-case-tab="details">Details &amp; assignment</button><button type="button" id="tab-chats" role="tab" aria-controls="panel-chats" aria-selected="false" tabindex="-1" data-case-tab="chats">Conversation</button><button type="button" id="tab-history" role="tab" aria-controls="panel-history" aria-selected="false" tabindex="-1" data-case-tab="history">Case history</button></div>
 <div id="panel-details" role="tabpanel" aria-labelledby="tab-details">
 <p id="detail-message" style="white-space:pre-wrap">
 </p>
+<!-- Shown only while the case is still "New" and was sent by the customer -->
 <div class="actions" id="customer-actions">
 <button class="custom_button" id="edit-case">Edit</button>
 <button class="custom_button danger" id="delete-case">Delete case</button>
 </div>
+<!-- Staff-only form for changing status, priority and assignee. A customer never sees it
+     (cases.js keeps it hidden), but the script fills in its fields whenever a case is opened,
+     so the fields have to exist on this page too. -->
 <form id="handle-form" class="section" hidden>
 <h3>Assign or resolve this case</h3><p id="routing-help" class="muted small"></p><button id="handle-myself" type="button" class="custom_button">Handle this myself</button>
 <div class="grid grid_three">
@@ -199,7 +224,7 @@
 </div>
 <div class="section case-communications">
 <section class="conversation-panel" id="panel-chats" role="tabpanel" aria-labelledby="tab-chats" hidden>
-<div class="panel-heading"><div><h3>Conversation</h3><p class="muted small">Customer and support messages</p></div></div>
+<div class="panel-heading"><div><h3>Conversation</h3><p class="muted small">Your messages and the support team's replies</p></div></div>
 <div id="messages">
 </div>
 <p id="chat-notice" role="status" aria-live="polite" class="small"></p><form id="reply-form">

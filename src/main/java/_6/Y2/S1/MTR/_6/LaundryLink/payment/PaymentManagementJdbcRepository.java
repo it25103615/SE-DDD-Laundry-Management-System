@@ -115,9 +115,15 @@ public class PaymentManagementJdbcRepository implements PaymentManagementReposit
     }
 
     @Override
-    public void updateOrderStatus(Integer orderID, Integer statusID) {
-        jdbcTemplate.update(
-                "UPDATE orders SET statusID = ? WHERE orderID = ?",
+    public int updateOrderStatus(Integer orderID, Integer statusID) {
+        // The extra condition makes the database refuse to move a cancelled order, even if the
+        // customer cancels between the service's check and this update.
+        return jdbcTemplate.update(
+                """
+                        UPDATE orders SET statusID = ?
+                        WHERE orderID = ?
+                          AND statusID NOT IN (SELECT statusID FROM status WHERE statusLabel = 'Cancelled')
+                        """,
                 statusID,
                 orderID
         );

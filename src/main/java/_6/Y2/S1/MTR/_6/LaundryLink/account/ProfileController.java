@@ -45,6 +45,15 @@ public class ProfileController {
         return ResponseEntity.ok(Map.of("message", "Account deactivated."));
     }
 
+    // The service reports problems (wrong current password, email already taken) as a
+    // ResponseStatusException. Return its reason as "message", which is what the profile
+    // page reads, instead of the default error body that leaves the reason out.
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String,String>> rejected(ResponseStatusException error) {
+        String reason = error.getReason() == null ? "Unable to save your profile." : error.getReason();
+        return ResponseEntity.status(error.getStatusCode()).body(Map.of("message", reason));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String,String> invalid(MethodArgumentNotValidException error) {

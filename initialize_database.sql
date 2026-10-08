@@ -54,6 +54,10 @@ IF OBJECT_ID('dbo.feedback', 'U') IS NOT NULL
     DROP TABLE dbo.feedback;
 IF OBJECT_ID('dbo.orderPromotions', 'U') IS NOT NULL
     DROP TABLE dbo.orderPromotions;
+-- refunds (created by migration 011) references payments and users, so it is dropped first.
+-- Without this the initializer cannot be re-run on a database that already has migration 011.
+IF OBJECT_ID('dbo.refunds', 'U') IS NOT NULL
+    DROP TABLE dbo.refunds;
 IF OBJECT_ID('dbo.payments', 'U') IS NOT NULL
     DROP TABLE dbo.payments;
 IF OBJECT_ID('dbo.logs', 'U') IS NOT NULL
@@ -503,7 +507,7 @@ GO
 -- Issues staff report during processing are stored as support cases in feedback
 -- (caseType = the issue type), so they need no table of their own.
 
--- Quality checks after Ironing; the newest row per order is the current one.
+-- Quality checks done at Quality Inspection (status 21); the newest row per order is the current one.
 CREATE TABLE qualityChecks(
     checkID        INT IDENTITY(1, 1) CONSTRAINT pk_qualityChecks PRIMARY KEY,
     orderID        INT          NOT NULL,
@@ -761,7 +765,8 @@ IF OBJECT_ID('dbo.status', 'U') IS NOT NULL
         (17, 'Pickup Failed'),
         (18, 'Delivery Failed'),
         (19, 'Dry Clean'),
-        (20, 'Cancelled');
+        (20, 'Cancelled'),
+        (21, 'Quality Inspection'); -- quality check, packing and "Mark as Ready" (migration 014)
     GO
 -- ================ Populate Status Table - End ===============
 -- ============================================================
