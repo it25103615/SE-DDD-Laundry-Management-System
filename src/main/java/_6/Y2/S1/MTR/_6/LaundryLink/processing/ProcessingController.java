@@ -108,6 +108,11 @@ public class ProcessingController {
         return issues.listIssues(orderId);
     }
 
+    @GetMapping("/issues/permissions")
+    public java.util.Map<String, Boolean> issuePermissions(Principal principal) {
+        return java.util.Map.of("canReport", "STAFF".equals(processing.currentStaff(principal).role()));
+    }
+
     /** Reports a damaged, stained or missing item; it also opens a CSM complaint case. */
     @PostMapping("/issues")
     public ResponseEntity<IssueResponse> reportIssue(Principal principal, @Valid @RequestBody IssueRequest request) {

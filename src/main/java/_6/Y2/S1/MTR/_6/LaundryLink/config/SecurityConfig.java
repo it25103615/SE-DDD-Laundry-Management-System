@@ -58,6 +58,7 @@ public class SecurityConfig {
                         .requestMatchers("/html/admin/owner/**").hasAnyRole("OWNER", "ADMIN")
                         .requestMatchers("/html/admin/manager/**").hasAnyRole("MANAGER", "OWNER", "ADMIN")
                         .requestMatchers("/html/admin/customer-service-manager/**").hasAnyRole("CSM", "CUSTOMER_SERVICE_MANAGER", "MANAGER", "OWNER", "ADMIN")
+                        .requestMatchers("/html/support/**").hasAnyRole("CSM", "CUSTOMER_SERVICE_MANAGER", "MANAGER", "OWNER", "ADMIN", "STAFF", "RIDER")
                         .requestMatchers("/api/support/**").authenticated()
                         .requestMatchers("/api/notifications/**").authenticated()
                         .requestMatchers("/api/customer/dashboard").hasRole("CUSTOMER")

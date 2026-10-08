@@ -218,3 +218,23 @@ body.case-panel-open .dashboard_nav { visibility:hidden; }
 .support-page .case-table-wrap { border-radius:0; box-shadow:none; }
 @media(max-width:900px) { .overview-layout { grid-template-columns:1fr; } }
 @media(max-width:600px) { .support-header { flex-direction:column; align-items:start; } .overview-card { padding:18px; } .overview-case { flex-wrap:wrap; } .overview-case-state { max-width:none; justify-content:start; } .overview-case-state time { text-align:left; } .overview-case-main { flex-basis:100%; } }
+.case-type-choices { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:18px 0; }
+.case-type-choices button { padding:18px; text-align:left; border:1px solid #c6d9e6; border-radius:14px; background:#f8fcff; color:#19364a; cursor:pointer; }
+.case-type-choices strong,.case-type-choices span { display:block; }
+.case-type-choices span { margin-top:6px; font-size:.85rem; line-height:1.5; }
+.case-type-choices button[aria-pressed="true"],.case-type-tabs button[aria-pressed="true"] { border-color:#347caf; background:#e7f4ff; box-shadow:inset 0 0 0 1px #347caf; }
+.case-type-tabs { display:flex; flex-wrap:wrap; gap:10px; padding:18px 22px 0; }
+.case-type-tabs button { padding:10px 16px; border:1px solid #c6d9e6; border-radius:999px; background:white; color:#19364a; cursor:pointer; }
+#chat-notice { color:#234b65; min-height:1.4em; overflow-wrap:anywhere; }
+@media(max-width:600px) { .case-type-choices { grid-template-columns:1fr; } }
+body[data-audience="customer"] #case-summary,
+body[data-audience="customer"] .case-type-tabs,
+body[data-audience="customer"] #filters,
+body[data-audience="customer"] #detail-meta .priority-badge,
+body[data-audience="customer"] .case-table-wrap thead { display:none !important; }
+.customer-request-list { display:grid; gap:14px; }
+.customer-request { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:20px; border:1px solid #dce8ee; border-radius:14px; background:white; }
+.customer-request h3 { margin:8px 0; }
+.customer-request p,.customer-request small { color:#617584; }
+.customer-request .case-open-button { flex-shrink:0; }
+@media(max-width:600px) { .customer-request { align-items:flex-start; flex-direction:column; } }
