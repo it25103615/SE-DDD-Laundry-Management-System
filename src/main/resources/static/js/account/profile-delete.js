@@ -1,11 +1,7 @@
 // "Delete account" section on the profile page (html/account/profile.html).
 //
 // A customer reads the warning, presses "Delete my account", and a pop-up asks for the account
-// password. Pressing Confirm signs them out and sends them to the login page.
-//
-// This is a FRONT-END MOCK for now: the server has no delete-account endpoint, so no account is
-// actually deleted and the same details still work at the next login. The one place that will
-// need a real request later is deleteAccount() below.
+// password. The server verifies it, deactivates the account, and ends the current session.
 document.addEventListener("DOMContentLoaded", async () => {
   const section = document.getElementById("delete-section");
   if (!section) return;
@@ -45,21 +41,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   section.hidden = false;
 
-  // THE PLACE TO CHANGE LATER. Today this only resolves, because the server cannot delete an
-  // account yet. When a delete endpoint exists, send the password to it here (with the CSRF
-  // token, like the other requests on this page) and throw an Error with the server's message
-  // if it is refused, for example when the password is wrong.
+  // A redirect (for example to login after session expiry) is not a successful deletion.
   async function deleteAccount(passwordValue) {
-    return passwordValue;
-  }
-
-  // Signs the user out the same way the Log out button does: Spring Security needs the CSRF
-  // token on POST /logout. A successful logout lands on the login page, which shows the
-  // "You have been signed out." message because of ?logout=true.
-  async function signOut() {
-    const csrf = await fetch("/api/auth/csrf").then((response) => (response.ok ? response.json() : Promise.reject(new Error("Unable to verify this action."))));
-    await fetch("/logout", { method: "POST", headers: { [csrf.headerName]: csrf.token } });
-    location.href = "/html/auth/login.html?logout=true";
+    const tokenResponse = await fetch("/api/auth/csrf", { headers: { Accept: "application/json" } });
+    if (!tokenResponse.ok || tokenResponse.redirected) throw new Error("Unable to verify this action. Sign in again and retry.");
+    const csrf = await tokenResponse.json();
+    const response = await fetch("/api/account/profile", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", Accept: "application/json", [csrf.headerName]: csrf.token },
+      body: JSON.stringify({ currentPassword: passwordValue }),
+    });
+    if (response.redirected) throw new Error("Your session expired or this action was refused. Sign in again and retry.");
+    const result = await response.json().catch(() => null);
+    if (!response.ok || !result) throw new Error(result?.message || "We could not deactivate your account. Try again.");
   }
 
   // Closes the pop-up and forgets what was typed, so the password never stays in the page.
@@ -106,11 +100,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       await deleteAccount(password.value);
       closeDialog();
-      await signOut();
+      location.href = "/html/auth/login.html?logout=true";
     } catch (failure) {
       showDialogError(failure.message || "We could not delete your account. Try again.");
-      // If signing out failed after the pop-up closed, the page-level box tells the customer.
-      if (!dialog.open) showPageError(failure.message || "We could not sign you out. Try again.");
+      if (!dialog.open) showPageError(failure.message || "We could not deactivate your account. Try again.");
     } finally {
       confirmButton.disabled = false;
     }

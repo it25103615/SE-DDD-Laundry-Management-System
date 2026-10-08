@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -15,4 +16,10 @@ public class ModifyOrderRequest {
     @NotEmpty
     @Valid
     private List<CreateOrderLineRequest> orderLines;
+
+    // Customer updates include these fields; management's line-only update ignores them.
+    private LocalDateTime pickupScheduled;
+    private Integer addressID;
+    private String instructions;
+    private List<String> preferences;
 }

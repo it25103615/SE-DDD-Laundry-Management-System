@@ -1,12 +1,14 @@
 package _6.Y2.S1.MTR._6.LaundryLink.promotion;
 
 import _6.Y2.S1.MTR._6.LaundryLink.payment.PaymentAccessService;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 @RestController
@@ -21,7 +23,7 @@ public class PromotionController {
     }
 
     @PostMapping
-    public ResponseEntity<Promotion> createPromotion(
+    public ResponseEntity<?> createPromotion(
             Principal principal,
             @RequestBody PromotionRequest request
     ) {
@@ -31,12 +33,14 @@ public class PromotionController {
         } catch (AccessDeniedException ex) {
             return ResponseEntity.status(403).build();
         } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().build();
+            return badRequest(ex.getMessage());
+        } catch (DataAccessException ex) {
+            return badRequest("Promotion could not be saved. Check for duplicate codes or invalid promotion details.");
         }
     }
 
     @PutMapping("/{promotionID}")
-    public ResponseEntity<Promotion> updatePromotion(
+    public ResponseEntity<?> updatePromotion(
             @PathVariable Integer promotionID,
             Principal principal,
             @RequestBody PromotionRequest request
@@ -49,7 +53,9 @@ public class PromotionController {
         } catch (AccessDeniedException ex) {
             return ResponseEntity.status(403).build();
         } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().build();
+            return badRequest(ex.getMessage());
+        } catch (DataAccessException ex) {
+            return badRequest("Promotion could not be saved. Check for duplicate codes or invalid promotion details.");
         }
     }
 
@@ -137,5 +143,9 @@ public class PromotionController {
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().build();
         }
+    }
+
+    private ResponseEntity<Map<String, String>> badRequest(String message) {
+        return ResponseEntity.badRequest().body(Map.of("message", message));
     }
 }
