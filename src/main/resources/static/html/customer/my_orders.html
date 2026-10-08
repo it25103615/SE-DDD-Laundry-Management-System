@@ -8,21 +8,10 @@
     <link rel="stylesheet" href="../../css/dashboard.css" />
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
+    <script src="../../js/customer/order-management.js" defer></script>
   </head>
   <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="dashboard.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="dashboard.html">Dashboard</a
-          ><a href="my_orders.html">My Orders</a
-          ><a href="payments.html">Payments</a
-          ><a href="profile.html"><span class="profile_badge">PF</span></a>
-        </li>
-      </ul>
-    </nav>
+    <nav class="dashboard_nav"></nav>
     <main>
       <header class="page_header top_bar">
         <div>
@@ -39,51 +28,15 @@
           <thead>
             <tr>
               <th>ORDER</th>
-              <th>PLACED</th>
-              <th>SERVICES</th>
               <th>TOTAL</th>
               <th>STATUS</th>
               <th></th>
             </tr>
           </thead>
+          <!-- Filled by order-management.js with the signed-in customer's orders. -->
           <tbody>
             <tr>
-              <td><strong>#1052</strong></td>
-              <td>14 Aug 2026</td>
-              <td>Wash &amp; Fold, Dry Cleaning</td>
-              <td>LKR 1,270</td>
-              <td>
-                <span class="status status_warning">Pickup scheduled</span>
-              </td>
-              <td>
-                <a class="link" href="upcoming_order_details.html"
-                  >View &amp; modify</a
-                >
-              </td>
-            </tr>
-            <tr>
-              <td><strong>#1042</strong></td>
-              <td>14 Aug 2026</td>
-              <td>Wash &amp; Fold, Dry Cleaning</td>
-              <td>LKR 2,480</td>
-              <td><span class="status">Cleaning</span></td>
-              <td><a class="link" href="order_details.html">View</a></td>
-            </tr>
-            <tr>
-              <td><strong>#1018</strong></td>
-              <td>28 Jul 2026</td>
-              <td>Wash &amp; Fold</td>
-              <td>LKR 1,260</td>
-              <td>Delivered</td>
-              <td><a class="link" href="order_details.html">View</a></td>
-            </tr>
-            <tr>
-              <td><strong>#996</strong></td>
-              <td>12 Jul 2026</td>
-              <td>Ironing</td>
-              <td>LKR 900</td>
-              <td>Delivered</td>
-              <td><a class="link" href="order_details.html">View</a></td>
+              <td colspan="4">Loading orders…</td>
             </tr>
           </tbody>
         </table>

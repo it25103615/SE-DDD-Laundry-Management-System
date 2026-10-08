@@ -1,0 +1,7 @@
+.public_hero { padding: 65px 0 45px; max-width: 760px; }
+.public_hero h1 { font-size: 48px; margin: 10px 0 18px; }
+.public_hero p { font-size: 18px; color: var(--black_70); max-width: 58ch; }
+.service_detail { padding: 28px 0; border-top: 1px solid var(--black_20); }
+.service_detail:last-child { border-bottom: 1px solid var(--black_20); }
+.price { color: var(--primary_color); font-size: 24px; font-weight: bold; }
+.pricing_note { margin-top: 35px; padding: 24px; background: var(--secondary_color); }

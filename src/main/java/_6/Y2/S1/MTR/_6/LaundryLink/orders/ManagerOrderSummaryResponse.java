@@ -1,0 +1,17 @@
+package _6.Y2.S1.MTR._6.LaundryLink.orders;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+@Getter
+@AllArgsConstructor
+public class ManagerOrderSummaryResponse {
+    private Integer orderID;
+    private Integer userID;
+    private String customerName;
+    private String customerEmail;
+    private String customerPhoneNumber;
+    private Integer statusID;
+    private String statusLabel;
+    private Double orderTotal;
+}
