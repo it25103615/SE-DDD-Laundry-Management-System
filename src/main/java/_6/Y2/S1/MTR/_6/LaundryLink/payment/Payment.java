@@ -32,7 +32,7 @@ public class Payment {
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20, nullable = false)
-    private PaymentStatus paymentStatus = PaymentStatus.PAID;
+    private PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
     @Column(nullable = false)
     private LocalDateTime processedAt;
@@ -40,7 +40,7 @@ public class Payment {
     public Payment(Double amount, Integer orderID) {
         this.amount = amount;
         this.orderID = orderID;
-        this.paymentStatus = PaymentStatus.PAID;
+        this.paymentStatus = PaymentStatus.PENDING;
         this.processedAt = LocalDateTime.now();
     }
 
@@ -53,7 +53,7 @@ public class Payment {
     @PrePersist
     public void ensureRecordedPaymentFields() {
         if (paymentStatus == null) {
-            paymentStatus = PaymentStatus.PAID;
+            paymentStatus = PaymentStatus.PENDING;
         }
         if (processedAt == null) {
             processedAt = LocalDateTime.now();

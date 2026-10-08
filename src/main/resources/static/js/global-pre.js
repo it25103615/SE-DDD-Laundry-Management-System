@@ -75,13 +75,16 @@ if (location.protocol === "file:") {
   };
   const pageRoles = [
     ["/html/customer/", ["CUSTOMER"]],
+    ["/html/admin/owner/payments_billing.html", ["MANAGER", "OWNER", "ADMIN"]],
+    ["/html/admin/owner/payment_detail.html", ["MANAGER", "OWNER", "ADMIN"]],
+    ["/html/admin/owner/promotions.html", ["MANAGER", "OWNER", "ADMIN"]],
     ["/html/admin/owner/", ["OWNER", "ADMIN"]],
     ["/html/admin/manager/", ["MANAGER", "OWNER", "ADMIN"]],
     ["/html/admin/customer-service-manager/", ["CSM", "CUSTOMER_SERVICE_MANAGER", "MANAGER", "OWNER", "ADMIN"]],
     ["/html/staff/", ["STAFF", "MANAGER", "OWNER", "ADMIN"]],
     ["/html/rider/", ["RIDER"]],
     ["/html/account/", Object.keys(DASHBOARDS)],
-  ].find(([prefix]) => location.pathname.startsWith(prefix));
+  ].find(([path]) => path.endsWith("/") ? location.pathname.startsWith(path) : location.pathname === path);
   if (pageRoles) {
     const root = document.documentElement;
     const visibility = root.style.getPropertyValue("visibility");
@@ -207,6 +210,12 @@ if (location.protocol === "file:") {
           "/html/staff/issue_reports.html",
         ],
       },
+      {
+        label: "Payments & Billing",
+        href: "/html/admin/owner/payments_billing.html",
+        pages: ["/html/admin/owner/payment_detail.html"],
+      },
+      { label: "Promotions", href: "/html/admin/owner/promotions.html" },
       { label: "Assign Riders", href: "/html/admin/manager/assign_riders.html" },
       { label: "Service catalogue", href: "/html/admin/manager/service_catalog.html" },
       staffAccounts,

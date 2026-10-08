@@ -2,16 +2,22 @@ package _6.Y2.S1.MTR._6.LaundryLink.payment;
 
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingDetails;
 import _6.Y2.S1.MTR._6.LaundryLink.billing.BillingService;
+import _6.Y2.S1.MTR._6.LaundryLink.notification.NotificationService;
 import _6.Y2.S1.MTR._6.LaundryLink.status.Status;
 import _6.Y2.S1.MTR._6.LaundryLink.status.StatusService;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -24,25 +30,32 @@ public class PaymentService {
     private static final String PAYMENT_VERIFIED = "Payment Verified";
     private static final String PAYMENT_FAILED = "Payment Failed";
     private static final String AWAITING_PICKUP = "Awaiting Pickup";
+    private static final DateTimeFormatter RECEIPT_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final PaymentRepository paymentRepository;
+    private final RefundRepository refundRepository;
     private final PaymentManagementRepository paymentManagementRepository;
     private final BillingService billingService;
     private final PaymentAccessService paymentAccessService;
     private final StatusService statusService;
+    private final NotificationService notificationService;
 
     public PaymentService(
             PaymentRepository paymentRepository,
+            RefundRepository refundRepository,
             PaymentManagementRepository paymentManagementRepository,
             BillingService billingService,
             PaymentAccessService paymentAccessService,
-            StatusService statusService
+            StatusService statusService,
+            NotificationService notificationService
     ) {
         this.paymentRepository = paymentRepository;
+        this.refundRepository = refundRepository;
         this.paymentManagementRepository = paymentManagementRepository;
         this.billingService = billingService;
         this.paymentAccessService = paymentAccessService;
         this.statusService = statusService;
+        this.notificationService = notificationService;
     }
 
     public PaymentAmountResponse getAmountDue(Integer orderID, Integer customerID) {
@@ -82,6 +95,7 @@ public class PaymentService {
         BillingDetails billingDetails = billingService.getBillingDetails(payment.getOrderID());
         verifyCanViewOrderPaymentRecords(customerID, billingDetails);
         PaymentStatusResponse status = buildPaymentStatus(payment.getOrderID(), billingDetails);
+        Optional<Refund> refund = refundRepository.findByPaymentID(payment.getPaymentID());
 
         return new PaymentReceiptResponse(
                 payment.getPaymentID(),
@@ -93,11 +107,16 @@ public class PaymentService {
                 billingDetails.getTotalDiscount(),
                 billingDetails.getFinalPayableAmount(),
                 BigDecimal.valueOf(payment.getAmount()),
-                status.getStatus(),
+                payment.getPaymentStatus(),
                 payment.getPaymentMethod(),
                 payment.getTransactionReference(),
                 payment.getProcessedAt(),
-                status.getOrderStatus()
+                status.getOrderStatus(),
+                refund.map(Refund::getRefundAmount).orElse(null),
+                refund.map(Refund::getRefundStatus).orElse(null),
+                refund.map(Refund::getRequestedAt).orElse(null),
+                refund.map(Refund::getProcessedAt).orElse(null),
+                refund.map(Refund::getRefundedAt).orElse(null)
         );
     }
 
@@ -146,11 +165,15 @@ public class PaymentService {
     public PaymentConfirmationResponse submitPayment(Integer orderID, Integer customerID, PaymentRequest request) {
         PaymentStatusResponse currentStatus = getPaymentStatus(orderID, customerID);
 
-        if (currentStatus.getStatus() == PaymentStatus.VERIFIED) {
+        if (currentStatus.getStatus() == PaymentStatus.PAID || currentStatus.getStatus() == PaymentStatus.VERIFIED) {
             throw new IllegalStateException("This order is already paid");
         }
 
-        if (currentStatus.getStatus() == PaymentStatus.PAID) {
+        if (currentStatus.getStatus() == PaymentStatus.REFUNDED) {
+            throw new IllegalStateException("This order payment has already been refunded");
+        }
+
+        if (currentStatus.getStatus() == PaymentStatus.PENDING) {
             throw new IllegalStateException("Payment submitted - awaiting verification");
         }
 
@@ -175,8 +198,13 @@ public class PaymentService {
                 savedPayment.getTransactionReference(),
                 savedPayment.getPaymentStatus(),
                 savedPayment.getProcessedAt(),
-                "Payment recorded successfully"
+                "Payment submitted and awaiting verification"
         );
+    }
+
+    public byte[] getCustomerReceiptPdf(Integer customerID, Integer paymentID, Integer requestedOrderID) {
+        PaymentReceiptResponse receipt = getCustomerReceipt(customerID, paymentID, requestedOrderID);
+        return buildReceiptPdf(receipt);
     }
 
     public PaymentStatusResponse getPaymentStatus(Integer orderID, Integer customerID) {
@@ -193,7 +221,7 @@ public class PaymentService {
     }
 
     public List<PaymentHistoryResponse> getPaymentHistory(Integer customerID) {
-        return paymentRepository.findAll().stream()
+        return paymentRepository.findAllByOrderByProcessedAtDescPaymentIDDesc().stream()
                 .filter(payment -> {
                     BillingDetails billingDetails = billingService.getBillingDetails(payment.getOrderID());
                     return billingDetails.getUserID().equals(customerID);
@@ -201,15 +229,21 @@ public class PaymentService {
                 .map(payment -> {
                     BillingDetails billingDetails = billingService.getBillingDetails(payment.getOrderID());
                     PaymentStatusResponse status = buildPaymentStatus(payment.getOrderID(), billingDetails);
+                    Optional<Refund> refund = refundRepository.findByPaymentID(payment.getPaymentID());
                     return new PaymentHistoryResponse(
                             payment.getPaymentID(),
                             payment.getOrderID(),
                             BigDecimal.valueOf(payment.getAmount()),
-                            status.getStatus(),
+                            payment.getPaymentStatus(),
                             payment.getPaymentMethod(),
                             payment.getTransactionReference(),
                             payment.getProcessedAt(),
-                            status.getOrderStatus()
+                            status.getOrderStatus(),
+                            refund.map(Refund::getRefundAmount).orElse(null),
+                            refund.map(Refund::getRefundStatus).orElse(null),
+                            refund.map(Refund::getRequestedAt).orElse(null),
+                            refund.map(Refund::getProcessedAt).orElse(null),
+                            refund.map(Refund::getRefundedAt).orElse(null)
                     );
                 })
                 .toList();
@@ -268,6 +302,82 @@ public class PaymentService {
         return verifyPaymentDecision(managementUserID, paymentID, false);
     }
 
+    @Transactional
+    public RefundResponse requestRefund(Integer customerID, Integer paymentID, RefundRequest request) {
+        paymentAccessService.requireCustomer(customerID);
+        Payment payment = paymentRepository.findById(paymentID).orElseThrow();
+        BillingDetails billingDetails = billingService.getBillingDetails(payment.getOrderID());
+        paymentAccessService.verifyOrderBelongsToCustomer(billingDetails, customerID);
+        String reason = validateRefundRequest(request);
+
+        if (payment.getPaymentStatus() != PaymentStatus.PAID && payment.getPaymentStatus() != PaymentStatus.VERIFIED) {
+            throw new IllegalStateException("Only verified payments can have a refund requested");
+        }
+
+        if (refundRepository.existsByPaymentID(paymentID)) {
+            throw new IllegalStateException("A refund workflow already exists for this payment");
+        }
+
+        Refund refund = new Refund(
+                paymentID,
+                BigDecimal.valueOf(payment.getAmount()),
+                reason,
+                customerID
+        );
+        Refund savedRefund = refundRepository.save(refund);
+        return toRefundResponse(savedRefund, payment, "Refund request submitted");
+    }
+
+    @Transactional
+    public RefundResponse approveRefund(Integer managementUserID, Integer paymentID) {
+        paymentAccessService.requireManagementUser(managementUserID);
+        Payment payment = paymentRepository.findById(paymentID).orElseThrow();
+        Refund refund = refundRepository.findByPaymentID(paymentID).orElseThrow();
+
+        if (payment.getPaymentStatus() != PaymentStatus.PAID && payment.getPaymentStatus() != PaymentStatus.VERIFIED) {
+            throw new IllegalStateException("Only verified payments can be refunded");
+        }
+
+        if (refund.getRefundStatus() != RefundStatus.REQUESTED) {
+            throw new IllegalStateException("Only requested refunds can be approved");
+        }
+
+        refund.setRefundAmount(BigDecimal.valueOf(payment.getAmount()));
+        refund.setRefundStatus(RefundStatus.REFUNDED);
+        refund.setProcessedAt(LocalDateTime.now());
+        refund.setRefundedAt(refund.getProcessedAt());
+        refund.setProcessedBy(managementUserID);
+        Refund savedRefund = refundRepository.save(refund);
+
+        payment.setPaymentStatus(PaymentStatus.REFUNDED);
+        paymentRepository.save(payment);
+        notifyRefundApproved(payment, savedRefund);
+
+        return toRefundResponse(savedRefund, payment, "Refund approved");
+    }
+
+    @Transactional
+    public RefundResponse rejectRefund(Integer managementUserID, Integer paymentID) {
+        paymentAccessService.requireManagementUser(managementUserID);
+        Payment payment = paymentRepository.findById(paymentID).orElseThrow();
+        Refund refund = refundRepository.findByPaymentID(paymentID).orElseThrow();
+
+        if (refund.getRefundStatus() != RefundStatus.REQUESTED) {
+            throw new IllegalStateException("Only requested refunds can be rejected");
+        }
+
+        if (payment.getPaymentStatus() != PaymentStatus.PAID && payment.getPaymentStatus() != PaymentStatus.VERIFIED) {
+            throw new IllegalStateException("Only verified payments can have refund requests rejected");
+        }
+
+        refund.setRefundStatus(RefundStatus.REJECTED);
+        refund.setProcessedAt(LocalDateTime.now());
+        refund.setProcessedBy(managementUserID);
+        Refund savedRefund = refundRepository.save(refund);
+        notifyRefundRejected(payment, savedRefund);
+        return toRefundResponse(savedRefund, payment, "Refund request rejected");
+    }
+
     private PaymentVerificationResponse verifyPaymentDecision(Integer managementUserID, Integer paymentID, boolean approved) {
         paymentAccessService.requireManagementUser(managementUserID);
 
@@ -277,8 +387,8 @@ public class PaymentService {
                 billingService.getBillingDetails(payment.getOrderID())
         );
 
-        if (currentStatus.getStatus() != PaymentStatus.PAID) {
-            throw new IllegalStateException("Only submitted full payments can be verified");
+        if (currentStatus.getStatus() != PaymentStatus.PENDING) {
+            throw new IllegalStateException("Only pending full payments can be verified");
         }
 
         PaymentOrderStatus previousOrderStatus = paymentManagementRepository.findOrderStatus(payment.getOrderID()).orElseThrow();
@@ -286,7 +396,7 @@ public class PaymentService {
         LocalDate verificationDate = LocalDate.now();
         LocalTime verificationTime = LocalTime.now();
 
-        payment.setPaymentStatus(approved ? PaymentStatus.VERIFIED : PaymentStatus.REJECTED);
+        payment.setPaymentStatus(approved ? PaymentStatus.PAID : PaymentStatus.REJECTED);
         payment.ensureRecordedPaymentFields();
         paymentRepository.save(payment);
 
@@ -319,6 +429,19 @@ public class PaymentService {
         );
     }
 
+    private String validateRefundRequest(RefundRequest request) {
+        String reason = request == null ? null : request.resolvedReason();
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new IllegalArgumentException("Refund reason is required");
+        }
+
+        reason = reason.trim();
+        if (reason.length() > 255) {
+            throw new IllegalArgumentException("Refund reason must be 255 characters or fewer");
+        }
+        return reason;
+    }
+
     private void validatePaymentRequest(PaymentCrudRequest request) {
         if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Payment amount must be greater than zero");
@@ -345,6 +468,53 @@ public class PaymentService {
         );
     }
 
+    private RefundResponse toRefundResponse(Refund refund, Payment payment, String message) {
+        return new RefundResponse(
+                refund.getRefundID(),
+                payment.getPaymentID(),
+                payment.getOrderID(),
+                refund.getRefundAmount(),
+                refund.getRefundStatus(),
+                refund.getRequestedAt(),
+                refund.getProcessedAt(),
+                refund.getRefundedAt(),
+                refund.getRequestedBy(),
+                refund.getProcessedBy(),
+                message
+        );
+    }
+
+    private void notifyRefundApproved(Payment payment, Refund refund) {
+        Integer customerID = billingService.getBillingDetails(payment.getOrderID()).getUserID();
+        notificationService.notifyUser(
+                customerID,
+                "PAYMENT",
+                "Refund Approved",
+                "Your refund request for Order #" + payment.getOrderID() + " has been approved. LKR "
+                        + formatNotificationAmount(refund.getRefundAmount()) + " has been refunded.",
+                "/html/customer/receipt.html?paymentID=" + payment.getPaymentID() + "&orderID=" + payment.getOrderID(),
+                "REFUND",
+                refund.getRefundID()
+        );
+    }
+
+    private void notifyRefundRejected(Payment payment, Refund refund) {
+        Integer customerID = billingService.getBillingDetails(payment.getOrderID()).getUserID();
+        notificationService.notifyUser(
+                customerID,
+                "PAYMENT",
+                "Refund Request Rejected",
+                "Your refund request for Order #" + payment.getOrderID() + " was not approved.",
+                "/html/customer/receipt.html?paymentID=" + payment.getPaymentID() + "&orderID=" + payment.getOrderID(),
+                "REFUND",
+                refund.getRefundID()
+        );
+    }
+
+    private String formatNotificationAmount(BigDecimal amount) {
+        return amount.stripTrailingZeros().toPlainString();
+    }
+
     private PaymentStatusResponse buildPaymentStatus(Integer orderID, BillingDetails billingDetails) {
         BigDecimal payableAmount = billingDetails.getFinalPayableAmount();
         PaymentOrderStatus orderStatus = paymentManagementRepository.findOrderStatus(orderID).orElseThrow();
@@ -354,10 +524,15 @@ public class PaymentService {
         Optional<Payment> latestFullPayment = fullPaymentAttempts.stream()
                 .max(this::comparePaymentRecency);
         PaymentStatus status = calculateFullPaymentStatus(orderID, orderStatus, latestFullPayment);
-        BigDecimal paidAmount = status == PaymentStatus.PAID || status == PaymentStatus.VERIFIED
+        BigDecimal paidAmount = status == PaymentStatus.PENDING
+                || status == PaymentStatus.PAID
+                || status == PaymentStatus.VERIFIED
                 ? payableAmount
                 : BigDecimal.ZERO;
-        BigDecimal outstandingAmount = status == PaymentStatus.PAID || status == PaymentStatus.VERIFIED
+        BigDecimal outstandingAmount = status == PaymentStatus.PENDING
+                || status == PaymentStatus.PAID
+                || status == PaymentStatus.VERIFIED
+                || status == PaymentStatus.REFUNDED
                 ? BigDecimal.ZERO
                 : payableAmount;
 
@@ -378,15 +553,21 @@ public class PaymentService {
     ) {
         if (latestFullPayment.isPresent()) {
             Payment payment = latestFullPayment.get();
+            if (payment.getPaymentStatus() == PaymentStatus.REFUNDED) {
+                return PaymentStatus.REFUNDED;
+            }
             if (payment.getPaymentStatus() == PaymentStatus.REJECTED) {
                 return PaymentStatus.REJECTED;
             }
             if (payment.getPaymentStatus() == PaymentStatus.VERIFIED
                     || PAYMENT_VERIFIED.equalsIgnoreCase(orderStatus.getStatusLabel())
                     || paymentManagementRepository.wasPaymentVerified(orderID)) {
-                return PaymentStatus.VERIFIED;
+                return payment.getPaymentStatus() == PaymentStatus.VERIFIED ? PaymentStatus.VERIFIED : PaymentStatus.PAID;
             }
-            return PaymentStatus.PAID;
+            if (payment.getPaymentStatus() == PaymentStatus.PAID) {
+                return PaymentStatus.PAID;
+            }
+            return PaymentStatus.PENDING;
         }
 
         return PaymentStatus.UNPAID;
@@ -425,6 +606,13 @@ public class PaymentService {
                         status.getOrderStatus(),
                         null
                 ));
+        Optional<Refund> refund = refundRepository.findByPaymentID(payment.getPaymentID());
+        BigDecimal recordPaidAmount = countsAsSubmittedOrAccepted(payment.getPaymentStatus())
+                ? BigDecimal.valueOf(payment.getAmount())
+                : BigDecimal.ZERO;
+        BigDecimal recordOutstandingAmount = countsAsSubmittedOrAccepted(payment.getPaymentStatus())
+                ? BigDecimal.ZERO
+                : status.getPayableAmount();
 
         return new PaymentRecordResponse(
                 payment.getPaymentID(),
@@ -433,15 +621,30 @@ public class PaymentService {
                 orderSummary.getCustomerName(),
                 BigDecimal.valueOf(payment.getAmount()),
                 status.getPayableAmount(),
-                status.getPaidAmount(),
-                status.getOutstandingAmount(),
-                status.getStatus(),
+                recordPaidAmount,
+                recordOutstandingAmount,
+                payment.getPaymentStatus(),
                 payment.getPaymentMethod(),
                 payment.getTransactionReference(),
                 payment.getProcessedAt(),
                 payment.getProcessedAt(),
-                orderSummary.getOrderStatus()
+                orderSummary.getOrderStatus(),
+                refund.map(Refund::getRefundAmount).orElse(null),
+                refund.map(Refund::getRefundReason).orElse(null),
+                refund.map(Refund::getRefundStatus).orElse(null),
+                refund.map(Refund::getRequestedAt).orElse(null),
+                refund.map(Refund::getProcessedAt).orElse(null),
+                refund.map(Refund::getRefundedAt).orElse(null),
+                refund.map(Refund::getRequestedBy).orElse(null),
+                refund.map(Refund::getProcessedBy).orElse(null)
         );
+    }
+
+    private boolean countsAsSubmittedOrAccepted(PaymentStatus paymentStatus) {
+        return paymentStatus == PaymentStatus.PENDING
+                || paymentStatus == PaymentStatus.PAID
+                || paymentStatus == PaymentStatus.VERIFIED
+                || paymentStatus == PaymentStatus.REFUNDED;
     }
 
     private PaymentRecordResponse toUnpaidOrderRecord(PaymentManagementOrderSummary orderSummary) {
@@ -462,7 +665,15 @@ public class PaymentService {
                 null,
                 null,
                 orderSummary.getOrderDate(),
-                orderSummary.getOrderStatus()
+                orderSummary.getOrderStatus(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
         );
     }
 
@@ -524,5 +735,75 @@ public class PaymentService {
 
     private boolean contains(Object value, String search) {
         return value != null && value.toString().toLowerCase().contains(search);
+    }
+
+    private byte[] buildReceiptPdf(PaymentReceiptResponse receipt) {
+        List<String> lines = List.of(
+                "LaundryLink",
+                "Payment Receipt",
+                "Order ID: " + receipt.getOrderID(),
+                "Payment/transaction ID: " + receipt.getPaymentID() + " / " + nullToText(receipt.getTransactionReference()),
+                "Subtotal: " + money(receipt.getSubtotal()),
+                "Automatic Bulk Discount: " + money(receipt.getAutomaticBulkDiscount()),
+                "Promotion Discount: " + money(receipt.getPromotionDiscount()),
+                "Total Discount: " + money(receipt.getTotalDiscount() != null ? receipt.getTotalDiscount() : receipt.getDiscountAmount()),
+                "Final Amount: " + money(receipt.getFinalPayableAmount()),
+                "Payment method: " + nullToText(receipt.getPaymentMethod()),
+                "Payment submitted date/time: " + (receipt.getProcessedAt() == null ? "Not recorded" : receipt.getProcessedAt().format(RECEIPT_DATE_FORMAT)),
+                "Current payment status: " + nullToText(receipt.getPaymentStatus())
+        );
+
+        StringBuilder content = new StringBuilder();
+        content.append("BT\n/F1 18 Tf\n72 760 Td\n(").append(pdfEscape(lines.get(0))).append(") Tj\n");
+        content.append("/F1 16 Tf\n0 -28 Td\n(").append(pdfEscape(lines.get(1))).append(") Tj\n");
+        content.append("/F1 11 Tf\n");
+        for (int i = 2; i < lines.size(); i++) {
+            content.append("0 -22 Td\n(").append(pdfEscape(lines.get(i))).append(") Tj\n");
+        }
+        content.append("ET\n");
+
+        byte[] stream = content.toString().getBytes(StandardCharsets.US_ASCII);
+        List<byte[]> objects = new ArrayList<>();
+        objects.add("<< /Type /Catalog /Pages 2 0 R >>\n".getBytes(StandardCharsets.US_ASCII));
+        objects.add("<< /Type /Pages /Kids [3 0 R] /Count 1 >>\n".getBytes(StandardCharsets.US_ASCII));
+        objects.add("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\n".getBytes(StandardCharsets.US_ASCII));
+        objects.add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\n".getBytes(StandardCharsets.US_ASCII));
+        objects.add(("<< /Length " + stream.length + " >>\nstream\n" + content + "endstream\n").getBytes(StandardCharsets.US_ASCII));
+
+        ByteArrayOutputStream pdf = new ByteArrayOutputStream();
+        writeAscii(pdf, "%PDF-1.4\n");
+        List<Integer> offsets = new ArrayList<>();
+        offsets.add(0);
+        for (int i = 0; i < objects.size(); i++) {
+            offsets.add(pdf.size());
+            writeAscii(pdf, (i + 1) + " 0 obj\n");
+            pdf.writeBytes(objects.get(i));
+            writeAscii(pdf, "endobj\n");
+        }
+        int xref = pdf.size();
+        writeAscii(pdf, "xref\n0 " + (objects.size() + 1) + "\n");
+        writeAscii(pdf, "0000000000 65535 f \n");
+        for (int i = 1; i < offsets.size(); i++) {
+            writeAscii(pdf, String.format("%010d 00000 n \n", offsets.get(i)));
+        }
+        writeAscii(pdf, "trailer\n<< /Size " + (objects.size() + 1) + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n");
+        return pdf.toByteArray();
+    }
+
+    private String money(BigDecimal value) {
+        BigDecimal normalized = value == null ? BigDecimal.ZERO : value.setScale(2, RoundingMode.HALF_UP);
+        return "LKR " + normalized.toPlainString();
+    }
+
+    private String nullToText(Object value) {
+        return value == null ? "Not recorded" : value.toString();
+    }
+
+    private String pdfEscape(String value) {
+        return value.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)");
+    }
+
+    private void writeAscii(ByteArrayOutputStream output, String value) {
+        output.writeBytes(value.getBytes(StandardCharsets.US_ASCII));
     }
 }

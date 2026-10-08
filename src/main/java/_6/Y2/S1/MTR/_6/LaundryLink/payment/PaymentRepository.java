@@ -7,5 +7,7 @@ import java.util.List;
 public interface PaymentRepository extends JpaRepository<Payment, Integer> {
     List<Payment> findByOrderID(Integer orderID);
 
+    List<Payment> findAllByOrderByProcessedAtDescPaymentIDDesc();
+
     boolean existsByOrderID(Integer orderID);
 }

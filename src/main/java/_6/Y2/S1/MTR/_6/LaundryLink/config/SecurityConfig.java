@@ -50,6 +50,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/admin/**").hasAnyRole("OWNER", "ADMIN")
                         .requestMatchers("/html/customer/**").hasRole("CUSTOMER")
+                        .requestMatchers(
+                                "/html/admin/owner/payments_billing.html",
+                                "/html/admin/owner/payment_detail.html",
+                                "/html/admin/owner/promotions.html"
+                        ).hasAnyRole("MANAGER", "OWNER", "ADMIN")
                         .requestMatchers("/html/admin/owner/**").hasAnyRole("OWNER", "ADMIN")
                         .requestMatchers("/html/admin/manager/**").hasAnyRole("MANAGER", "OWNER", "ADMIN")
                         .requestMatchers("/html/admin/customer-service-manager/**").hasAnyRole("CSM", "CUSTOMER_SERVICE_MANAGER", "MANAGER", "OWNER", "ADMIN")
@@ -88,6 +93,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/payments/orders/*/status").hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.POST, "/api/payments/orders/*").hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.GET, "/api/payments/orders/*").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/payments/*/receipt.pdf").hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.GET, "/api/payments/*/receipt").hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.GET, "/api/payments/*").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/payments").hasAnyRole(FINANCE_MANAGEMENT_ROLES)

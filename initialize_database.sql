@@ -289,7 +289,7 @@ CREATE TABLE payments(
     paymentID INTEGER IDENTITY(1, 1) PRIMARY KEY,
     amount DECIMAL(10,2) NOT NULL,
     orderID INTEGER NOT NULL,
-    paymentStatus VARCHAR(20) NOT NULL DEFAULT 'PAID',
+    paymentStatus VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     processedAt DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
 
     CONSTRAINT payments_orders_fk FOREIGN KEY(orderID)
@@ -751,7 +751,8 @@ IF OBJECT_ID('dbo.status', 'U') IS NOT NULL
         (16, 'Payment Failed'),
         (17, 'Pickup Failed'),
         (18, 'Delivery Failed'),
-        (19, 'Dry Clean');
+        (19, 'Dry Clean'),
+        (20, 'Cancelled');
     GO
 -- ================ Populate Status Table - End ===============
 -- ============================================================
