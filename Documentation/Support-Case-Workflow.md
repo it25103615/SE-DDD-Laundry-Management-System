@@ -21,4 +21,4 @@ Case history is private to CSM/CUSTOMER_SERVICE_MANAGER accounts. The history ta
 - Browser checks confirmed feedback rating visibility, question topics and the saved conversation in case #6 from both customer and rider views.
 - The reported rider message in case #6 was absent from the database when inspected. No historical message was fabricated or resent. Existing messages were preserved.
 
-Migration 013 adds the topic field and is included in Initialize-SupportDatabase.ps1; it was applied to the current local database. Fresh initialize_database.sql also includes the field. Restart the running application after rebuilding to load the updated Java and frontend resources.
+Migration 014 adds the topic field and is included in Initialize-SupportDatabase.ps1; it was applied to the current local database. Fresh initialize_database.sql also includes the field. Restart the running application after rebuilding to load the updated Java and frontend resources.

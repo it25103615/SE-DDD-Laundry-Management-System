@@ -766,7 +766,7 @@ IF OBJECT_ID('dbo.status', 'U') IS NOT NULL
         (18, 'Delivery Failed'),
         (19, 'Dry Clean'),
         (20, 'Cancelled'),
-        (21, 'Quality Inspection'); -- quality check, packing and "Mark as Ready" (migration 014)
+        (21, 'Quality Inspection'); -- quality check, packing and "Mark as Ready" (migration 015)
     GO
 -- ================ Populate Status Table - End ===============
 -- ============================================================
