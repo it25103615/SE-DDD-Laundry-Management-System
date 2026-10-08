@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
@@ -100,7 +101,10 @@ class ProcessingIntegrationTest {
     @Test
     void cleaningStagesQualityCheckAndRelease() {
         int order = testOrderAt(ProcessingTransitions.WASHING);
-        int washToDry = logRows(order, 9, 10), reworkLogs = logRows(order, 11, 9), releaseLogs = logRows(order, 11, 12);
+        // Quality Inspection (21) is added by migration 015; skip instead of failing without it.
+        assumeTrue(db.queryForObject("SELECT COUNT(*) FROM status WHERE statusID = 21", Integer.class) == 1,
+                "Status 21 not found - run database/migrations/015_quality_inspection_and_routes.sql");
+        int washToDry = logRows(order, 9, 10), reworkLogs = logRows(order, 21, 9), releaseLogs = logRows(order, 21, 12);
 
         processing.changeStatus(order, ProcessingTransitions.DRYING);                         // TC-LP07
         assertEquals(washToDry + 1, logRows(order, 9, 10));
@@ -110,19 +114,22 @@ class ProcessingIntegrationTest {
         assertEquals(logsBefore, db.queryForObject("SELECT COUNT(*) FROM logs WHERE orderID = ?", Integer.class, order));
 
         processing.changeStatus(order, ProcessingTransitions.IRONING);
+        // The quality check happens at Quality Inspection, the last stage of every route.
+        processing.changeStatus(order, ProcessingTransitions.QUALITY_INSPECTION);
         processing.recordQualityCheck(order, new QualityCheckRequest("Failed", 9, null, "Collar stain"), staff); // TC-LP09
         assertEquals(ProcessingTransitions.WASHING, processing.getOrder(order).statusID());
-        assertEquals(reworkLogs + 1, logRows(order, 11, 9));
+        assertEquals(reworkLogs + 1, logRows(order, 21, 9));
 
         // Back through the stages, then pass, pack and release (TC-LP10).
         processing.changeStatus(order, ProcessingTransitions.DRYING);
         processing.changeStatus(order, ProcessingTransitions.IRONING);
+        processing.changeStatus(order, ProcessingTransitions.QUALITY_INSPECTION);
         processing.recordQualityCheck(order, new QualityCheckRequest("Passed", null, false, null), staff);
         assertThrows(ApiException.class, () -> processing.markReady(order));                  // not packed yet
         processing.pack(order);
         ProcessingOrderDetail released = processing.markReady(order);
         assertEquals(ProcessingTransitions.AWAITING_DELIVERY, released.statusID());
-        assertEquals(releaseLogs + 1, logRows(order, 11, 12));
+        assertEquals(releaseLogs + 1, logRows(order, 21, 12));
         // The database trigger tells the customer about the new status.
         assertTrue(db.queryForObject("""
                 SELECT COUNT(*) FROM notifications n JOIN orders o ON o.userID = n.recipientID

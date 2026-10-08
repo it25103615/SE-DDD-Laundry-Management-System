@@ -154,7 +154,7 @@
     try {
       const records = await paymentRecords(paymentFilterQuery());
       const verifiedTotal = records
-        .filter((record) => record.paymentStatus === "VERIFIED")
+        .filter((record) => record.paymentStatus === "PAID" || record.paymentStatus === "VERIFIED")
         .reduce((total, record) => total + Number(record.amount || 0), 0);
       const collected = verifiedTotal;
       const outstandingByOrder = new Map();
@@ -238,18 +238,22 @@
     const refundDate = document.getElementById("detail-refund-date-row");
     if (refundDate) refundDate.hidden = !refunded;
 
-    const verified = record.paymentStatus === "VERIFIED";
+    const verified = record.paymentStatus === "PAID" || record.paymentStatus === "VERIFIED";
     const rejected = record.paymentStatus === "REJECTED";
-    const payable = record.paymentStatus === "PAID";
-    const canVerify = payable && Number(record.outstandingAmount || 0) === 0;
+    const pending = record.paymentStatus === "PENDING";
+    const canVerify = pending && Number(record.outstandingAmount || 0) === 0;
+    // A payment left pending on a cancelled order can only be rejected. Approving it would
+    // release the cancelled order for pickup, and the server refuses that as well.
+    const orderCancelled = String(record.orderStatus || "").toLowerCase() === "cancelled";
+    const canApprove = canVerify && !orderCancelled;
     const approve = document.getElementById("approve-payment");
     const reject = document.getElementById("reject-payment");
     const refundPanel = document.getElementById("refund-panel");
     const finalStatus = document.getElementById("detail-final-status");
 
     if (approve) {
-      approve.hidden = !canVerify;
-      approve.disabled = !canVerify;
+      approve.hidden = !canApprove;
+      approve.disabled = !canApprove;
     }
     if (reject) {
       reject.hidden = !canVerify;
@@ -276,6 +280,10 @@
         finalStatus.hidden = false;
         finalStatus.className = "alert";
         finalStatus.textContent = "This payment is not eligible for verification yet.";
+      } else if (orderCancelled) {
+        finalStatus.hidden = false;
+        finalStatus.className = "alert alert_error";
+        finalStatus.textContent = "This order has been cancelled. The payment can only be rejected.";
       } else {
         finalStatus.hidden = true;
         finalStatus.textContent = "";
@@ -313,11 +321,15 @@
         showMessage("detail-success", result.message || "Payment status updated.");
         await refresh();
       } catch (error) {
-        showMessage("detail-error", error.status === 409
-          ? "This payment cannot be updated until the full amount has been paid."
-          : "Payment status could not be updated.");
-        if (approve && currentRecord.paymentStatus === "PAID") approve.disabled = false;
-        if (reject && currentRecord.paymentStatus === "PAID") reject.disabled = false;
+        // A 409 now carries the server's reason (for example that the order was cancelled).
+        showMessage("detail-error", error.status === 409 && error.body && error.body.message
+          ? error.body.message
+          : error.status === 409
+            ? "This payment cannot be updated until the full amount has been paid."
+            : "Payment status could not be updated.");
+        const cancelled = String(currentRecord.orderStatus || "").toLowerCase() === "cancelled";
+        if (approve && currentRecord.paymentStatus === "PENDING" && !cancelled) approve.disabled = false;
+        if (reject && currentRecord.paymentStatus === "PENDING") reject.disabled = false;
       }
     }
 

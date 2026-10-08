@@ -112,7 +112,7 @@ public class AccountProfileService {
         var row=rows.getFirst();
         if(!passwords.matches(input.currentPassword(),String.valueOf(row.get("password"))))
             throw new ResponseStatusException(BAD_REQUEST,"Current password is incorrect.");
-        db.update("UPDATE users SET password=? WHERE userID=?",passwords.encode(input.newPassword()),row.get("id"));
+        db.update("UPDATE users SET password=?,updatedAt=SYSDATETIME(),version=version+1 WHERE userID=?",passwords.encode(input.newPassword()),row.get("id"));
         notifications.notifyUser(((Number)row.get("id")).intValue(), "SECURITY", "Password changed", "Your LaundryLink password was changed.", "/html/account/profile.html", "ACCOUNT", ((Number)row.get("id")).intValue());
     }
 }

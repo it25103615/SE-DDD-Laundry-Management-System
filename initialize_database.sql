@@ -54,6 +54,10 @@ IF OBJECT_ID('dbo.feedback', 'U') IS NOT NULL
     DROP TABLE dbo.feedback;
 IF OBJECT_ID('dbo.orderPromotions', 'U') IS NOT NULL
     DROP TABLE dbo.orderPromotions;
+-- refunds (created by migration 011) references payments and users, so it is dropped first.
+-- Without this the initializer cannot be re-run on a database that already has migration 011.
+IF OBJECT_ID('dbo.refunds', 'U') IS NOT NULL
+    DROP TABLE dbo.refunds;
 IF OBJECT_ID('dbo.payments', 'U') IS NOT NULL
     DROP TABLE dbo.payments;
 IF OBJECT_ID('dbo.logs', 'U') IS NOT NULL
@@ -289,12 +293,19 @@ CREATE TABLE payments(
     paymentID INTEGER IDENTITY(1, 1) PRIMARY KEY,
     amount DECIMAL(10,2) NOT NULL,
     orderID INTEGER NOT NULL,
-    paymentStatus VARCHAR(20) NOT NULL DEFAULT 'PAID',
-    processedAt DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    -- The defaults are named to match migrations 003, 009 and 012. Migration 012 drops and
+    -- re-adds df_payments_status by name, so an unnamed default here makes it fail with
+    -- "Column already has a DEFAULT bound to it".
+    -- A customer payment starts as PENDING and waits for manager/owner verification (migration 012).
+    paymentStatus VARCHAR(20) NOT NULL CONSTRAINT df_payments_status DEFAULT 'PENDING',
+    processedAt DATETIME2 NOT NULL CONSTRAINT df_payments_processed DEFAULT SYSDATETIME(),
 
     CONSTRAINT payments_orders_fk FOREIGN KEY(orderID)
         REFERENCES orders(orderID),
-    CONSTRAINT ck_payments_amount_nonnegative CHECK(amount >= 0)
+    CONSTRAINT ck_payments_amount_nonnegative CHECK(amount >= 0),
+    -- The payment states the application uses (migration 012).
+    CONSTRAINT ck_payments_status
+        CHECK (paymentStatus IN ('PENDING','PAID','VERIFIED','REJECTED','REFUNDED'))
 );
 GO
 
@@ -496,7 +507,7 @@ GO
 -- Issues staff report during processing are stored as support cases in feedback
 -- (caseType = the issue type), so they need no table of their own.
 
--- Quality checks after Ironing; the newest row per order is the current one.
+-- Quality checks done at Quality Inspection (status 21); the newest row per order is the current one.
 CREATE TABLE qualityChecks(
     checkID        INT IDENTITY(1, 1) CONSTRAINT pk_qualityChecks PRIMARY KEY,
     orderID        INT          NOT NULL,
@@ -754,7 +765,8 @@ IF OBJECT_ID('dbo.status', 'U') IS NOT NULL
         (17, 'Pickup Failed'),
         (18, 'Delivery Failed'),
         (19, 'Dry Clean'),
-        (20, 'Cancelled');
+        (20, 'Cancelled'),
+        (21, 'Quality Inspection'); -- quality check, packing and "Mark as Ready" (migration 015)
     GO
 -- ================ Populate Status Table - End ===============
 -- ============================================================

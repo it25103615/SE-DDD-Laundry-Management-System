@@ -76,6 +76,9 @@
 .queue-heading p { margin:0; }
 .queue-count { flex:none; padding:7px 12px; border-radius:999px; color:#126284; background:#eaf7fc; font-size:.82rem; font-weight:700; }
 .support-page .support-queue .toolbar { margin:16px 26px 20px; padding:16px; border:1px solid #dce8ef; border-radius:15px; background:#f8fbfd; }
+/* The row lines its items up along the bottom. A field's 18px bottom margin (global.css)
+   counts as part of the field, so without this the buttons sit 18px lower than the inputs. */
+.support-page .support-queue .toolbar .field { margin:0; }
 .support-page .support-queue .toolbar .field:first-child { flex:1.6; }
 .filter-reset { color:#506675; background:#edf2f5; }
 .case-table-wrap { border-top:1px solid #e2ebf0; }
@@ -83,7 +86,8 @@
 .case-table-wrap thead { background:#f6f9fb; }
 .case-table-wrap th { padding:13px 18px; color:#687b89; font-size:.73rem; letter-spacing:.075em; text-align:left; text-transform:uppercase; white-space:nowrap; }
 .case-table-wrap td { padding:17px 18px; border-top:1px solid #edf1f4; vertical-align:middle; }
-.case-row { position:relative; transition:background .18s ease,box-shadow .18s ease; }
+/* The whole row opens the case (cases.js), so show the hand cursor over all of it */
+.case-row { position:relative; cursor:pointer; transition:background .18s ease,box-shadow .18s ease; }
 .case-row:hover { background:#f5fbfe; box-shadow:inset 3px 0 #1592bc; }
 .case-row.needs-attention { background:linear-gradient(90deg,rgba(255,245,224,.72),transparent 32%); }
 .case-row.needs-attention:hover { background:#fff9ed; box-shadow:inset 3px 0 #d98800; }
@@ -111,6 +115,12 @@
 .case-skeleton small { width:55%; height:9px; margin-top:8px; }
 @keyframes support-shimmer { to { background-position:-200% 0; } }
 
+/* global.css slides <main> in with "animation: page-enter ... both". "both" keeps the animation's
+   transform applied after it ends, and an element with a transform becomes the box that its
+   position:fixed children are placed against. The case panel and its backdrop then stuck to the
+   top of <main> instead of the browser window: misaligned, and off screen when the page was
+   scrolled down. "backwards" still hides the page before the slide-in, but lets go afterwards. */
+main.support-page { animation-fill-mode:backwards; }
 .detail-backdrop { position:fixed; z-index:1090; inset:0; background:rgba(8,27,39,.48); backdrop-filter:blur(3px); animation:backdrop-in .2s ease both; }
 .support-page .detail { position:fixed; z-index:1100; top:0; right:0; width:min(980px,94vw); height:100dvh; margin:0; padding:28px; overflow-y:auto; border:0; border-left:1px solid #d6e4ec; border-radius:24px 0 0 24px; background:#f8fbfd; box-shadow:-24px 0 70px rgba(8,40,59,.25); animation:panel-in .26s cubic-bezier(.2,.75,.25,1) both; }
 body.case-panel-open { overflow:hidden; }
@@ -119,7 +129,14 @@ body.case-panel-open .dashboard_nav { visibility:hidden; }
 @keyframes backdrop-in { from { opacity:0; } }
 .support-page .detail > .top_bar { position:sticky; z-index:4; top:-28px; margin:-28px -28px 20px; padding:23px 28px 18px; border-bottom:1px solid #dfebf1; background:rgba(248,251,253,.94); backdrop-filter:blur(12px); }
 .support-page .detail > .top_bar h2 { max-width:80%; margin:0; font-size:clamp(1.35rem,2.5vw,2rem); }
-.panel-close { display:grid; width:40px; height:40px; padding:0; place-items:center; border:1px solid #d0dfe7; border-radius:50%; color:#395463; background:white; font-size:1.5rem; }
+/* Close button of the case panel. The "×" character in the button is hidden (font-size:0) and the
+   cross is drawn here instead: as a letter of the serif page font it came out thin and sat off
+   centre in the circle. Two 2px bars form a plus sign, turned 45 degrees to make the cross.
+   "inset:0; margin:auto" on a fixed-size box places it in the exact middle of the circle.
+   flex:none keeps the circle round when a long case title needs the room. */
+.panel-close { display:grid; flex:none; width:40px; height:40px; padding:0; place-items:center; border:1px solid #d0dfe7; border-radius:50%; color:#395463; background:white; font-size:0; }
+.panel-close::before { content:""; position:absolute; inset:0; margin:auto; width:16px; height:16px; background:linear-gradient(currentColor,currentColor) center/100% 2px no-repeat,linear-gradient(currentColor,currentColor) center/2px 100% no-repeat; transform:rotate(45deg); }
+.panel-close:hover { color:#0b4f6c; border-color:#9fc3d4; background:#eef6fa; }
 .support-page #detail-meta { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 16px; }
 .support-page #detail-meta > span:not(.case-badge):not(.priority-badge) { padding:5px 10px; border:1px solid #dce7ed; border-radius:999px; color:#55707f; background:white; font-size:.78rem; }
 .support-page #detail-message { display:flex; flex-direction:column; gap:6px; margin:0; padding:17px 19px; border:1px solid #d8e6ee; border-left:4px solid #1a95bd; border-radius:12px; color:#294759; background:white; }
@@ -243,7 +260,8 @@ body[data-audience="customer"] #filters,
 body[data-audience="customer"] #detail-meta .priority-badge,
 body[data-audience="customer"] .case-table-wrap thead { display:none !important; }
 .customer-request-list { display:grid; gap:14px; }
-.customer-request { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:20px; border:1px solid #dce8ee; border-radius:14px; background:white; }
+/* The whole card opens the request (cases.js), like a row of the staff table */
+.customer-request { cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:20px; padding:20px; border:1px solid #dce8ee; border-radius:14px; background:white; }
 .customer-request h3 { margin:8px 0; }
 .customer-request p,.customer-request small { color:#617584; }
 .customer-request .case-open-button { flex-shrink:0; }

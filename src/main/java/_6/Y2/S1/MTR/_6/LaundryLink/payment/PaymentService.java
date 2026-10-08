@@ -9,10 +9,15 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -25,6 +30,10 @@ public class PaymentService {
     private static final String PAYMENT_VERIFIED = "Payment Verified";
     private static final String PAYMENT_FAILED = "Payment Failed";
     private static final String AWAITING_PICKUP = "Awaiting Pickup";
+    // A cancelled order is finished: it cannot take a new payment, and verifying an old payment
+    // must never move it to another status.
+    private static final String ORDER_CANCELLED = "Cancelled";
+    private static final DateTimeFormatter RECEIPT_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final PaymentRepository paymentRepository;
     private final RefundRepository refundRepository;
@@ -65,7 +74,7 @@ public class PaymentService {
     public PaymentResponse createPayment(Integer managementUserID, PaymentCrudRequest request) {
         paymentAccessService.requireManagementUser(managementUserID);
         validatePaymentRequest(request);
-        verifyOrderExists(request.getOrderID());
+        requirePayableOrder(request.getOrderID());
 
         Payment payment = new Payment(request.getAmount().doubleValue(), request.getOrderID());
         payment.setPaymentMethod(request.getPaymentMethod());
@@ -101,7 +110,7 @@ public class PaymentService {
                 billingDetails.getTotalDiscount(),
                 billingDetails.getFinalPayableAmount(),
                 BigDecimal.valueOf(payment.getAmount()),
-                status.getStatus(),
+                payment.getPaymentStatus(),
                 payment.getPaymentMethod(),
                 payment.getTransactionReference(),
                 payment.getProcessedAt(),
@@ -138,7 +147,7 @@ public class PaymentService {
     public PaymentResponse updatePayment(Integer managementUserID, Integer paymentID, PaymentCrudRequest request) {
         paymentAccessService.requireManagementUser(managementUserID);
         validatePaymentRequest(request);
-        verifyOrderExists(request.getOrderID());
+        requirePayableOrder(request.getOrderID());
 
         Payment payment = paymentRepository.findById(paymentID).orElseThrow();
         payment.setAmount(request.getAmount().doubleValue());
@@ -160,7 +169,13 @@ public class PaymentService {
     public PaymentConfirmationResponse submitPayment(Integer orderID, Integer customerID, PaymentRequest request) {
         PaymentStatusResponse currentStatus = getPaymentStatus(orderID, customerID);
 
-        if (currentStatus.getStatus() == PaymentStatus.VERIFIED) {
+        // Checked first: a cancelled order with no payment would otherwise count as UNPAID and
+        // accept a payment like any open order. The controller turns this into a 409 response.
+        if (isCancelled(currentStatus.getOrderStatus())) {
+            throw new IllegalStateException("This order has been cancelled and can no longer be paid");
+        }
+
+        if (currentStatus.getStatus() == PaymentStatus.PAID || currentStatus.getStatus() == PaymentStatus.VERIFIED) {
             throw new IllegalStateException("This order is already paid");
         }
 
@@ -168,7 +183,7 @@ public class PaymentService {
             throw new IllegalStateException("This order payment has already been refunded");
         }
 
-        if (currentStatus.getStatus() == PaymentStatus.PAID) {
+        if (currentStatus.getStatus() == PaymentStatus.PENDING) {
             throw new IllegalStateException("Payment submitted - awaiting verification");
         }
 
@@ -200,8 +215,13 @@ public class PaymentService {
                 savedPayment.getTransactionReference(),
                 savedPayment.getPaymentStatus(),
                 savedPayment.getProcessedAt(),
-                "Payment recorded successfully"
+                "Payment submitted and awaiting verification"
         );
+    }
+
+    public byte[] getCustomerReceiptPdf(Integer customerID, Integer paymentID, Integer requestedOrderID) {
+        PaymentReceiptResponse receipt = getCustomerReceipt(customerID, paymentID, requestedOrderID);
+        return buildReceiptPdf(receipt);
     }
 
     public PaymentStatusResponse getPaymentStatus(Integer orderID, Integer customerID) {
@@ -231,7 +251,7 @@ public class PaymentService {
                             payment.getPaymentID(),
                             payment.getOrderID(),
                             BigDecimal.valueOf(payment.getAmount()),
-                            status.getStatus(),
+                            payment.getPaymentStatus(),
                             payment.getPaymentMethod(),
                             payment.getTransactionReference(),
                             payment.getProcessedAt(),
@@ -307,7 +327,7 @@ public class PaymentService {
         paymentAccessService.verifyOrderBelongsToCustomer(billingDetails, customerID);
         String reason = validateRefundRequest(request);
 
-        if (payment.getPaymentStatus() != PaymentStatus.VERIFIED) {
+        if (payment.getPaymentStatus() != PaymentStatus.PAID && payment.getPaymentStatus() != PaymentStatus.VERIFIED) {
             throw new IllegalStateException("Only verified payments can have a refund requested");
         }
 
@@ -331,7 +351,7 @@ public class PaymentService {
         Payment payment = paymentRepository.findById(paymentID).orElseThrow();
         Refund refund = refundRepository.findByPaymentID(paymentID).orElseThrow();
 
-        if (payment.getPaymentStatus() != PaymentStatus.VERIFIED) {
+        if (payment.getPaymentStatus() != PaymentStatus.PAID && payment.getPaymentStatus() != PaymentStatus.VERIFIED) {
             throw new IllegalStateException("Only verified payments can be refunded");
         }
 
@@ -363,7 +383,7 @@ public class PaymentService {
             throw new IllegalStateException("Only requested refunds can be rejected");
         }
 
-        if (payment.getPaymentStatus() != PaymentStatus.VERIFIED) {
+        if (payment.getPaymentStatus() != PaymentStatus.PAID && payment.getPaymentStatus() != PaymentStatus.VERIFIED) {
             throw new IllegalStateException("Only verified payments can have refund requests rejected");
         }
 
@@ -384,23 +404,53 @@ public class PaymentService {
                 billingService.getBillingDetails(payment.getOrderID())
         );
 
-        if (currentStatus.getStatus() != PaymentStatus.PAID) {
-            throw new IllegalStateException("Only submitted full payments can be verified");
+        if (currentStatus.getStatus() != PaymentStatus.PENDING) {
+            throw new IllegalStateException("Only pending full payments can be verified");
         }
 
         PaymentOrderStatus previousOrderStatus = paymentManagementRepository.findOrderStatus(payment.getOrderID()).orElseThrow();
-        Status updatedStatus = statusService.getByLabel(approved ? PAYMENT_VERIFIED : PAYMENT_FAILED);
+        boolean orderCancelled = isCancelled(previousOrderStatus.getStatusLabel());
+
+        // A payment left pending on a cancelled order cannot be approved: approving would move
+        // the order to "Awaiting Pickup" and send a rider to an order the customer cancelled.
+        if (orderCancelled && approved) {
+            throw new IllegalStateException("This order has been cancelled, so its payment cannot be approved");
+        }
+
         LocalDate verificationDate = LocalDate.now();
         LocalTime verificationTime = LocalTime.now();
 
-        payment.setPaymentStatus(approved ? PaymentStatus.VERIFIED : PaymentStatus.REJECTED);
+        payment.setPaymentStatus(approved ? PaymentStatus.PAID : PaymentStatus.REJECTED);
         payment.ensureRecordedPaymentFields();
         paymentRepository.save(payment);
+
+        // Rejecting is still allowed on a cancelled order, so the leftover payment can be closed,
+        // but only the payment changes. The order keeps its "Cancelled" status instead of being
+        // moved to "Payment Failed".
+        if (orderCancelled) {
+            return new PaymentVerificationResponse(
+                    paymentID,
+                    payment.getOrderID(),
+                    previousOrderStatus.getStatusLabel(),
+                    previousOrderStatus.getStatusLabel(),
+                    managementUserID,
+                    verificationDate,
+                    verificationTime,
+                    "Payment rejected"
+            );
+        }
+
+        Status updatedStatus = statusService.getByLabel(approved ? PAYMENT_VERIFIED : PAYMENT_FAILED);
 
         // No log row is written here. Each status update below fires the database trigger
         // dbo.trg_order_status_log, which adds the dbo.logs row (status before and after, date,
         // time) in the same transaction. Writing one here as well would log every step twice.
-        paymentManagementRepository.updateOrderStatus(payment.getOrderID(), updatedStatus.getStatusID());
+        //
+        // The update skips cancelled orders, so 0 rows means the customer cancelled the order
+        // after the check above. Throwing rolls back the payment change saved a few lines up.
+        if (paymentManagementRepository.updateOrderStatus(payment.getOrderID(), updatedStatus.getStatusID()) != 1) {
+            throw new IllegalStateException("This order has been cancelled, so its payment cannot be verified");
+        }
 
         // Once the payment is verified the order is released for pickup straight away.
         // Nothing else moves an order from "Payment Verified" to "Awaiting Pickup", and the rider
@@ -451,6 +501,19 @@ public class PaymentService {
 
     private void verifyOrderExists(Integer orderID) {
         paymentManagementRepository.findOrderStatus(orderID).orElseThrow();
+    }
+
+    // Used when a manager records or edits a payment by hand: the order must exist and must not
+    // be cancelled, so a payment cannot be attached to a cancelled order that way either.
+    private void requirePayableOrder(Integer orderID) {
+        PaymentOrderStatus orderStatus = paymentManagementRepository.findOrderStatus(orderID).orElseThrow();
+        if (isCancelled(orderStatus.getStatusLabel())) {
+            throw new IllegalArgumentException("Payments cannot be recorded for a cancelled order");
+        }
+    }
+
+    private boolean isCancelled(String orderStatusLabel) {
+        return ORDER_CANCELLED.equalsIgnoreCase(orderStatusLabel);
     }
 
     private PaymentResponse toPaymentResponse(Payment payment) {
@@ -521,10 +584,13 @@ public class PaymentService {
         Optional<Payment> latestFullPayment = fullPaymentAttempts.stream()
                 .max(this::comparePaymentRecency);
         PaymentStatus status = calculateFullPaymentStatus(orderID, orderStatus, latestFullPayment);
-        BigDecimal paidAmount = status == PaymentStatus.PAID || status == PaymentStatus.VERIFIED
+        BigDecimal paidAmount = status == PaymentStatus.PENDING
+                || status == PaymentStatus.PAID
+                || status == PaymentStatus.VERIFIED
                 ? payableAmount
                 : BigDecimal.ZERO;
-        BigDecimal outstandingAmount = status == PaymentStatus.PAID
+        BigDecimal outstandingAmount = status == PaymentStatus.PENDING
+                || status == PaymentStatus.PAID
                 || status == PaymentStatus.VERIFIED
                 || status == PaymentStatus.REFUNDED
                 ? BigDecimal.ZERO
@@ -556,9 +622,12 @@ public class PaymentService {
             if (payment.getPaymentStatus() == PaymentStatus.VERIFIED
                     || PAYMENT_VERIFIED.equalsIgnoreCase(orderStatus.getStatusLabel())
                     || paymentManagementRepository.wasPaymentVerified(orderID)) {
-                return PaymentStatus.VERIFIED;
+                return payment.getPaymentStatus() == PaymentStatus.VERIFIED ? PaymentStatus.VERIFIED : PaymentStatus.PAID;
             }
-            return PaymentStatus.PAID;
+            if (payment.getPaymentStatus() == PaymentStatus.PAID) {
+                return PaymentStatus.PAID;
+            }
+            return PaymentStatus.PENDING;
         }
 
         return PaymentStatus.UNPAID;
@@ -598,6 +667,12 @@ public class PaymentService {
                         null
                 ));
         Optional<Refund> refund = refundRepository.findByPaymentID(payment.getPaymentID());
+        BigDecimal recordPaidAmount = countsAsSubmittedOrAccepted(payment.getPaymentStatus())
+                ? BigDecimal.valueOf(payment.getAmount())
+                : BigDecimal.ZERO;
+        BigDecimal recordOutstandingAmount = countsAsSubmittedOrAccepted(payment.getPaymentStatus())
+                ? BigDecimal.ZERO
+                : status.getPayableAmount();
 
         return new PaymentRecordResponse(
                 payment.getPaymentID(),
@@ -606,9 +681,9 @@ public class PaymentService {
                 orderSummary.getCustomerName(),
                 BigDecimal.valueOf(payment.getAmount()),
                 status.getPayableAmount(),
-                status.getPaidAmount(),
-                status.getOutstandingAmount(),
-                status.getStatus(),
+                recordPaidAmount,
+                recordOutstandingAmount,
+                payment.getPaymentStatus(),
                 payment.getPaymentMethod(),
                 payment.getTransactionReference(),
                 payment.getProcessedAt(),
@@ -623,6 +698,13 @@ public class PaymentService {
                 refund.map(Refund::getRequestedBy).orElse(null),
                 refund.map(Refund::getProcessedBy).orElse(null)
         );
+    }
+
+    private boolean countsAsSubmittedOrAccepted(PaymentStatus paymentStatus) {
+        return paymentStatus == PaymentStatus.PENDING
+                || paymentStatus == PaymentStatus.PAID
+                || paymentStatus == PaymentStatus.VERIFIED
+                || paymentStatus == PaymentStatus.REFUNDED;
     }
 
     private PaymentRecordResponse toUnpaidOrderRecord(PaymentManagementOrderSummary orderSummary) {
@@ -713,5 +795,75 @@ public class PaymentService {
 
     private boolean contains(Object value, String search) {
         return value != null && value.toString().toLowerCase().contains(search);
+    }
+
+    private byte[] buildReceiptPdf(PaymentReceiptResponse receipt) {
+        List<String> lines = List.of(
+                "LaundryLink",
+                "Payment Receipt",
+                "Order ID: " + receipt.getOrderID(),
+                "Payment/transaction ID: " + receipt.getPaymentID() + " / " + nullToText(receipt.getTransactionReference()),
+                "Subtotal: " + money(receipt.getSubtotal()),
+                "Automatic Bulk Discount: " + money(receipt.getAutomaticBulkDiscount()),
+                "Promotion Discount: " + money(receipt.getPromotionDiscount()),
+                "Total Discount: " + money(receipt.getTotalDiscount() != null ? receipt.getTotalDiscount() : receipt.getDiscountAmount()),
+                "Final Amount: " + money(receipt.getFinalPayableAmount()),
+                "Payment method: " + nullToText(receipt.getPaymentMethod()),
+                "Payment submitted date/time: " + (receipt.getProcessedAt() == null ? "Not recorded" : receipt.getProcessedAt().format(RECEIPT_DATE_FORMAT)),
+                "Current payment status: " + nullToText(receipt.getPaymentStatus())
+        );
+
+        StringBuilder content = new StringBuilder();
+        content.append("BT\n/F1 18 Tf\n72 760 Td\n(").append(pdfEscape(lines.get(0))).append(") Tj\n");
+        content.append("/F1 16 Tf\n0 -28 Td\n(").append(pdfEscape(lines.get(1))).append(") Tj\n");
+        content.append("/F1 11 Tf\n");
+        for (int i = 2; i < lines.size(); i++) {
+            content.append("0 -22 Td\n(").append(pdfEscape(lines.get(i))).append(") Tj\n");
+        }
+        content.append("ET\n");
+
+        byte[] stream = content.toString().getBytes(StandardCharsets.US_ASCII);
+        List<byte[]> objects = new ArrayList<>();
+        objects.add("<< /Type /Catalog /Pages 2 0 R >>\n".getBytes(StandardCharsets.US_ASCII));
+        objects.add("<< /Type /Pages /Kids [3 0 R] /Count 1 >>\n".getBytes(StandardCharsets.US_ASCII));
+        objects.add("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\n".getBytes(StandardCharsets.US_ASCII));
+        objects.add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\n".getBytes(StandardCharsets.US_ASCII));
+        objects.add(("<< /Length " + stream.length + " >>\nstream\n" + content + "endstream\n").getBytes(StandardCharsets.US_ASCII));
+
+        ByteArrayOutputStream pdf = new ByteArrayOutputStream();
+        writeAscii(pdf, "%PDF-1.4\n");
+        List<Integer> offsets = new ArrayList<>();
+        offsets.add(0);
+        for (int i = 0; i < objects.size(); i++) {
+            offsets.add(pdf.size());
+            writeAscii(pdf, (i + 1) + " 0 obj\n");
+            pdf.writeBytes(objects.get(i));
+            writeAscii(pdf, "endobj\n");
+        }
+        int xref = pdf.size();
+        writeAscii(pdf, "xref\n0 " + (objects.size() + 1) + "\n");
+        writeAscii(pdf, "0000000000 65535 f \n");
+        for (int i = 1; i < offsets.size(); i++) {
+            writeAscii(pdf, String.format("%010d 00000 n \n", offsets.get(i)));
+        }
+        writeAscii(pdf, "trailer\n<< /Size " + (objects.size() + 1) + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n");
+        return pdf.toByteArray();
+    }
+
+    private String money(BigDecimal value) {
+        BigDecimal normalized = value == null ? BigDecimal.ZERO : value.setScale(2, RoundingMode.HALF_UP);
+        return "LKR " + normalized.toPlainString();
+    }
+
+    private String nullToText(Object value) {
+        return value == null ? "Not recorded" : value.toString();
+    }
+
+    private String pdfEscape(String value) {
+        return value.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)");
+    }
+
+    private void writeAscii(ByteArrayOutputStream output, String value) {
+        output.writeBytes(value.getBytes(StandardCharsets.US_ASCII));
     }
 }

@@ -49,6 +49,7 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/admin/**").hasAnyRole("OWNER", "ADMIN")
+                        .requestMatchers("/html/customer/**").hasRole("CUSTOMER")
                         .requestMatchers(
                                 "/html/admin/owner/payments_billing.html",
                                 "/html/admin/owner/payment_detail.html",
@@ -60,7 +61,7 @@ public class SecurityConfig {
                         .requestMatchers("/html/support/**").hasAnyRole("CSM", "CUSTOMER_SERVICE_MANAGER", "MANAGER", "OWNER", "ADMIN", "STAFF", "RIDER")
                         .requestMatchers("/api/support/**").authenticated()
                         .requestMatchers("/api/notifications/**").authenticated()
-                        .requestMatchers("/api/customer/dashboard").authenticated()
+                        .requestMatchers("/api/customer/dashboard").hasRole("CUSTOMER")
                         .requestMatchers("/api/account/**").authenticated()
                         // Laundry processing: the staff pages and their API are for staff, managers and owners only.
                         .requestMatchers("/api/processing/**", "/html/staff/**").hasAnyRole("STAFF", "MANAGER", "OWNER", "ADMIN")
@@ -81,6 +82,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/orders/customer/{userID}/**").access((authentication, context) ->
                                 new AuthorizationDecision(orderAccess.isOwnAccount(authentication.get(), customerID(context))))
                         .requestMatchers("/api/orders/**").authenticated()
+                        // Order status logs: customers, staff, managers, owners/admins and customer
+                        // service managers only, so riders and visitors who are not signed in are
+                        // refused. LogController then limits a customer to their own orders' logs.
+                        .requestMatchers("/api/logs/**").hasAnyRole(
+                                "CUSTOMER", "STAFF", "MANAGER", "OWNER", "ADMIN", "CSM", "CUSTOMER_SERVICE_MANAGER")
                         // Billing and invoice data is protected in BillingController:
                         // finance management can inspect all orders, customers only their own.
                         .requestMatchers("/api/billing/**").authenticated()
@@ -93,6 +99,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/payments/orders/*/status").hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.POST, "/api/payments/orders/*").hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.GET, "/api/payments/orders/*").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/payments/*/receipt.pdf").hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.GET, "/api/payments/*/receipt").hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.GET, "/api/payments/*").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/payments").hasAnyRole(FINANCE_MANAGEMENT_ROLES)

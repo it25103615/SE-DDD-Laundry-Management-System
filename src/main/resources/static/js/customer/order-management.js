@@ -3,14 +3,14 @@
 
   const API = "/api";
   const DRAFT_KEY = "laundryLink.orderDraft";
-  // The only status in which a customer may still change an order. Once finance verifies the
-  // payment the order moves to "Payment Verified" (then on to "Awaiting Pickup" and the later
-  // stages), so those statuses are deliberately NOT listed: editing would leave the verified
-  // payment out of step with the order total. This one set drives the "View & modify" link on
-  // My Orders, the "Modify order" button on the order page and the guard on modify_order.html.
-  // NOTE: this is a front-end block only; the server still accepts edits for these statuses.
-  const ELIGIBLE_STATUSES = new Set(["Unconfirmed"]);
-  const LOCKED_MESSAGE = "This order can no longer be changed because its payment has been verified.";
+  // Customer edits allow Payment Failed, or Unconfirmed with no PENDING/PAID/VERIFIED payment. The server
+  // enforces this rule and supplies customerCanModify for links and direct page access.
+  const ELIGIBLE_STATUSES = new Set(["Unconfirmed", "Payment Failed"]);
+  const CANCELLABLE_STATUSES = new Set([
+    "Unconfirmed", "Payment Verified", "Awaiting Pickup", "En Route To Pickup",
+    "Picked Up", "En Route To Shop", "In Shop", "Verifying Items"
+  ]);
+  const LOCKED_MESSAGE = "Only Payment Failed orders or Unconfirmed orders without a pending, paid, or verified payment can be modified.";
 
   const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
@@ -81,8 +81,7 @@
 
   // The schedule step saves the chosen saved address as its addressID (a number, kept as text
   // in the draft). Returns that number so the API can store it on the delivery row, or null
-  // when no saved address was picked ("Use another address", or nothing chosen); the server
-  // then uses the customer's default address.
+  // when no saved address was picked; the server requires a valid customer-owned default.
   function pickupAddressID(schedule) {
     const id = Number(schedule?.address);
     return Number.isInteger(id) && id > 0 ? id : null;
@@ -125,6 +124,18 @@
     };
   }
 
+  // The badge shown above each service name on the Choose a service page. A service that is not
+  // listed here (one added later from the admin catalogue) gets the plain "SERVICE" badge.
+  const SERVICE_BADGES = {
+    "wash and fold": { label: "EVERYDAY CARE", attributes: 'class="status status_info"' },
+    "dry cleaning": { label: "SPECIALIST CARE", attributes: 'class="status" style="color: var(--purple)"' },
+    "ironing": { label: "FINISHING", attributes: 'class="status status_success"' },
+    "shoe cleaning": { label: "FOOTWEAR", attributes: 'class="status status_warning"' }
+  };
+  const DEFAULT_SERVICE_BADGE = { label: "SERVICE", attributes: 'class="status status_info"' };
+
+  // Step 1 of a new order: the customer picks ONE service. An order covers a single service
+  // (the server refuses a mix), so the cards use radio buttons, not checkboxes.
   async function initServices() {
     resetCompletedDraft();
     const section = document.querySelector("main > section.grid");
@@ -133,26 +144,48 @@
     try {
       const { items, services, pricing } = await catalog();
       const draft = getDraft();
-      const selected = new Set(draft.services || []);
-      section.innerHTML = services.map((service) => {
-        const prices = pricing.filter((entry) => entry.serviceID === service.serviceID);
-        const rows = prices.map((entry) => {
-          const item = items.find((candidate) => candidate.itemID === entry.itemID);
-          return `<tr><td>${escapeHtml(item?.itemName || `Item #${entry.itemID}`)}</td><td><strong>${money(entry.price)}</strong></td></tr>`;
-        }).join("") || "<tr><td colspan=\"2\">No current prices available.</td></tr>";
-        return `<article class="card"><div class="top_bar"><div><span class="status status_info">SERVICE</span><h2>${escapeHtml(service.serviceName)}</h2></div><label><input type="checkbox" class="catalog-service" value="${service.serviceID}" ${selected.has(service.serviceID) ? "checked" : ""}> Select</label></div><table><tbody>${rows}</tbody></table></article>`;
-      }).join("");
+      // The draft keeps the choice as a one-element list, which the later steps read.
+      const selectedID = (draft.services || [])[0];
+      // Only services a customer can actually order are listed: switched on in the admin
+      // catalogue, and with at least one priced item.
+      const available = services.filter((service) => service.active !== false
+        && pricing.some((entry) => entry.serviceID === service.serviceID));
+      if (available.length === 0) {
+        section.innerHTML = "<p class=\"muted\">No services are available at the moment.</p>";
+      } else {
+        section.innerHTML = available.map((service) => {
+          const rows = pricing.filter((entry) => entry.serviceID === service.serviceID).map((entry) => {
+            const item = items.find((candidate) => candidate.itemID === entry.itemID);
+            return `<tr><td>${escapeHtml(item?.itemName || `Item #${entry.itemID}`)}</td><td><strong>${money(entry.price)}</strong></td></tr>`;
+          }).join("");
+          const badge = SERVICE_BADGES[String(service.serviceName || "").trim().toLowerCase()] || DEFAULT_SERVICE_BADGE;
+          return `<article class="card" style="cursor:pointer"><div class="top_bar"><div><span ${badge.attributes}>${badge.label}</span><h2>${escapeHtml(service.serviceName)}</h2></div><label><input type="radio" name="catalog-service" class="catalog-service" value="${service.serviceID}" ${service.serviceID === selectedID ? "checked" : ""}> Select</label></div><table><tbody>${rows}</tbody></table></article>`;
+        }).join("");
+      }
+      // Clicking anywhere on a service card selects that service. A click on the radio button
+      // or its "Select" label is left alone, because the browser already handles it.
+      section.addEventListener("click", (event) => {
+        if (event.target.closest("label")) return;
+        const radio = event.target.closest("article")?.querySelector(".catalog-service");
+        if (radio) radio.checked = true;
+      });
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        const serviceIDs = Array.from(document.querySelectorAll(".catalog-service:checked"), (input) => Number(input.value));
-        if (serviceIDs.length === 0 || !form.reportValidity()) {
-          toast("Choose at least one service", "Select a service to continue.");
+        const chosen = document.querySelector(".catalog-service:checked");
+        if (!chosen) {
+          toast("Choose a service", "Select the service you need to continue.");
           return;
         }
+        // The browser shows its own message when the "I have reviewed" box is not ticked.
+        if (!form.reportValidity()) return;
+        const serviceID = Number(chosen.value);
         try {
           // The order is placed for whoever is signed in; there is no ID field to fill in.
           const userID = await currentUserID();
-          saveDraft({ ...getDraft(), userID, services: serviceIDs });
+          const current = getDraft();
+          // Items already added for a different service do not carry over to the new one.
+          const lines = (current.lines || []).filter((line) => line.serviceID === serviceID);
+          saveDraft({ ...current, userID, services: [serviceID], lines });
           window.location.href = "new_order_items.html";
         } catch (error) {
           toast("Unable to continue", error.message);
@@ -163,6 +196,8 @@
     }
   }
 
+  // One editable order line (item, service, quantity) on the Modify order page.
+  // selectedServices are the service IDs the line may use.
   function lineRow(line, data, selectedServices) {
     const availableItems = data.items.filter((item) => data.pricing.some((price) =>
       price.itemID === item.itemID && selectedServices.includes(price.serviceID)));
@@ -203,67 +238,6 @@
     return { bind, priceFor };
   }
 
-  async function initItems() {
-    const list = document.getElementById("item-list");
-    const form = list?.closest("form");
-    if (!list || !form) return;
-    try {
-      const data = await catalog();
-      const draft = getDraft();
-      const selectedServices = draft.services?.length ? draft.services : data.services.map((service) => service.serviceID);
-      const initialLines = (draft.lines || []).filter((line) => selectedServices.includes(line.serviceID));
-      for (const serviceID of selectedServices) {
-        if (initialLines.some((line) => line.serviceID === serviceID)) continue;
-        const price = data.pricing.find((entry) => entry.serviceID === serviceID
-          && data.items.some((item) => item.itemID === entry.itemID));
-        if (!price) {
-          const service = data.services.find((entry) => entry.serviceID === serviceID);
-          throw new Error(`${service?.serviceName || "A selected service"} has no currently priced items. Return to Services & Prices to update your selection.`);
-        }
-        initialLines.push({ itemID: price.itemID, serviceID, quantity: 1 });
-      }
-      list.innerHTML = initialLines.map((line) => lineRow(line, data, selectedServices)).join("");
-      const updateTotal = () => {
-        const total = Array.from(list.querySelectorAll(".item-row")).reduce((sum, row) => {
-          const price = data.pricing.find((entry) => entry.itemID === Number(row.querySelector(".item-name").value) && entry.serviceID === Number(row.querySelector(".item-service").value));
-          return sum + (price ? price.price * Number(row.querySelector(".item-qty").value || 0) : 0);
-        }, 0);
-        document.getElementById("estimated-total").textContent = money(total);
-      };
-      const bindings = bindLineRows(list, data, selectedServices, updateTotal);
-      const originalAddButton = document.getElementById("add-item");
-      const addButton = originalAddButton.cloneNode(true);
-      originalAddButton.replaceWith(addButton);
-      addButton.addEventListener("click", () => {
-        list.insertAdjacentHTML("beforeend", lineRow({}, data, selectedServices));
-        bindings.bind(list.lastElementChild);
-        updateTotal();
-      });
-      form.addEventListener("submit", (event) => {
-        event.preventDefault();
-        if (!form.reportValidity()) return;
-        const lines = Array.from(list.querySelectorAll(".item-row")).map((row) => ({
-          itemID: Number(row.querySelector(".item-name").value),
-          serviceID: Number(row.querySelector(".item-service").value),
-          quantity: Number(row.querySelector(".item-qty").value)
-        }));
-        if (lines.some((line) => !bindings.priceFor(line.itemID, line.serviceID) || line.quantity <= 0)) {
-          toast("Invalid item selection", "Choose a currently priced item/service combination.");
-          return;
-        }
-        if (selectedServices.some((serviceID) => !lines.some((line) => line.serviceID === serviceID))) {
-          toast("Add items for every selected service", "Each selected service needs at least one item. To remove a service, return to Services & Prices.");
-          return;
-        }
-        saveDraft({ ...getDraft(), lines });
-        window.location.href = "new_order_schedule.html";
-      });
-      updateTotal();
-    } catch (error) {
-      list.innerHTML = `<div class="alert" style="background:#fff0f0;color:#9a2727;border-left-color:#e05252">Unable to load order items: ${escapeHtml(error.message)}</div>`;
-    }
-  }
-
   function initSchedule() {
     const form = document.querySelector("main form");
     if (!form) return;
@@ -300,15 +274,29 @@
     const draft = getDraft();
     if (!main) return;
     try {
-      const data = await catalog();
+      const [data, addresses] = await Promise.all([catalog(), api("/account/addresses")]);
+      const selectedAddressID = pickupAddressID(draft.schedule);
+      const selectedAddress = selectedAddressID === null
+        ? addresses.find((address) => address.isDefault)
+        : addresses.find((address) => address.addressID === selectedAddressID);
+      const reviewAddressID = selectedAddress?.addressID || null;
+      main.dataset.reviewPickupAddress = selectedAddress
+        ? [selectedAddress.nickname, selectedAddress.street, selectedAddress.city, selectedAddress.state]
+          .map((part) => String(part || "").trim()).filter(Boolean).join(", ")
+        : "Pickup address unavailable. Return to Schedule and select a saved address.";
       const lines = draft.lines || [];
       const total = lines.reduce((sum, line) => sum + (data.pricing.find((price) => price.itemID === line.itemID && price.serviceID === line.serviceID)?.price || 0) * line.quantity, 0);
       main.innerHTML = `<header class="page_header"><div class="subtitle">NEW ORDER · REVIEW</div><h1>Review your order</h1></header><ol class="step_list"><li class="done">1 Services</li><li class="done">2 Items</li><li class="done">3 Schedule</li><li class="done">4 Instructions</li><li class="active">5 Review</li></ol><section class="card"><h2>Items and services</h2>${lines.map((line) => { const item = data.items.find((entry) => entry.itemID === line.itemID); const service = data.services.find((entry) => entry.serviceID === line.serviceID); const price = data.pricing.find((entry) => entry.itemID === line.itemID && entry.serviceID === line.serviceID); return `<div class="activity_item"><span class="activity_dot"></span><div><strong>${line.quantity} × ${escapeHtml(item?.itemName || "Unknown item")}</strong><p class="muted small">${escapeHtml(service?.serviceName || "Unknown service")}</p></div><strong>${money((price?.price || 0) * line.quantity)}</strong></div>`; }).join("") || "<p class=\"muted\">No items have been selected.</p>"}<div class="top_bar"><h3>Order total</h3><h2>${money(total)}</h2></div></section><form id="confirm-order-form" style="margin-top:20px"><label class="check_row"><input type="checkbox" required>I confirm the item and service selections are correct.</label><div class="actions"><a class="custom_button custom_button_nobg" href="new_order_items.html">Edit items</a><button class="custom_button custom_button_bg" type="submit">Confirm order</button></div></form>`;
       const form = document.getElementById("confirm-order-form");
+      form.querySelector('button[type="submit"]').disabled = !reviewAddressID;
       let submitting = false;
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         if (submitting) return;
+        if (!reviewAddressID) {
+          toast("Pickup address unavailable", "Return to Schedule and select a saved address.");
+          return;
+        }
         if (lines.length === 0
           || (draft.services || []).some((serviceID) => !lines.some((line) => line.serviceID === serviceID))
           || !form.reportValidity()) {
@@ -324,7 +312,7 @@
           const userID = await currentUserID();
           // The note and the ticked preferences from the instructions step are sent with the
           // order, so they are saved on it (orders.instructions and orders.preferences).
-          const created = await api("/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userID, orderLines: lines, pickupScheduled: pickupDateTime(draft.schedule), addressID: pickupAddressID(draft.schedule), instructions: draft.instructions?.notes || "", preferences: draft.instructions?.preferences || [] }) });
+          const created = await api("/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userID, orderLines: lines, pickupScheduled: pickupDateTime(draft.schedule), addressID: reviewAddressID, instructions: draft.instructions?.notes || "", preferences: draft.instructions?.preferences || [] }) });
           saveDraft({ ...draft, userID, lastOrderID: created.orderID, lines: [], completed: true });
           toast("Order created", `Order #${created.orderID} is ${created.statusLabel}.`);
           window.location.href = `upcoming_order_details.html?userID=${created.userID}&orderID=${created.orderID}`;
@@ -358,7 +346,7 @@
       const orders = await api(`/orders/customer/${userID}`);
       tbody.innerHTML = orders.length ? orders.map((order) => {
         // Orders that can still be changed open the page that has the modify button.
-        const editable = ELIGIBLE_STATUSES.has(order.statusLabel);
+        const editable = ELIGIBLE_STATUSES.has(order.statusLabel) && order.customerCanModify === true;
         const href = `${editable ? "upcoming_order_details" : "order_details"}.html?userID=${userID}&orderID=${order.orderID}`;
         // data-href lets a click anywhere on the row open the order (see the click handler below);
         // the View link stays so keyboard and screen reader users can still reach it.
@@ -385,14 +373,16 @@
   function detailMarkup(order, includeActions) {
     const lines = order.orderLines.map((line) => `<div class="activity_item"><span class="activity_dot"></span><div><strong>${line.quantity} × ${escapeHtml(line.itemName)}</strong><p class="muted small">${escapeHtml(line.serviceName)}</p></div><strong>${money(line.linePrice)}</strong></div>`).join("");
     const history = order.history.length ? order.history.map((entry) => `<div class="activity_item"><span class="activity_dot"></span><div><strong>${escapeHtml(entry.statusAfterLabel || "Status updated")}</strong><p class="muted small">${escapeHtml(entry.statusBeforeLabel || "Initial status")} → ${escapeHtml(entry.statusAfterLabel || "")}</p></div><small>${escapeHtml(entry.logDate || "")} ${escapeHtml(entry.logTime || "")}</small></div>`).join("") : "<p class=\"muted\">No status-history entries have been recorded yet.</p>";
-    const eligible = ELIGIBLE_STATUSES.has(order.statusLabel);
+    const eligible = ELIGIBLE_STATUSES.has(order.statusLabel) && order.customerCanModify === true;
     // What the customer asked for when placing the order. order.preferences holds the ticked
     // options as readable labels and order.instructions the note; both are shown escaped, and
     // "None" is shown when the order has neither.
     const preferences = (order.preferences || []).map((label) => escapeHtml(label)).join("<br>") || "None";
     const note = order.instructions ? escapeHtml(order.instructions) : "None";
+    // A cancelled order can no longer be paid (the server refuses it too), so the "Pay Now" link
+    // in the actions below is left out for it.
     const instructions = `<p><strong>Preferences</strong><br><span class="muted">${preferences}</span></p><p><strong>Notes for our team</strong><br><span class="muted" style="white-space:pre-wrap;overflow-wrap:anywhere">${note}</span></p>`;
-    return `<header class="welcome_banner" style="margin-top:34px"><div class="top_bar"><div><div class="subtitle">CUSTOMER ORDER</div><h1>Order #${order.orderID}</h1></div><span class="status">${escapeHtml(order.statusLabel)}</span></div></header><section class="grid grid_two" style="margin-top:22px"><article class="card"><h2>Items and services</h2>${lines}<div class="top_bar"><h3>Order total</h3><h2>${money(order.orderTotal)}</h2></div></article><aside class="card"><h2>Order information</h2><p><strong>Customer ID</strong><br><span class="muted">${order.userID}</span></p><p><strong>Status</strong><br><span class="muted">${escapeHtml(order.statusLabel)}</span></p>${instructions}</aside></section>${includeActions ? `<div class="actions" style="margin-top:20px">${eligible ? `<a class="custom_button custom_button_bg" href="modify_order.html?userID=${order.userID}&orderID=${order.orderID}">Modify order</a>` : ""}${order.statusID === 1 && order.statusLabel === "Unconfirmed" ? `<button id="cancel-order" class="custom_button custom_button_border" type="button">Cancel Order</button>` : ""}<a class="custom_button custom_button_border pay-now-link" href="payments.html?orderID=${order.orderID}">Pay Now</a><a class="custom_button custom_button_nobg" href="my_orders.html">My Orders</a></div>${eligible ? "" : `<p class="muted small" style="margin-top:12px">${LOCKED_MESSAGE}</p>`}` : ""}<section class="card" style="margin-top:22px"><h2>Order history</h2>${history}</section>`;
+    return `<header class="welcome_banner" style="margin-top:34px"><div class="top_bar"><div><div class="subtitle">CUSTOMER ORDER</div><h1>Order #${order.orderID}</h1></div><span class="status">${escapeHtml(order.statusLabel)}</span></div></header><section class="grid grid_two" style="margin-top:22px"><article class="card"><h2>Items and services</h2>${lines}<div class="top_bar"><h3>Order total</h3><h2>${money(order.orderTotal)}</h2></div></article><aside class="card"><h2>Order information</h2><p><strong>Customer ID</strong><br><span class="muted">${order.userID}</span></p><p><strong>Status</strong><br><span class="muted">${escapeHtml(order.statusLabel)}</span></p>${instructions}</aside></section>${includeActions ? `<div class="actions" style="margin-top:20px">${eligible ? `<a class="custom_button custom_button_bg" href="modify_order.html?userID=${order.userID}&orderID=${order.orderID}">Modify order</a>` : ""}${CANCELLABLE_STATUSES.has(order.statusLabel) ? `<button id="cancel-order" class="custom_button custom_button_border" type="button">Cancel Order</button>` : ""}${order.statusLabel === "Cancelled" ? "" : `<a class="custom_button custom_button_border pay-now-link" href="payments.html?orderID=${order.orderID}">Pay Now</a>`}<a class="custom_button custom_button_nobg" href="my_orders.html">My Orders</a></div>${eligible ? "" : `<p class="muted small" style="margin-top:12px">${LOCKED_MESSAGE}</p>`}` : ""}<section class="card" style="margin-top:22px"><h2>Order history</h2>${history}</section>`;
   }
 
   function preservePaymentContext(order) {
@@ -463,7 +453,7 @@
     if (!main) return;
     const order = await fetchOrderOrExplain(main);
     if (order) {
-      main.innerHTML = detailMarkup(order, upcoming || (order.statusID === 1 && order.statusLabel === "Unconfirmed"));
+      main.innerHTML = detailMarkup(order, upcoming || order.customerCanModify === true || CANCELLABLE_STATUSES.has(order.statusLabel));
       const cancelButton = main.querySelector("#cancel-order");
       if (cancelButton) bindCancelConfirmation(cancelButton, order);
       const payNowLink = main.querySelector(".pay-now-link");
@@ -471,27 +461,94 @@
     }
   }
 
+  function modificationDetailsMarkup(order, addresses) {
+    const preferenceLabels = {
+      "fragrance-free": "Fragrance-free detergent",
+      "hypoallergenic": "Hypoallergenic detergent",
+      "hang-dry": "Hang-dry delicate items",
+      "hangers": "Return shirts on hangers"
+    };
+    const windows = [["08:00", "8:00 AM – 11:00 AM"], ["11:00", "11:00 AM – 2:00 PM"],
+      ["14:00", "2:00 PM – 5:00 PM"], ["17:00", "5:00 PM – 8:00 PM"]];
+    return `<section class="grid grid_two" style="margin-top:22px"><article class="card"><h2>Pickup schedule</h2>
+      ${order.pickupScheduled ? `<p class="muted">Current pickup: ${escapeHtml(order.pickupScheduled.replace("T", " "))}</p>` : ""}
+      <div class="field"><label for="modify-pickup-date">Pickup date</label><input id="modify-pickup-date" class="input" type="date" required value="${escapeHtml((order.pickupScheduled || "").slice(0, 10))}"></div>
+      <div class="field"><label for="modify-pickup-time">Pickup time window</label><select id="modify-pickup-time" class="input" required><option value="">Choose a time</option>${windows.map(([value, label]) => `<option value="${value}" ${value === (order.pickupScheduled || "").slice(11, 16) ? "selected" : ""}>${label}</option>`).join("")}</select></div>
+      <div class="field"><label for="modify-pickup-address">Pickup address</label><select id="modify-pickup-address" class="input" required><option value="">Choose a saved address</option>${addresses.map(address => `<option value="${escapeHtml(String(address.addressID))}" ${address.addressID === order.pickupAddressID ? "selected" : ""}>${escapeHtml([address.nickname, address.street, address.city, address.state].filter(Boolean).join(", "))}</option>`).join("")}</select>${addresses.length ? "" : '<p class="muted">You have no saved addresses. Save an address before modifying the order.</p>'}</div>
+      </article><article class="card"><h2>Instructions and preferences</h2>
+      ${Object.entries(preferenceLabels).map(([code, label]) => `<label class="check_row"><input type="checkbox" name="modify-preference" value="${code}" ${(order.preferenceCodes || []).includes(code) ? "checked" : ""}>${label}</label>`).join("")}
+      <div class="field"><label for="modify-instructions">Notes for our team</label><textarea id="modify-instructions" class="input" maxlength="500" rows="4">${escapeHtml(order.instructions || "")}</textarea></div>
+      </article></section>`;
+  }
+
+  function bindModificationSchedule(form) {
+    const date = form.querySelector("#modify-pickup-date");
+    const time = form.querySelector("#modify-pickup-time");
+    const isoDate = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+    const validate = () => {
+      const now = new Date();
+      const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const lastDay = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate();
+      nextMonth.setDate(Math.min(now.getDate(), lastDay));
+      date.min = isoDate(now);
+      date.max = isoDate(nextMonth);
+      time.setCustomValidity("");
+      Array.from(time.options).forEach(option => {
+        if (!option.value) return;
+        const [hours, minutes] = option.value.split(":").map(Number);
+        option.disabled = date.value === date.min && hours * 60 + minutes <= now.getHours() * 60 + now.getMinutes();
+      });
+      if (time.selectedOptions[0]?.disabled) time.setCustomValidity("Choose a pickup window that has not started yet.");
+    };
+    date.addEventListener("change", validate);
+    time.addEventListener("change", validate);
+    validate();
+    const timer = setInterval(validate, 60000);
+    window.addEventListener("pagehide", () => clearInterval(timer), { once: true });
+    return validate;
+  }
+
   async function initModify() {
     const main = document.querySelector("main");
     if (!main) return;
     const order = await fetchOrderOrExplain(main);
     if (!order) return;
-    if (!ELIGIBLE_STATUSES.has(order.statusLabel)) { main.innerHTML = `<section class="card"><h1>Order cannot be modified</h1><p class="muted">${LOCKED_MESSAGE} Current status: ${escapeHtml(order.statusLabel)}.</p><a class="custom_button custom_button_bg" href="order_details.html?userID=${order.userID}&orderID=${order.orderID}">View order</a></section>`; return; }
+    if (!ELIGIBLE_STATUSES.has(order.statusLabel) || order.customerCanModify !== true) { main.innerHTML = `<section class="card"><h1>Order cannot be modified</h1><p class="muted">${LOCKED_MESSAGE} Current status: ${escapeHtml(order.statusLabel)}.</p><a class="custom_button custom_button_bg" href="order_details.html?userID=${order.userID}&orderID=${order.orderID}">View order</a></section>`; return; }
     try {
-      const data = await catalog();
-      const allServices = data.services.map((service) => service.serviceID);
+      const [data, addresses] = await Promise.all([catalog(), api("/account/addresses")]);
+      // An order covers one service, so the lines can only use the service already on the
+      // order. (An older order that mixes services keeps the ones it has; the server asks for
+      // it to be brought down to one when it is saved.)
+      const orderServices = [...new Set(order.orderLines.map((line) => line.serviceID))];
       main.innerHTML = `<header class="page_header"><div class="subtitle">MODIFY ORDER</div><h1>Edit order #${order.orderID}</h1></header><form id="modify-order-form" style="margin-top:22px"><section class="card"><h2>Items and services</h2><div id="item-list"></div><button id="add-item" class="custom_button custom_button_nobg" type="button">+ Add another item</button></section><aside class="card" style="margin-top:20px"><div class="top_bar"><div><h2>Updated order total</h2></div><h2 id="estimated-total"></h2></div></aside><div class="actions"><a class="custom_button custom_button_nobg" href="order_details.html?userID=${order.userID}&orderID=${order.orderID}">Discard changes</a><button class="custom_button custom_button_bg" type="submit">Save order changes</button></div></form>`;
+      const form = document.getElementById("modify-order-form");
+      form.querySelector(".actions").insertAdjacentHTML("beforebegin", modificationDetailsMarkup(order, addresses));
+      const validateSchedule = bindModificationSchedule(form);
       const list = document.getElementById("item-list");
-      list.innerHTML = order.orderLines.map((line) => lineRow(line, data, allServices)).join("");
+      list.innerHTML = order.orderLines.map((line) => lineRow(line, data, orderServices)).join("");
       const updateTotal = () => { const total = Array.from(list.querySelectorAll(".item-row")).reduce((sum, row) => { const price = data.pricing.find((entry) => entry.itemID === Number(row.querySelector(".item-name").value) && entry.serviceID === Number(row.querySelector(".item-service").value)); return sum + (price ? price.price * Number(row.querySelector(".item-qty").value || 0) : 0); }, 0); document.getElementById("estimated-total").textContent = money(total); };
-      const bindings = bindLineRows(list, data, allServices, updateTotal);
-      document.getElementById("add-item").addEventListener("click", () => { list.insertAdjacentHTML("beforeend", lineRow({}, data, allServices)); bindings.bind(list.lastElementChild); updateTotal(); });
-      document.getElementById("modify-order-form").addEventListener("submit", async (event) => {
+      const bindings = bindLineRows(list, data, orderServices, updateTotal);
+      document.getElementById("add-item").addEventListener("click", () => { list.insertAdjacentHTML("beforeend", lineRow({}, data, orderServices)); bindings.bind(list.lastElementChild); updateTotal(); });
+      let saving = false;
+      form.addEventListener("submit", async (event) => {
         event.preventDefault();
+        if (saving) return;
+        validateSchedule();
+        if (!form.reportValidity()) return;
         const lines = Array.from(list.querySelectorAll(".item-row")).map((row) => ({ itemID: Number(row.querySelector(".item-name").value), serviceID: Number(row.querySelector(".item-service").value), quantity: Number(row.querySelector(".item-qty").value) }));
         if (!lines.length || lines.some((line) => !bindings.priceFor(line.itemID, line.serviceID) || line.quantity <= 0)) { toast("Invalid order lines", "Choose valid items, services, and quantities."); return; }
-        try { await api(`/orders/customer/${order.userID}/${order.orderID}/lines`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderLines: lines }) }); window.location.href = `order_details.html?userID=${order.userID}&orderID=${order.orderID}`; }
-        catch (error) { toast("Order could not be updated", error.message); }
+        const request = {
+          orderLines: lines,
+          addressID: Number(form.querySelector("#modify-pickup-address").value),
+          pickupScheduled: `${form.querySelector("#modify-pickup-date").value}T${form.querySelector("#modify-pickup-time").value}:00`,
+          instructions: form.querySelector("#modify-instructions").value,
+          preferences: Array.from(form.querySelectorAll('input[name="modify-preference"]:checked'), input => input.value)
+        };
+        const saveButton = form.querySelector('button[type="submit"]');
+        saving = true;
+        saveButton.disabled = true;
+        try { await api(`/orders/customer/${order.userID}/${order.orderID}/lines`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request) }); window.location.href = `order_details.html?userID=${order.userID}&orderID=${order.orderID}`; }
+        catch (error) { saving = false; saveButton.disabled = false; toast("Order could not be updated", error.message); }
       });
       updateTotal();
     } catch (error) { main.innerHTML = `<section class="card"><h1>Unable to prepare modification</h1><p class="muted">${escapeHtml(error.message)}</p></section>`; }
@@ -500,7 +557,7 @@
   document.addEventListener("DOMContentLoaded", () => {
     const page = window.location.pathname.split("/").pop();
     if (page === "new_order_services.html") initServices();
-    else if (page === "new_order_items.html") initItems();
+    // new_order_items.html has its own script and does not load this file.
     else if (page === "new_order_schedule.html") initSchedule();
     else if (page === "new_order_instructions.html") initInstructions();
     else if (page === "new_order_review.html") initReview();

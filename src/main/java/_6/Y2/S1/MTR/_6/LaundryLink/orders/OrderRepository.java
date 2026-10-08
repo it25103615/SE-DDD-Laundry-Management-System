@@ -10,20 +10,33 @@ import java.util.List;
 import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Integer> {
+    // Read payment records without changing the Payment Management workflow.
+    @Query(value = "SELECT COUNT(*) FROM payments WHERE orderID = :orderID AND paymentStatus IN ('PENDING', 'PAID', 'VERIFIED')", nativeQuery = true)
+    int countSubmittedOrSuccessfulPayments(@Param("orderID") Integer orderID);
+
+    // Closes any payment still awaiting verification when its order is cancelled, so it cannot
+    // be approved afterwards. Returns the number of payments rejected (usually 0 or 1).
+    @Modifying
+    @Query(value = "UPDATE payments SET paymentStatus = 'REJECTED' WHERE orderID = :orderID AND paymentStatus = 'PENDING'", nativeQuery = true)
+    int rejectPendingPayments(@Param("orderID") Integer orderID);
+
     List<Order> findByUserID(Integer userID);
 
     Optional<Order> findByOrderIDAndUserID(Integer orderID, Integer userID);
 
-    // Check and change the status in one statement so a concurrent payment cannot be cancelled.
+    // Require the checked status and an allowed label when updating, including concurrent requests.
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = """
             UPDATE orders SET statusID = :cancelledStatusID
-            WHERE orderID = :orderID AND userID = :userID AND statusID = :unconfirmedStatusID
+            WHERE orderID = :orderID AND userID = :userID AND statusID = :expectedStatusID
+              AND statusID IN (SELECT statusID FROM status WHERE statusLabel IN
+                  ('Unconfirmed', 'Payment Verified', 'Awaiting Pickup', 'En Route To Pickup',
+                   'Picked Up', 'En Route To Shop', 'In Shop', 'Verifying Items'))
             """, nativeQuery = true)
-    int cancelUnconfirmedOrder(
+    int cancelEligibleOrder(
             @Param("orderID") Integer orderID,
             @Param("userID") Integer userID,
-            @Param("unconfirmedStatusID") Integer unconfirmedStatusID,
+            @Param("expectedStatusID") Integer expectedStatusID,
             @Param("cancelledStatusID") Integer cancelledStatusID);
 
     @Query(value = """
@@ -64,6 +77,26 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
     // order being placed against someone else's address.
     @Query(value = "SELECT COUNT(*) FROM addresses WHERE addressID = :addressID AND userID = :userID", nativeQuery = true)
     int countAddressesOwnedByCustomer(@Param("addressID") Integer addressID, @Param("userID") Integer userID);
+
+    @Query(value = "SELECT TOP 1 addressID FROM addresses WHERE userID = :userID AND isDefault = 1 ORDER BY addressID DESC", nativeQuery = true)
+    Optional<Integer> findDefaultAddressID(@Param("userID") Integer userID);
+
+    interface PickupDetails {
+        LocalDateTime getPickupScheduled();
+        Integer getAddressID();
+    }
+
+    @Query(value = "SELECT TOP 1 pickup_scheduled AS pickupScheduled, addressID AS addressID FROM delivery WHERE orderID = :orderID AND userID = :userID ORDER BY deliverID", nativeQuery = true)
+    Optional<PickupDetails> findPickupDetails(@Param("orderID") Integer orderID, @Param("userID") Integer userID);
+
+    // Customer modification changes the schedule and validated saved address; riders are preserved.
+    @Modifying
+    @Query(value = "UPDATE delivery SET pickup_scheduled = :pickupScheduled, addressID = :addressID WHERE orderID = :orderID AND userID = :userID", nativeQuery = true)
+    int updatePickupSchedule(
+            @Param("orderID") Integer orderID,
+            @Param("userID") Integer userID,
+            @Param("pickupScheduled") LocalDateTime pickupScheduled,
+            @Param("addressID") Integer addressID);
 
     // Every order needs a matching delivery row so the Rider module can assign pickup and
     // delivery riders to it later. Only the order, customer, requested pickup time and

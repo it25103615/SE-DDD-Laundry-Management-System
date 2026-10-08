@@ -45,6 +45,8 @@ class OrderServiceTest {
     @BeforeEach
     void setUp() {
         orderRepository = mock(OrderRepository.class);
+        when(orderRepository.countAddressesOwnedByCustomer(7, 1)).thenReturn(1);
+        when(orderRepository.findDefaultAddressID(1)).thenReturn(Optional.of(7));
         itemRepository = mock(ItemRepository.class);
         serviceRepository = mock(ServiceRepository.class);
         servicePricingRepository = mock(ServicePricingRepository.class);
@@ -59,7 +61,7 @@ class OrderServiceTest {
     }
 
     @Test
-    void cancellationRejectsNonUnconfirmedAndConcurrentStatusChanges() {
+    void cancellationRejectsDisallowedLabelsAndConcurrentStatusChanges() {
         Order order = new Order();
         order.setOrderID(100);
         order.setUserID(1);
@@ -73,15 +75,17 @@ class OrderServiceTest {
             assertEquals(HttpStatus.CONFLICT, assertThrows(ResponseStatusException.class,
                     () -> orderService.cancelCustomerOrder(1, 100)).getStatusCode());
         }
-        verify(orderRepository, never()).cancelUnconfirmedOrder(any(), any(), any(), any());
+        verify(orderRepository, never()).cancelEligibleOrder(any(), any(), any(), any());
         when(status.getStatusID()).thenReturn(1);
         when(status.getStatusLabel()).thenReturn("Unconfirmed");
         Status cancelled = mock(Status.class);
         when(cancelled.getStatusID()).thenReturn(20);
         when(statusService.getByLabel("Cancelled")).thenReturn(cancelled);
-        when(orderRepository.cancelUnconfirmedOrder(100, 1, 1, 20)).thenReturn(0);
+        when(orderRepository.cancelEligibleOrder(100, 1, 1, 20)).thenReturn(0);
         assertEquals(HttpStatus.CONFLICT, assertThrows(ResponseStatusException.class,
                 () -> orderService.cancelCustomerOrder(1, 100)).getStatusCode());
+        // No cancellation went through, so no pending payment may be rejected.
+        verify(orderRepository, never()).rejectPendingPayments(any());
     }
 
     @Test
@@ -100,13 +104,15 @@ class OrderServiceTest {
         when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
         when(orderRepository.findByOrderIDAndUserID(100, 1)).thenReturn(Optional.of(order));
         when(logService.getLogsByOrder(100)).thenReturn(List.of());
-        when(orderRepository.cancelUnconfirmedOrder(100, 1, 1, 20)).thenAnswer(invocation -> {
+        when(orderRepository.cancelEligibleOrder(100, 1, 1, 20)).thenAnswer(invocation -> {
             order.setStatus(cancelled);
             return 1;
         });
         OrderDetailResponse response = orderService.cancelCustomerOrder(1, 100);
         assertEquals(20, response.getStatusID());
         assertEquals("Cancelled", response.getStatusLabel());
+        // A payment still awaiting verification is rejected along with the cancellation.
+        verify(orderRepository).rejectPendingPayments(100);
     }
 
     @Test
@@ -138,8 +144,33 @@ class OrderServiceTest {
         assertEquals(360.0, response.getOrderLines().getFirst().getLinePrice());
         verify(orderRepository).save(any(Order.class));
         // The delivery row must be created for the saved order, with the customer's pickup time.
-        // No address was chosen, so null is passed and the query falls back to the default address.
-        verify(orderRepository).createDelivery(100, 1, pickup, null);
+        // No address was chosen, so the owned default is resolved before saving.
+        verify(orderRepository).createDelivery(100, 1, pickup, 7);
+    }
+
+    @Test
+    void rejectsInvalidCreatePickupSchedulesBeforeSaving() {
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        LocalDateTime now = LocalDateTime.now();
+        for (LocalDateTime pickup : new LocalDateTime[]{null, now.minusDays(1), now.plusMonths(1).plusDays(1),
+                now.plusDays(1).withHour(9).withMinute(0).withSecond(0).withNano(0)}) {
+            CreateOrderRequest request = request(1, line(1, 1, 2));
+            request.setPickupScheduled(pickup);
+            assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                    () -> orderService.createOrder(request)).getStatusCode());
+        }
+        verify(orderRepository, never()).save(any(Order.class));
+        verify(orderRepository, never()).createDelivery(any(), any(), any(), any());
+    }
+
+    @Test
+    void rejectsCreateWithoutAnExplicitOrDefaultPickupAddress() {
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        when(orderRepository.findDefaultAddressID(1)).thenReturn(Optional.empty());
+        assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                () -> orderService.createOrder(request(1, line(1, 1, 2)))).getStatusCode());
+        verify(orderRepository, never()).save(any(Order.class));
+        verify(orderRepository, never()).createDelivery(any(), any(), any(), any());
     }
 
     @Test
@@ -164,7 +195,7 @@ class OrderServiceTest {
 
         orderService.createOrder(request);
 
-        verify(orderRepository).createDelivery(100, 1, null, 7);
+        verify(orderRepository).createDelivery(100, 1, request.getPickupScheduled(), 7);
     }
 
     @Test
@@ -335,6 +366,59 @@ class OrderServiceTest {
     }
 
     @Test
+    void rejectsCreateWithMoreThanOneServiceBeforeSaving() {
+        prepareCustomerAndStatus();
+
+        // Item 1 with service 1 and item 2 with service 2: two services on one order.
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> orderService.createOrder(request(1, line(1, 1, 1), line(2, 2, 1))));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals("An order can only contain one service. Place a separate order for each service.",
+                exception.getReason());
+        verify(orderRepository, never()).save(any(Order.class));
+        verify(orderRepository, never()).createDelivery(any(), any(), any(), any());
+    }
+
+    @Test
+    void createsOrderWithSeveralLinesOfTheSameService() {
+        prepareSuccessfulOrder();
+        when(orderRepository.findDefaultAddressID(1)).thenReturn(Optional.of(7));
+        when(orderRepository.countAddressesOwnedByCustomer(7, 1)).thenReturn(1);
+        when(itemRepository.existsById(2)).thenReturn(true);
+        when(servicePricingRepository.findByItemIDAndServiceID(2, 1))
+                .thenReturn(Optional.of(pricingWithDetails(2, 1, 220.0)));
+
+        // Two different items, both with service 1: still one service, so it is accepted.
+        orderService.createOrder(request(1, line(1, 1, 1), line(2, 1, 2)));
+
+        assertEquals(2, savedOrder().getOrderLines().size());
+    }
+
+    @Test
+    void rejectsModificationsThatMixServices() {
+        Order order = orderWithLine(10, 1, 1, 1, 2, 360.0);
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        when(orderRepository.findByOrderIDAndUserID(10, 1)).thenReturn(Optional.of(order));
+        when(orderRepository.countSubmittedOrSuccessfulPayments(10)).thenReturn(0);
+        when(orderRepository.countAddressesOwnedByCustomer(7, 1)).thenReturn(1);
+        when(orderRepository.findById(10)).thenReturn(Optional.of(order));
+
+        // The customer's edit and the manager's edit both go through the same rule.
+        assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                () -> orderService.modifyCustomerOrder(1, 10, modifyRequest(line(1, 1, 1), line(2, 2, 1))))
+                .getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                () -> orderService.modifyManagementOrder(10, modifyRequest(line(1, 1, 1), line(2, 2, 1))))
+                .getStatusCode());
+
+        // Nothing was changed: the order still has its one original line.
+        assertEquals(1, order.getOrderLines().size());
+        verify(orderRepository, never()).save(any(Order.class));
+        verify(orderRepository, never()).updatePickupSchedule(any(), any(), any(), any());
+    }
+
+    @Test
     void returnsCustomerOrderSummariesWithDatabaseStatusAndCalculatedTotals() {
         Order order = orderWithLine(10, 1, 1, 1, 2, 360.0);
         when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
@@ -383,22 +467,106 @@ class OrderServiceTest {
     }
 
     @Test
+    void rejectsCustomerModificationWhenSubmittedOrSuccessfulPaymentExists() {
+        Order order = orderWithLine(10, 1, 1, 1, 2, 360.0);
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        when(orderRepository.findByOrderIDAndUserID(10, 1)).thenReturn(Optional.of(order));
+        when(orderRepository.countSubmittedOrSuccessfulPayments(10)).thenReturn(1);
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> orderService.modifyCustomerOrder(1, 10, modifyRequest(line(1, 1, 3))));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        assertEquals(360.0, order.getOrderLines().getFirst().getLinePrice());
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
+    void rejectsCustomerModificationAtVerifiedAndAwaitingPickupStatuses() {
+        Order order = orderWithLine(10, 1, 1, 1, 2, 360.0);
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        when(orderRepository.findByOrderIDAndUserID(10, 1)).thenReturn(Optional.of(order));
+
+        for (Status status : List.of(status(2, "Payment Verified"), status(3, "Awaiting Pickup"))) {
+            order.setStatus(status);
+            ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                    () -> orderService.modifyCustomerOrder(1, 10, modifyRequest(line(1, 1, 3))));
+            assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        }
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
     void modifiesEligibleOrderWithDatabaseCalculatedPrices() {
         Order order = orderWithLine(10, 1, 1, 1, 2, 360.0);
         ServicePricing pricing = pricingWithDetails(1, 1, 180.0);
         when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
         when(orderRepository.findByOrderIDAndUserID(10, 1)).thenReturn(Optional.of(order));
+        // No PENDING/PAID/VERIFIED records, including when only REJECTED records exist.
+        when(orderRepository.countSubmittedOrSuccessfulPayments(10)).thenReturn(0);
         when(itemRepository.existsById(1)).thenReturn(true);
         when(serviceRepository.existsById(1)).thenReturn(true);
         when(servicePricingRepository.findByItemIDAndServiceID(1, 1)).thenReturn(Optional.of(pricing));
         when(orderRepository.save(order)).thenReturn(order);
         when(logService.getLogsByOrder(10)).thenReturn(List.of());
 
-        OrderDetailResponse response = orderService.modifyCustomerOrder(1, 10, modifyRequest(line(1, 1, 3)));
+        ModifyOrderRequest request = modifyRequest(line(1, 1, 3));
+        request.setInstructions("  Handle the collar carefully.  ");
+        request.setPreferences(List.of("hangers", "fragrance-free", "hangers"));
+        when(orderRepository.updatePickupSchedule(10, 1, request.getPickupScheduled(), request.getAddressID())).thenReturn(1);
+        OrderRepository.PickupDetails pickup = mock(OrderRepository.PickupDetails.class);
+        when(pickup.getPickupScheduled()).thenReturn(request.getPickupScheduled());
+        when(pickup.getAddressID()).thenReturn(7);
+        when(orderRepository.findPickupDetails(10, 1)).thenReturn(Optional.of(pickup));
+
+        OrderDetailResponse response = orderService.modifyCustomerOrder(1, 10, request);
 
         assertEquals(1, response.getOrderLines().size());
         assertEquals(540.0, response.getOrderLines().getFirst().getLinePrice());
+        assertEquals(true, response.isCustomerCanModify());
+        assertEquals(request.getPickupScheduled(), response.getPickupScheduled());
+        assertEquals(7, response.getPickupAddressID());
+        assertEquals("Handle the collar carefully.", response.getInstructions());
+        assertEquals(List.of("fragrance-free", "hangers"), response.getPreferenceCodes());
+        verify(orderRepository).updatePickupSchedule(10, 1, request.getPickupScheduled(), request.getAddressID());
+        verify(orderRepository, never()).findDefaultAddressID(1);
+        verify(orderRepository).countAddressesOwnedByCustomer(7, 1);
         verify(orderRepository).save(order);
+    }
+
+    @Test
+    void rejectsInvalidCustomerPickupSchedulesBeforeSavingAnyFields() {
+        Order order = orderWithLine(10, 1, 1, 1, 2, 360.0);
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        when(orderRepository.findByOrderIDAndUserID(10, 1)).thenReturn(Optional.of(order));
+        LocalDateTime now = LocalDateTime.now();
+        for (LocalDateTime pickup : new LocalDateTime[]{null, now.minusDays(1), now.plusMonths(1).plusDays(1),
+                now.plusDays(1).withHour(9).withMinute(0).withSecond(0).withNano(0)}) {
+            ModifyOrderRequest request = modifyRequest(line(1, 1, 3));
+            request.setPickupScheduled(pickup);
+            assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                    () -> orderService.modifyCustomerOrder(1, 10, request)).getStatusCode());
+        }
+        verify(orderRepository, never()).updatePickupSchedule(any(), any(), any(), any());
+        verify(orderRepository, never()).save(any(Order.class));
+        assertEquals(360.0, order.getOrderLines().getFirst().getLinePrice());
+    }
+
+    @Test
+    void rejectsInvalidCustomerNotesAndPreferencesBeforeSaving() {
+        Order order = orderWithLine(10, 1, 1, 1, 2, 360.0);
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        when(orderRepository.findByOrderIDAndUserID(10, 1)).thenReturn(Optional.of(order));
+        ModifyOrderRequest longNote = modifyRequest(line(1, 1, 3));
+        longNote.setInstructions("x".repeat(501));
+        ModifyOrderRequest invalidPreference = modifyRequest(line(1, 1, 3));
+        invalidPreference.setPreferences(List.of("unknown"));
+        for (ModifyOrderRequest request : List.of(longNote, invalidPreference)) {
+            assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                    () -> orderService.modifyCustomerOrder(1, 10, request)).getStatusCode());
+        }
+        verify(orderRepository, never()).updatePickupSchedule(any(), any(), any(), any());
+        verify(orderRepository, never()).save(any(Order.class));
     }
 
     @Test
@@ -489,6 +657,8 @@ class OrderServiceTest {
         Order order = orderWithLine(10, 1, 1, 1, 2, 360.0);
         ServicePricing pricing = pricingWithDetails(1, 1, 180.0);
         when(orderRepository.findById(10)).thenReturn(Optional.of(order));
+        // The customer payment restriction must not prevent management edits.
+        when(orderRepository.countSubmittedOrSuccessfulPayments(10)).thenReturn(1);
         when(itemRepository.existsById(1)).thenReturn(true);
         when(serviceRepository.existsById(1)).thenReturn(true);
         when(servicePricingRepository.findByItemIDAndServiceID(1, 1)).thenReturn(Optional.of(pricing));
@@ -498,6 +668,7 @@ class OrderServiceTest {
         OrderDetailResponse response = orderService.modifyManagementOrder(10, modifyRequest(line(1, 1, 3)));
 
         assertEquals(540.0, response.getOrderTotal());
+        verify(orderRepository, never()).updatePickupSchedule(any(), any(), any(), any());
         verify(orderRepository).save(order);
     }
 
@@ -532,6 +703,7 @@ class OrderServiceTest {
         CreateOrderRequest request = new CreateOrderRequest();
         request.setUserID(userID);
         request.setOrderLines(List.of(lines));
+        request.setPickupScheduled(LocalDateTime.now().plusDays(1).withHour(8).withMinute(0).withSecond(0).withNano(0));
         return request;
     }
 
@@ -546,6 +718,8 @@ class OrderServiceTest {
     private ModifyOrderRequest modifyRequest(CreateOrderLineRequest... lines) {
         ModifyOrderRequest request = new ModifyOrderRequest();
         request.setOrderLines(List.of(lines));
+        request.setAddressID(7);
+        request.setPickupScheduled(LocalDateTime.now().plusDays(1).withHour(8).withMinute(0).withSecond(0).withNano(0));
         return request;
     }
 

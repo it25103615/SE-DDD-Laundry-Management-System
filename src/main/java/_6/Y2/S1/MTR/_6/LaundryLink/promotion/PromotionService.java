@@ -8,15 +8,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 @Service
 public class PromotionService {
+    // A promotion code may only be letters, numbers, dashes and underscores (max 30, the column size).
+    // Codes are upper-cased before this is checked. This keeps HTML/markup out of the code,
+    // because the code is shown on customer pages.
+    private static final Pattern PROMOTION_CODE_PATTERN = Pattern.compile("^[A-Z0-9_-]{1,30}$");
+
     private final PromotionRepository promotionRepository;
     private final BillingService billingService;
     private final PaymentAccessService paymentAccessService;
@@ -50,6 +55,7 @@ public class PromotionService {
     public Promotion createPromotion(PromotionRequest request) {
         Promotion promotion = toPromotion(null, request);
         validatePromotionDefinition(promotion);
+        validatePromotionCodeFormat(promotion);
         ensurePromotionCodeAvailable(promotion);
         return promotionRepository.save(promotion);
     }
@@ -58,6 +64,7 @@ public class PromotionService {
         promotionRepository.findById(promotionID).orElseThrow();
         Promotion promotion = toPromotion(promotionID, request);
         validatePromotionDefinition(promotion);
+        validatePromotionCodeFormat(promotion);
         ensurePromotionCodeAvailable(promotion);
         return promotionRepository.update(promotion);
     }
@@ -143,14 +150,10 @@ public class PromotionService {
             throw new IllegalArgumentException("Subtotal must not be negative");
         }
 
-        BigDecimal discountAmount;
-        if (promotion.getDiscountType() == DiscountType.PERCENTAGE) {
-            discountAmount = subtotal
-                    .multiply(promotion.getDiscountValue())
-                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        } else {
-            discountAmount = promotion.getDiscountValue();
-        }
+        // Strategy pattern: the promotion's discount type supplies the calculation, so there is
+        // no if/else on the type here. A new discount type only needs a new DiscountStrategy.
+        DiscountStrategy strategy = promotion.getDiscountType().strategy();
+        BigDecimal discountAmount = strategy.calculate(subtotal, promotion.getDiscountValue());
 
         if (discountAmount.compareTo(subtotal) > 0) {
             return subtotal;
@@ -275,6 +278,16 @@ public class PromotionService {
 
         if (promotion.getValidTo().isBefore(promotion.getValidFrom())) {
             throw new IllegalArgumentException("Promotion end date cannot be before start date");
+        }
+    }
+
+    // Only called when a promotion is created or edited. It is kept out of
+    // validatePromotionDefinition() because that method also runs when a customer
+    // applies an existing promotion, and the format rule should only gate saving.
+    private void validatePromotionCodeFormat(Promotion promotion) {
+        if (!PROMOTION_CODE_PATTERN.matcher(promotion.getPromotionCode()).matches()) {
+            throw new IllegalArgumentException(
+                    "Promotion code can only contain letters, numbers, dashes and underscores (up to 30 characters)");
         }
     }
 

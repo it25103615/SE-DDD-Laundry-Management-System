@@ -133,6 +133,52 @@ class PromotionServiceTest {
         assertEquals(1, promotionRepository.findAll().size());
     }
 
+    // A code holding HTML must be refused, because the code is shown on customer pages.
+    @Test
+    void rejectsPromotionCodeContainingMarkup() {
+        TestPromotionRepository promotionRepository = new TestPromotionRepository(validPercentagePromotion());
+        PromotionService service = newService(promotionRepository, BigDecimal.valueOf(1000.0));
+        PromotionRequest request = validRequest();
+        request.setPromotionCode("<img src=x onerror=alert(1)>");
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.createPromotion(request)
+        );
+
+        assertEquals(
+                "Promotion code can only contain letters, numbers, dashes and underscores (up to 30 characters)",
+                exception.getMessage()
+        );
+        assertEquals(1, promotionRepository.findAll().size());
+    }
+
+    // Editing an existing promotion must not be a way around the code rule.
+    @Test
+    void rejectsMarkupPromotionCodeOnUpdate() {
+        TestPromotionRepository promotionRepository = new TestPromotionRepository(validPercentagePromotion());
+        PromotionService service = newService(promotionRepository, BigDecimal.valueOf(1000.0));
+        PromotionRequest request = validRequest();
+        request.setPromotionCode("<b>SAVE10</b>");
+
+        assertThrows(IllegalArgumentException.class, () -> service.updatePromotion(1, request));
+
+        assertEquals("SAVE10", promotionRepository.findById(1).orElseThrow().getPromotionCode());
+    }
+
+    // Dashes and underscores stay allowed, and the code is still upper-cased.
+    @Test
+    void acceptsPromotionCodeWithDashAndUnderscore() {
+        TestPromotionRepository promotionRepository = new TestPromotionRepository(validPercentagePromotion());
+        PromotionService service = newService(promotionRepository, BigDecimal.valueOf(1000.0));
+        PromotionRequest request = validRequest();
+        request.setPromotionCode("summer-25_vip");
+
+        Promotion created = service.createPromotion(request);
+
+        assertEquals("SUMMER-25_VIP", created.getPromotionCode());
+    }
+
     @Test
     void rejectsExpiredPromotion() {
         Promotion expired = validPercentagePromotion();
