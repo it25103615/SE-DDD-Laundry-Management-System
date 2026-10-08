@@ -29,7 +29,8 @@ class PaymentServiceTest {
         PaymentRepository paymentRepository = Mockito.mock(PaymentRepository.class);
         BillingService billingService = Mockito.mock(BillingService.class);
         PaymentManagementRepository managementRepository = managementRepository("MANAGER", new PaymentOrderStatus(1, "Unconfirmed"));
-        PaymentService service = paymentService(paymentRepository, managementRepository, billingService);
+        NotificationService notifications = Mockito.mock(NotificationService.class);
+        PaymentService service = paymentService(paymentRepository, refundRepository(), managementRepository, billingService, notifications);
         PaymentRequest request = paymentRequest(BigDecimal.valueOf(1350.0));
 
         when(billingService.getBillingDetails(1)).thenReturn(billingDetails(1, 7, BigDecimal.valueOf(1350.0)));
@@ -41,6 +42,11 @@ class PaymentServiceTest {
         });
 
         PaymentConfirmationResponse response = service.submitPayment(1, 7, request);
+
+        Mockito.verify(notifications).notifyRoles(
+                java.util.Set.of("MANAGER"), "PAYMENT", "Payment approval needed",
+                "Payment for order #1 is awaiting your review.",
+                "/html/admin/owner/payment_detail.html?paymentID=10", "PAYMENT", 10, null);
 
         assertEquals(10, response.getPaymentID());
         assertEquals(PaymentStatus.PAID, response.getStatus());

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Feedback &amp; Complaints | LaundryLink</title>
+<title>Customer Support | LaundryLink</title>
 <link rel="stylesheet" href="../../css/global.css">
 <link rel="stylesheet" href="../../css/dashboard.css">
 <link rel="stylesheet" href="../../css/support/support.css">
@@ -14,19 +14,19 @@
 <script src="../../js/support/cases.js" defer>
 </script>
 </head>
-<body data-page="cases" data-audience="customer">
+<body data-page="cases" data-feedback-only="true">
 <nav class="dashboard_nav"></nav>
 <main class="support-page">
 <header class="page_header">
 <div class="subtitle">CUSTOMER CARE</div>
-<h1>Support centre</h1>
-<p class="muted">Send a general enquiry or a complaint. Customer service reviews it first and connects you with the right team.</p>
+<h1>Support cases</h1>
+<p class="muted">Find a case, manage its progress, and continue the customer conversation.</p>
 <p id="identity">Connecting…</p>
 </header>
 <div id="notice" class="notice" role="status" aria-live="polite" hidden>
 </div>
 <section class="card section" id="case-editor" hidden>
-<h2 id="editor-title">Create a support request</h2>
+<h2 id="editor-title">Send us a message</h2>
 <form id="case-form"><div class="case-type-choices" aria-label="Choose a support request type">
 <button type="button" data-message-type="Feedback" aria-pressed="false"><strong>Feedback</strong><span>Tell us about your experience</span></button>
 <button type="button" data-message-type="Question" aria-pressed="false"><strong>General enquiry</strong><span>Ask for information or help</span></button>
@@ -81,7 +81,7 @@
 <button class="summary-card" type="button" data-summary-status="resolved" aria-pressed="false"><span class="summary-icon resolved" aria-hidden="true">✓</span><span><small>Resolved</small><strong id="summary-resolved">—</strong><em>Completed cases</em></span></button>
 </section>
 <section class="section support-queue card" aria-labelledby="queue-title">
-<div class="queue-heading"><div><div class="subtitle">CASE QUEUE</div><h2 id="queue-title">My support requests</h2><p class="muted" id="queue-description">Search, prioritise and open a customer case.</p></div><span class="queue-count" id="visible-count" aria-live="polite">Loading…</span></div>
+<div class="queue-heading"><div><div class="subtitle">CASE QUEUE</div><h2 id="queue-title">Support cases</h2><p class="muted" id="queue-description">Search, prioritise and open a customer case.</p></div><span class="queue-count" id="visible-count" aria-live="polite">Loading…</span></div>
 <div class="case-type-tabs" aria-label="Browse support cases by type"><button type="button" data-queue-type="" aria-pressed="true">All requests</button><button type="button" data-queue-type="Feedback" aria-pressed="false">Feedback</button><button type="button" data-queue-type="Question" aria-pressed="false">General enquiries</button><button type="button" data-queue-type="Complaint" aria-pressed="false">Complaints</button></div><form id="filters" class="toolbar">
 <div class="field">
 <label for="search">Search</label>
