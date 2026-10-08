@@ -34,3 +34,18 @@ Thumbs.db
 application-local.properties
 .env
 *.log
+
+# Local Microsoft JDBC Windows authentication binary
+mssql-jdbc_auth-*.dll
+
+### graphify ###
+graphify-out/
+
+temp.txt
+
+# Local Maven repository caches
+.m2/
+.maven-user-home/
+
+# Archived resource snapshots
+src/main/resources/*.zip

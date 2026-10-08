@@ -8,19 +8,30 @@
     <link rel="stylesheet" href="../../css/dashboard.css" />
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
+    <style>
+      .schedule-time-card:hover {
+        transform: none;
+      }
+      /* Keep native time-window popups opaque and stable when focused. */
+      #pickup-time {
+        color-scheme: light;
+        color: var(--color-text, #102a3b);
+        background-color: #fff;
+        transform: none;
+      }
+      #pickup-time option {
+        color: var(--color-text, #102a3b);
+        background-color: #fff;
+      }
+      #pickup-time option:disabled {
+        color: #667783;
+      }
+    </style>
+
   </head>
   <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="dashboard.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="dashboard.html">Cancel order</a
-          ><span class="profile_badge">PF</span>
-        </li>
-      </ul>
-    </nav>
+    <nav class="dashboard_nav" data-nav="flow"
+         data-exit-label="Cancel order" data-exit-href="/html/customer/dashboard.html"></nav>
     <main>
       <header class="page_header">
         <div class="subtitle">NEW ORDER</div>
@@ -36,7 +47,7 @@
       </ol>
       <form action="new_order_instructions.html" method="get">
         <div class="grid grid_two">
-          <section class="card">
+          <section class="card schedule-time-card">
             <h2>Pickup time</h2>
             <div class="field">
               <label for="pickup-date">Date</label
@@ -66,19 +77,13 @@
           </section>
           <section class="card">
             <h2>Pickup address</h2>
-            <label class="radio_row"
-              ><input type="radio" name="address" value="home" checked /><span
-                ><strong>Home</strong><br /><span class="muted"
-                  >24 Flower Road, Colombo 07</span
-                ></span
-              ></label
-            ><label class="radio_row"
-              ><input type="radio" name="address" value="other" /><span
-                ><strong>Use another address</strong><br /><span class="muted"
-                  >Add a different pickup location</span
-                ></span
-              ></label
-            >
+            <!--
+              The signed-in customer's saved addresses are loaded from GET /api/account/addresses
+              by the script at the bottom of this page and added here, one radio row each.
+            -->
+            <div id="pickup-addresses">
+              <p class="muted" id="pickup-addresses-status">Loading your saved addresses…</p>
+            </div>
           </section>
         </div>
         <div class="actions">
@@ -90,7 +95,159 @@
             Continue
           </button>
         </div>
+        <p id="schedule-error" role="alert" hidden></p>
       </form>
     </main>
+    <script>
+      (function () {
+        const key = "laundryLink.orderDraft";
+        const form = document.querySelector("main form");
+        const error = document.getElementById("schedule-error");
+        // Validate and restore only the customer pickup scheduling fields.
+        const fields = ["pickup-date", "pickup-time"].map(id => document.getElementById(id));
+        const [pickupDate, pickupTime] = fields;
+        const readDraft = () => {
+          try { return JSON.parse(sessionStorage.getItem(key)) || {}; }
+          catch (_) { return {}; }
+        };
+        const schedule = readDraft().schedule || {};
+        fields.forEach((field, index) => { field.value = schedule[["date", "time"][index]] || ""; });
+        // Tick the remembered address once the customer's saved addresses have been loaded.
+        function restoreAddressChoice() {
+          const remembered = readDraft().schedule?.address;
+          if (!remembered) return;
+          form.querySelectorAll("input[name=address]").forEach(input => {
+            if (input.value === String(remembered)) input.checked = true;
+          });
+        }
+
+        // Pickup addresses: ask the server for the signed-in customer's saved addresses and
+        // show each one as a radio row. The API works out who the customer is from the login
+        // session, so no customer ID is sent.
+        const addressList = document.getElementById("pickup-addresses");
+        const addressStatus = document.getElementById("pickup-addresses-status");
+        // "18 Temple Road, Colombo 05, Western" - skips any part the customer left empty.
+        const addressLine = address => [address.street, address.city, address.state]
+          .map(part => (part || "").trim()).filter(Boolean).join(", ");
+        function showAddresses(addresses) {
+          if (!addresses.length) {
+            addressStatus.textContent = "You have no saved addresses yet.";
+            return;
+          }
+          addressStatus.remove();
+          addresses.forEach(address => {
+            // Built with DOM nodes (not innerHTML) so text typed by the customer is never run as HTML.
+            const row = document.createElement("label");
+            row.className = "radio_row";
+            const radio = document.createElement("input");
+            radio.type = "radio";
+            radio.name = "address";
+            radio.value = String(address.addressID);
+            // The customer's default address starts selected.
+            radio.checked = Boolean(address.isDefault);
+            const text = document.createElement("span");
+            const nickname = document.createElement("strong");
+            nickname.textContent = address.nickname || "Saved address";
+            const line = document.createElement("span");
+            line.className = "muted";
+            line.textContent = addressLine(address);
+            text.append(nickname, document.createElement("br"), line);
+            row.append(radio, text);
+            addressList.append(row);
+          });
+          // A choice made earlier in this order wins over the default; then keep the draft in step.
+          restoreAddressChoice();
+          save();
+        }
+        fetch("/api/account/addresses", { headers: { Accept: "application/json" }, credentials: "same-origin" })
+          .then(response => {
+            // A signed-out visitor is redirected to the login page, which is not JSON.
+            const isJson = (response.headers.get("content-type") || "").includes("application/json");
+            if (!response.ok || !isJson) throw new Error("Addresses could not be loaded.");
+            return response.json();
+          })
+          .then(showAddresses)
+          .catch(() => {
+            addressStatus.textContent = "We could not load your saved addresses. Please sign in again or try later.";
+          });
+        function save() {
+          const draft = readDraft();
+          sessionStorage.setItem(key, JSON.stringify({ ...draft, schedule: {
+            date: pickupDate.value, time: pickupTime.value,
+            address: form.querySelector("input[name=address]:checked")?.value
+          } }));
+        }
+        const isoDate = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+        // Minutes after midnight at which a time window option starts, e.g. "2:00 PM – 5:00 PM" -> 840.
+        function slotStart(option) {
+          const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)/i.exec(option.textContent.trim());
+          if (!match) return null;
+          return (Number(match[1]) % 12 + (match[3].toUpperCase() === "PM" ? 12 : 0)) * 60 + Number(match[2]);
+        }
+        // A scheduling slot can only be booked if it has not started yet. For today's date, grey out
+        // (disable) every window whose start time has already passed, and clear the selection if it
+        // was one of them. Other dates keep all windows. Returns true if any window is still open today.
+        function limitSlots(dateField, timeField, today, nowMinutes) {
+          let anyOpenToday = false;
+          Array.from(timeField.options).forEach(option => {
+            const start = slotStart(option);
+            if (start === null) return; // the "Choose a time" placeholder
+            const passed = start <= nowMinutes;
+            if (!passed) anyOpenToday = true;
+            option.disabled = dateField.value === today && passed;
+          });
+          if (timeField.selectedOptions[0]?.disabled) timeField.value = "";
+          return anyOpenToday;
+        }
+        function validate(showMissing) {
+          const now = new Date();
+          const today = isoDate(now);
+          // Clamp the same day to the last day of next month (for example, January 31 to February 28).
+          const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          const lastDay = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate();
+          nextMonth.setDate(Math.min(now.getDate(), lastDay));
+          const nowMinutes = now.getHours() * 60 + now.getMinutes();
+          pickupDate.min = today;
+          pickupDate.max = isoDate(nextMonth);
+          limitSlots(pickupDate, pickupTime, today, nowMinutes);
+          fields.forEach(field => field.setCustomValidity(""));
+          const labels = ["pickup date", "pickup time window"];
+          fields.forEach((field, index) => {
+            if (!field.value) field.setCustomValidity(`Please select a ${labels[index]}.`);
+          });
+          if (pickupDate.value) {
+            const outsideRange = pickupDate.value < pickupDate.min || pickupDate.value > pickupDate.max;
+            const differentYear = Number(pickupDate.value.split("-")[0]) !== now.getFullYear();
+            if (pickupDate.value > pickupDate.max || (differentYear && outsideRange)) {
+              pickupDate.setCustomValidity("Pickup can only be scheduled up to one month in advance.");
+            } else if (pickupDate.value < pickupDate.min) {
+              pickupDate.setCustomValidity("Please choose today or a future date.");
+            }
+          }
+          const invalid = fields.find(field => !field.validity.valid && (showMissing || field.value));
+          error.textContent = invalid ? invalid.validationMessage : "";
+          error.hidden = !invalid;
+          return !fields.some(field => !field.validity.valid);
+        }
+        form.noValidate = true;
+        // Validate before saving so a time window cleared by the slot limits is not kept in the draft.
+        form.addEventListener("input", () => { validate(false); save(); });
+        form.addEventListener("change", () => { validate(false); save(); });
+        window.addEventListener("pagehide", save);
+        form.addEventListener("submit", event => {
+          event.preventDefault();
+          if (!validate(true) || !form.checkValidity()) {
+            form.reportValidity();
+            return;
+          }
+          save();
+          window.location.href = "new_order_instructions.html";
+        });
+        validate(false);
+        save(); // Also discard obsolete scheduling selections from older drafts.
+        // Re-check every minute so a page left open greys out windows as they start.
+        setInterval(() => { validate(false); save(); }, 60 * 1000);
+      })();
+    </script>
   </body>
 </html>

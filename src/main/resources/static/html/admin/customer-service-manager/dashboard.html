@@ -1,164 +1,21 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Customer Service Manager Dashboard | LaundryLink</title>
-    <link rel="stylesheet" href="../../../css/global.css" />
-    <link rel="stylesheet" href="../../../css/dashboard.css" />
-    <script src="../../../js/global-pre.js"></script>
-    <script src="../../../js/global-post.js" defer></script>
-  </head>
-  <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="dashboard.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="dashboard.html">Support Home</a
-          ><a href="complaints.html">Cases</a><a href="orders.html">Orders</a
-          ><span class="profile_badge">SU</span>
-        </li>
-      </ul>
-    </nav>
-    <main>
-      <header
-        class="welcome_banner"
-        style="
-          margin-top: 34px;
-          background: linear-gradient(120deg, #075f8d, #12b8a6 58%, #38d7f2);
-        "
-      >
-        <div class="subtitle">CUSTOMER SERVICE MANAGER</div>
-        <div class="top_bar">
-          <div>
-            <h1>Let’s make things right</h1>
-            <p class="muted">
-              Four customers are waiting. Average response time is under six
-              minutes.
-            </p>
-          </div>
-          <span class="status status_success">● ONLINE</span>
-        </div>
-      </header>
-      <section
-        class="grid grid_three"
-        style="grid-template-columns: repeat(4, 1fr); margin-top: 20px"
-      >
-        <article class="card metric">
-          <div class="icon_bubble">◌</div>
-          <span class="muted small">OPEN CASES</span
-          ><strong data-counter="4">0</strong
-          ><span class="status status_warning">2 priority</span>
-        </article>
-        <article class="card metric">
-          <div class="icon_bubble">✓</div>
-          <span class="muted small">RESOLVED TODAY</span
-          ><strong data-counter="18">0</strong
-          ><span class="status status_success">+6 vs average</span>
-        </article>
-        <article class="card metric">
-          <div class="icon_bubble">◷</div>
-          <span class="muted small">AVG. RESPONSE</span><strong>5m</strong
-          ><span class="status status_success">Within target</span>
-        </article>
-        <article class="card metric">
-          <div class="icon_bubble">★</div>
-          <span class="muted small">CSAT SCORE</span
-          ><strong data-counter="96" data-suffix="%">0</strong>
-          <div class="progress"><span style="width: 96%"></span></div>
-        </article>
-      </section>
-      <section class="grid grid_two" style="margin-top: 22px">
-        <article class="card">
-          <div class="top_bar">
-            <h2>Priority queue</h2>
-            <a class="link" href="complaints.html">View all →</a>
-          </div>
-          <div class="activity_item">
-            <span class="activity_dot" style="background: var(--orange)"></span>
-            <div>
-              <strong>#C-118 · Delivery timing</strong>
-              <p class="muted small">Priya Fernando · Order #1042</p>
-            </div>
-            <span class="status status_warning">2 hrs</span>
-          </div>
-          <div class="activity_item">
-            <span class="activity_dot" style="background: #e05252"></span>
-            <div>
-              <strong>#C-116 · Damaged button</strong>
-              <p class="muted small">Dinesh Perera · Order #1039</p>
-            </div>
-            <span class="status status_error">1 day</span>
-          </div>
-          <div class="activity_item">
-            <span class="activity_dot"></span>
-            <div>
-              <strong>#C-115 · Payment question</strong>
-              <p class="muted small">Anjali Silva · Order #1038</p>
-            </div>
-            <span class="status status_info">New</span>
-          </div>
-        </article>
-        <article class="card">
-          <h2>Support performance</h2>
-          <p class="muted">Cases resolved this week</p>
-          <div class="chart">
-            <span style="--value: 48%"></span><span style="--value: 62%"></span
-            ><span style="--value: 70%"></span><span style="--value: 65%"></span
-            ><span style="--value: 88%"></span
-            ><span style="--value: 94%"></span>
-          </div>
-          <div class="top_bar small">
-            <span>Mon</span><strong class="link">94% resolved</strong
-            ><span>Sat</span>
-          </div>
-        </article>
-      </section>
-      <section class="page_header">
-        <div class="subtitle">QUICK TOOLS</div>
-        <h2>Resolve cases faster</h2>
-      </section>
-      <div class="quick_panel">
-        <a class="quick_action" href="orders.html"
-          ><div class="icon_bubble" style="margin: auto">⌕</div>
-          <strong>Find order</strong></a
-        ><a class="quick_action" href="complaints.html"
-          ><div
-            class="icon_bubble"
-            style="
-              margin: auto;
-              background: linear-gradient(135deg, var(--teal), var(--green));
-            "
-          >
-            ＋
-          </div>
-          <strong>New case</strong></a
-        ><a class="quick_action" href="../../public/services.html"
-          ><div
-            class="icon_bubble"
-            style="
-              margin: auto;
-              background: linear-gradient(135deg, var(--purple), #a17df3);
-            "
-          >
-            ▤
-          </div>
-          <strong>Knowledge base</strong></a
-        ><a class="quick_action" href="complaints.html"
-          ><div
-            class="icon_bubble"
-            style="
-              margin: auto;
-              background: linear-gradient(135deg, var(--orange), #ffbf69);
-            "
-          >
-            ↗
-          </div>
-          <strong>Escalations</strong></a
-        >
-      </div>
-    </main>
-  </body>
-</html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Support Dashboard | LaundryLink</title>
+<link rel="stylesheet" href="../../../css/global.css"><link rel="stylesheet" href="../../../css/dashboard.css"><link rel="stylesheet" href="../../../css/support/support.css">
+<script src="../../../js/global-pre.js" defer></script><script src="../../../js/support/common.js" defer></script><script src="../../../js/support/overview.js" defer></script>
+</head><body data-page="support-overview"><nav class="dashboard_nav"></nav>
+<main class="support-page support-overview">
+<header class="support-header"><div><div class="subtitle">CUSTOMER CARE</div><h1>Support dashboard</h1><p class="muted">A quick look at your queue and what needs attention.</p><p id="identity" class="small muted">Connecting…</p></div><a class="custom_button custom_button_bg" href="complaints.html">Open support cases →</a></header>
+<div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+<section class="support-summary" aria-label="Support overview">
+<a class="summary-card" href="complaints.html"><span class="summary-icon" aria-hidden="true">◎</span><span><small>Total cases</small><strong id="overview-total">—</strong><em>View the full queue</em></span></a>
+<a class="summary-card" href="complaints.html?status=pending"><span class="summary-icon pending" aria-hidden="true">!</span><span><small>Awaiting action</small><strong id="overview-pending">—</strong><em>New, assigned or reopened</em></span></a>
+<a class="summary-card" href="complaints.html?status=In%20Review"><span class="summary-icon review" aria-hidden="true">↻</span><span><small>In review</small><strong id="overview-progress">—</strong><em>Currently being investigated</em></span></a>
+<a class="summary-card" href="complaints.html?status=resolved"><span class="summary-icon resolved" aria-hidden="true">✓</span><span><small>Resolved / closed</small><strong id="overview-resolved">—</strong><em>Finished cases</em></span></a>
+</section>
+<div class="overview-layout">
+<section class="overview-card"><div class="overview-heading"><div><h2>Needs attention</h2><p class="muted">Latest pending cases, with high priority first.</p></div><a href="complaints.html?status=pending">View all →</a></div><div id="attention-cases" aria-live="polite" aria-busy="true"><p class="muted">Loading cases…</p></div></section>
+<aside class="overview-card overview-guide"><div class="subtitle">YOUR WORKSPACE</div><h2>Where to start</h2><a href="complaints.html?status=pending"><strong>1. Review pending cases →</strong><span>Assign a staff member and start investigating.</span></a><a href="complaints.html"><strong>2. Continue a conversation →</strong><span>Open a case, then choose Chats to read and reply.</span></a><a href="orders.html"><strong>3. Check an order →</strong><span>Look up an order when a customer needs help.</span></a><p class="overview-priority"><strong id="overview-high">—</strong> active high-priority cases</p></aside>
+</div>
+<section class="overview-card section"><div class="overview-heading"><div><h2>Recently updated</h2><p class="muted">The latest activity across your support cases.</p></div><a href="complaints.html">Browse cases →</a></div><div id="recent-cases" aria-live="polite" aria-busy="true"><p class="muted">Loading cases…</p></div></section>
+</main></body></html>

@@ -8,28 +8,16 @@
     <link rel="stylesheet" href="../../../css/dashboard.css" />
     <script src="../../../js/global-pre.js"></script>
     <script src="../../../js/global-post.js" defer></script>
+    <script src="../../../js/account/dashboard-identity.js" defer></script>
   </head>
   <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="dashboard.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="dashboard.html">Overview</a
-          ><a href="../customer-service-manager/orders.html">Orders</a
-          ><a href="../../staff/processing_board.html">Operations</a
-          ><a href="staff_accounts.html">Team</a
-          ><span class="profile_badge">SM</span>
-        </li>
-      </ul>
-    </nav>
+    <nav class="dashboard_nav"></nav>
     <main>
       <header class="welcome_banner" style="margin-top: 34px">
         <div class="subtitle">SHOP MANAGER</div>
         <div class="top_bar">
           <div>
-            <h1>Good morning, Samira</h1>
+            <h1 id="dashboard-greeting">Welcome back</h1>
             <p class="muted">
               Colombo Central is busy and performing ahead of target.
             </p>
@@ -153,8 +141,8 @@
             ><a class="quick_action" href="assign_riders.html">Assign riders</a
             ><a class="quick_action" href="../../staff/issue_reports.html"
               >Issue reports</a
-            ><a class="quick_action" href="../owner/reports.html"
-              >Daily report</a
+            ><a class="quick_action" href="../customer-service-manager/complaints.html"
+              >Support cases</a
             >
           </div>
         </article>

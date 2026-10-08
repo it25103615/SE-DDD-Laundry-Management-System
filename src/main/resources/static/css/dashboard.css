@@ -25,6 +25,17 @@
   background: var(--color-accent-100);
 }
 
+/* Row above the board holding the order count (left) and the Grid/List switch (right). */
+.board_toolbar {
+  align-items: center;
+  margin: 0 0 14px;
+}
+.board_toolbar #board-count {
+  color: var(--black-70);
+  font-size: 18px;
+  font-weight: 600;
+}
+
 .board_columns {
   display: grid;
   grid-template-columns: repeat(4, minmax(220px, 1fr));
@@ -133,6 +144,10 @@
 tbody tr {
   transition: background-color 0.18s ease;
 }
+/* Order rows that open the order when clicked (My Orders). */
+tr.order_row {
+  cursor: pointer;
+}
 tbody tr:hover {
   background: rgba(233, 248, 255, 0.65);
 }
@@ -164,6 +179,10 @@ tbody tr:hover {
     rgba(255, 255, 255, 0.22),
     transparent 68%
   );
+  /* Decoration only. Without this the circle sits on top of the banner's top-right
+     corner and swallows hovers and clicks meant for the button there (for example
+     "+ New order" on the customer dashboard). */
+  pointer-events: none;
 }
 .welcome_banner .muted,
 .welcome_banner .subtitle {

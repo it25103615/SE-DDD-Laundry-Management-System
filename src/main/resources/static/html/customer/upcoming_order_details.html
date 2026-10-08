@@ -3,25 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Upcoming Order #1052 | LaundryLink</title>
+    <title>Upcoming Orders | LaundryLink</title>
     <link rel="stylesheet" href="../../css/global.css" />
     <link rel="stylesheet" href="../../css/dashboard.css" />
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
+    <script src="../../js/customer/order-management.js" defer></script>
   </head>
   <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="dashboard.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="dashboard.html">Dashboard</a
-          ><a href="my_orders.html">My Orders</a
-          ><a href="../portal.html">Switch Portal</a>
-        </li>
-      </ul>
-    </nav>
+    <nav class="dashboard_nav"></nav>
     <main>
       <header class="welcome_banner" style="margin-top: 34px">
         <div class="top_bar">
@@ -91,6 +81,8 @@
       <div class="actions">
         <a class="custom_button custom_button_bg" href="modify_order.html"
           >Modify order</a
+        ><a class="custom_button custom_button_border" href="payments.html?orderID=5"
+          >Go to payment</a
         ><a
           class="custom_button custom_button_nobg"
           href="new_order_services.html"

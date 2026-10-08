@@ -6,35 +6,80 @@
     <title>Receipt | LaundryLink</title>
     <link rel="stylesheet" href="../../css/global.css" />
     <link rel="stylesheet" href="../../css/dashboard.css" />
+    <style>
+      .receipt-actions {
+        display: flex;
+        align-items: stretch;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 18px;
+      }
+
+      .receipt-actions .custom_button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 1 1 0;
+        min-width: 0;
+        min-height: 62px;
+        margin: 0;
+        padding: 12px 18px;
+        box-sizing: border-box;
+        text-align: center;
+        line-height: 1.2;
+        white-space: normal;
+      }
+    </style>
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
+    <script src="../../js/customer/payment-flow.js" defer></script>
   </head>
-  <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="dashboard.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="payments.html">Payments</a
-          ><a href="../portal.html">Switch Portal</a>
-        </li>
-      </ul>
-    </nav>
+  <body data-payment-page="receipt">
+    <nav class="dashboard_nav"></nav>
     <main>
       <header class="welcome_banner" style="margin-top: 34px">
-        <h1>Payment recorded ✓</h1>
-        <p>Receipt #LL-1042-2026</p>
+        <h1 id="receipt-title">Payment recorded</h1>
+        <p id="receipt-reference">Receipt</p>
       </header>
       <section class="card" style="max-width: 680px; margin: 24px auto">
-        <p>Order #1042 · Priya Fernando</p>
+        <p id="receipt-order">Order</p>
         <div class="top_bar">
           <h2>Total paid</h2>
-          <h2>LKR 2,480</h2>
+          <h2 id="receipt-amount">Loading...</h2>
         </div>
-        <a class="custom_button custom_button_bg" href="payments.html"
-          >Back to payments</a
-        >
+        <div class="top_bar">
+          <span>Subtotal</span>
+          <strong id="receipt-subtotal">Loading...</strong>
+        </div>
+        <div class="top_bar">
+          <span>Automatic Bulk Discount</span>
+          <strong id="receipt-bulk-discount">Loading...</strong>
+        </div>
+        <div class="top_bar">
+          <span>Promotion Discount</span>
+          <strong id="receipt-promotion-discount">Loading...</strong>
+        </div>
+        <div class="top_bar">
+          <span>Total Discount</span>
+          <strong id="receipt-total-discount">Loading...</strong>
+        </div>
+        <div class="top_bar">
+          <span>Final Amount</span>
+          <strong id="receipt-final-amount">Loading...</strong>
+        </div>
+        <p class="muted" id="receipt-status">Payment status</p>
+        <p class="muted" id="receipt-status-message"></p>
+        <p class="muted" id="receipt-refund-amount" hidden>Refund amount</p>
+        <p class="muted" id="receipt-refund-time" hidden>Refund time</p>
+        <p class="muted" id="receipt-method">Payment method</p>
+        <p class="muted" id="receipt-time">Payment time</p>
+        <div class="receipt-actions">
+          <button class="custom_button custom_button_border" id="receipt-refund-request" type="button" hidden>Request Refund</button>
+          <a class="custom_button custom_button_border" id="receipt-pdf-link" href="#" hidden>Download Receipt (PDF)</a>
+          <a class="custom_button custom_button_bg" id="receipt-payments-link" href="payments.html"
+            >Back to payments</a
+          >
+        </div>
       </section>
     </main>
   </body>

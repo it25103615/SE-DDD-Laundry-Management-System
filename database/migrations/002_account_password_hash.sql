@@ -1,0 +1,5 @@
+USE laundryLinkDB;
+GO
+
+ALTER TABLE users ALTER COLUMN password VARCHAR(100) NULL;
+GO
