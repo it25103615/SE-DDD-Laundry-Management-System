@@ -9,23 +9,35 @@ param(
     [switch]$SampleData
 )
 # Fresh database: creates the complete current schema (initialize_database.sql).
-# Existing database: applies migrations 003 through 015 (all safe to re-run).
-# Migration 005 runs after the sample data: it creates the laundry processing tables when they
-# are missing and, once the sample data exists, adds the processing test orders after it.
-# Migration 006 runs next: it adds delivery.addressID when missing and fills it in for
-# delivery rows that have no address yet.
-# Migration 007 runs next: it adds orders.instructions and orders.preferences when missing.
-# Migration 008 runs next: it creates the trigger that writes the order status history
-# (dbo.logs) and takes that job away from dbo.sp_UpdateProcessingStatus.
-# Migration 009 runs next: it adds the payment method, reference, status and processed-at
-# columns to dbo.payments when missing.
-# Migration 010 runs next: it fixes the payment notification's receipt link.
-# Migration 011 creates the refunds table. Migration 012 adds pending payment verification,
-# 013 adds email recovery tokens and 014 adds support case topics.
-# Migration 015 runs last: it adds status 21 (Quality Inspection) when missing and, once the
-# processing test customer exists, a Shoe Cleaning test order for the new processing routes.
+# Existing database: applies migrations 003 and 004 first (all migrations are safe to re-run).
+# Both cases then run every other file in database/migrations in name order, starting at 005.
+# The files are read from the folder, so a new migration only needs to be added there as
+# NNN_description.sql; this script does not need to change.
+# The sample data (-SampleData) is loaded just before 005, so 005 and later migrations can add
+# their test orders after it and fill in columns on the rows it creates.
+# Migrations 001 and 002 are never run here: they predate this script and every existing
+# database already has them.
+# Rules for a new migration: it must be safe to re-run (this script runs all of them every
+# time), and its number must not be used by another file.
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
+# The sample data is loaded just before the first migration with this number or higher.
+$firstMigrationAfterSampleData = 5
+
+# Read the migration files in name order and check their names before touching the database.
+$migrations = @(Get-ChildItem -LiteralPath (Join-Path $projectRoot 'database/migrations') -Filter '*.sql' | Sort-Object Name)
+$usedNumbers = @{}
+foreach ($migration in $migrations) {
+    if ($migration.Name -notmatch '^(\d{3})_') {
+        throw "Migration file '$($migration.Name)' must be named NNN_description.sql (for example 016_new_table.sql)."
+    }
+    $number = $Matches[1]
+    # Two files with the same number would run in an order nobody chose, so stop here instead.
+    if ($usedNumbers.ContainsKey($number)) {
+        throw "Migrations '$($usedNumbers[$number])' and '$($migration.Name)' both use number $number. Rename one of them."
+    }
+    $usedNumbers[$number] = $migration.Name
+}
 
 if ($SqlUser) {
     $authentication = "User ID=$SqlUser;Password=$SqlPassword"
@@ -58,67 +70,37 @@ try {
     if ($databaseId -is [DBNull]) {
         Invoke-SqlFile $command 'initialize_database.sql'
         Write-Output 'Created laundryLinkDB with the complete current schema (including the laundry processing tables).'
+        # The fresh schema already contains everything up to 004, so start after them.
+        $firstMigration = $firstMigrationAfterSampleData
     } else {
-        Write-Output 'Existing laundryLinkDB found; applying migrations 003, 004 and 005.'
-        $connection.ChangeDatabase('laundryLinkDB')
-        Invoke-SqlFile $command 'database/migrations/003_ddd_assignment2_refinement.sql'
-        Write-Output 'Migration 003 applied; existing records preserved.'
-        # 004 replaces sp_UpdateOrderStatus with sp_UpdateProcessingStatus, which the processing module calls.
-        Invoke-SqlFile $command 'database/migrations/004_ddd_assignment2_module_routines.sql'
-        Write-Output 'Migration 004 applied (module routines).'
+        Write-Output 'Existing laundryLinkDB found; applying migrations from 003 onward. Existing records are preserved.'
+        $firstMigration = 3
+    }
+    # Some migrations have no USE line, so make sure they run in the right database.
+    $connection.ChangeDatabase('laundryLinkDB')
+
+    $sampleDataLoaded = $false
+    # Loads the sample data once, and only when -SampleData was given.
+    function Add-SampleData {
+        if ($SampleData -and !$script:sampleDataLoaded) {
+            Invoke-SqlFile $command 'database/ddd_assignment2_sample_data.sql'
+            Write-Output 'Sample data loaded (demo accounts and orders #1-#5).'
+            $script:sampleDataLoaded = $true
+        }
     }
 
-    if ($SampleData) {
-        Invoke-SqlFile $command 'database/ddd_assignment2_sample_data.sql'
-        Write-Output 'Sample data loaded (demo accounts and orders #1-#5).'
+    foreach ($migration in $migrations) {
+        $number = $migration.Name.Substring(0, 3)
+        if ([int]$number -lt $firstMigration) { continue }
+        # The sample data goes in after 003/004 and before 005 and everything later.
+        if ([int]$number -ge $firstMigrationAfterSampleData) { Add-SampleData }
+        Invoke-SqlFile $command "database/migrations/$($migration.Name)"
+        # Describe the migration from its file name, e.g. 011_refunds.sql -> "refunds".
+        $description = $migration.BaseName.Substring(4).Replace('_', ' ')
+        Write-Output "Migration $number applied ($description)."
     }
-
-    # 005: processing tables (skipped when present) and the processing test orders.
-    Invoke-SqlFile $command 'database/migrations/005_processing.sql'
-    Write-Output 'Migration 005 applied (laundry processing).'
-
-    # 006: delivery.addressID (added when missing). Runs after the sample data and 005 so the
-    # delivery rows they create are given the customer's default address.
-    Invoke-SqlFile $command 'database/migrations/006_delivery_address.sql'
-    Write-Output 'Migration 006 applied (delivery address).'
-
-    # 007: orders.instructions and orders.preferences (added when missing). The application
-    # will not start without them, because Hibernate checks the columns at startup.
-    Invoke-SqlFile $command 'database/migrations/007_order_instructions.sql'
-    Write-Output 'Migration 007 applied (order instructions).'
-
-    # 008: the order status log trigger. It runs after the sample data and 005, which insert
-    # their orders and log rows directly, so their history is not written a second time.
-    Invoke-SqlFile $command 'database/migrations/008_order_status_log_trigger.sql'
-    Write-Output 'Migration 008 applied (order status log trigger).'
-
-    # 009: payment method, transaction reference, status and processed-at columns on payments
-    # (added when missing). Like 007, the application will not start without them, because
-    # Hibernate checks the columns at startup. Existing payment rows stay valid.
-    Invoke-SqlFile $command 'database/migrations/009_payment_data_alignment.sql'
-    Write-Output 'Migration 009 applied (payment data alignment).'
-
-    # 010: the payment notification trigger now links to receipt.html?orderID=..&paymentID=..
-    # (the receipt page needs both), and existing payment notifications are rewritten to match.
-    Invoke-SqlFile $command 'database/migrations/010_notification_links.sql'
-    Write-Output 'Migration 010 applied (notification links).'
-
-    # 011: the refunds table (created when missing). The application will not start without it,
-    # because Hibernate checks the tables at startup. Safe to re-run.
-    Invoke-SqlFile $command 'database/migrations/011_refunds.sql'
-    Write-Output 'Migration 011 applied (refunds).'
-
-    Invoke-SqlFile $command 'database/migrations/012_pending_payment_verification.sql'
-    Write-Output 'Migration 012 applied (pending payment verification).'
-    Invoke-SqlFile $command 'database/migrations/013_password_recovery.sql'
-    Write-Output 'Migration 013 applied (email password recovery).'
-    Invoke-SqlFile $command 'database/migrations/014_support_case_topics.sql'
-    Write-Output 'Migration 014 applied (support case topics).'
-
-    # 015: status 21 (Quality Inspection), which the processing module needs to finish an order,
-    # and the Shoe Cleaning test order. Runs after 005, which creates the test customer.
-    Invoke-SqlFile $command 'database/migrations/015_quality_inspection_and_routes.sql'
-    Write-Output 'Migration 015 applied (quality inspection status and processing routes).'
+    # Still load the sample data if there was no migration from 005 onward to trigger it.
+    Add-SampleData
 
     # Report which orders the laundry processing test cases (TC-LP01 to LP10) should use.
     $connection.ChangeDatabase('laundryLinkDB')
