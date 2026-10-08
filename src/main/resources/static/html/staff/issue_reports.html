@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Issue Reports | LaundryLink</title>
+    <style>#new-report[hidden], #submit-report-link[hidden] { display: none !important; }</style>
     <link rel="stylesheet" href="../../css/global.css" />
     <link rel="stylesheet" href="../../css/dashboard.css" />
     <script src="../../js/global-pre.js"></script>
@@ -19,9 +20,9 @@
         <div>
           <div class="subtitle">FACILITY QUALITY</div>
           <h1>Issue Reports</h1>
-          <p>Record damaged, missing or mismatched items. Each report is also sent to customer service as a complaint case.</p>
+          <p id="issue-description">Review damaged, missing or mismatched items reported by laundry staff. Each report is linked to a customer-service case.</p>
         </div>
-        <a class="custom_button custom_button_bg" href="#new-report"
+        <a id="submit-report-link" hidden class="custom_button custom_button_bg" href="#new-report"
           >Submit report</a
         >
       </header>
@@ -45,7 +46,7 @@
         </table>
       </div>
       <!-- action is set so global-post.js leaves the form alone; issue-reports.js submits it. -->
-      <form id="new-report" class="card" style="margin-top: 40px" action="issue_reports.html">
+      <form id="new-report" hidden class="card" style="margin-top: 40px" action="issue_reports.html">
         <h2>New issue report</h2>
         <div class="grid grid_two">
           <div class="field">

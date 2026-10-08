@@ -33,9 +33,9 @@ if (location.protocol === "file:") {
 
   //Links that more than one role shares, written once so the label and the
   //  address stay the same everywhere
-  const supportCases = { label: "Support cases", href: SUPPORT + "/complaints.html" };
+  const supportCases = { label: "Support cases", href: "/html/support/cases.html" };
   const orderLookup = { label: "Order lookup", href: SUPPORT + "/orders.html" };
-  const assignedComplaints = { label: "Assigned Complaints", href: SUPPORT + "/complaints.html" };
+  const assignedComplaints = { label: "Assigned cases", href: "/html/support/dashboard.html", pages: ["/html/support/cases.html"] };
   const staffAccounts = { label: "Staff accounts", href: "/html/admin/manager/staff_accounts.html" };
 
   //The link list of each role, in the order the links are shown.

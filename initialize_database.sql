@@ -336,6 +336,8 @@ CREATE TABLE feedback(
     orderID INTEGER,
     caseType VARCHAR(20) NOT NULL CONSTRAINT df_feedback_type DEFAULT 'Feedback',
     subject NVARCHAR(100) NOT NULL CONSTRAINT df_feedback_subject DEFAULT 'Customer feedback',
+    topic VARCHAR(30) NOT NULL CONSTRAINT df_feedback_topic DEFAULT 'General'
+        CONSTRAINT ck_feedback_topic CHECK(topic IN ('General','Payments & billing','Laundry & items','Pickup & delivery','Account & booking')),
     rating INT NULL CONSTRAINT ck_feedback_rating CHECK(rating BETWEEN 1 AND 5),
     caseStatus VARCHAR(20) NOT NULL CONSTRAINT df_feedback_status DEFAULT 'New',
     priority VARCHAR(10) NOT NULL CONSTRAINT df_feedback_priority DEFAULT 'Normal',
