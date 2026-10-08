@@ -173,6 +173,10 @@ public class OrderService {
         if (orderRepository.cancelEligibleOrder(orderID, userID, order.getStatus().getStatusID(), cancelled.getStatusID()) != 1) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "The order status changed. Refresh the order before attempting cancellation again.");
         }
+        // The order is now cancelled, so a payment the customer submitted but that was never
+        // verified is rejected in the same transaction. Left pending, it could still be approved
+        // later, which would bring the cancelled order back to life.
+        orderRepository.rejectPendingPayments(orderID);
         return getCustomerOrder(userID, orderID);
     }
 

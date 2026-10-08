@@ -30,6 +30,9 @@ public class PaymentService {
     private static final String PAYMENT_VERIFIED = "Payment Verified";
     private static final String PAYMENT_FAILED = "Payment Failed";
     private static final String AWAITING_PICKUP = "Awaiting Pickup";
+    // A cancelled order is finished: it cannot take a new payment, and verifying an old payment
+    // must never move it to another status.
+    private static final String ORDER_CANCELLED = "Cancelled";
     private static final DateTimeFormatter RECEIPT_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final PaymentRepository paymentRepository;
@@ -71,7 +74,7 @@ public class PaymentService {
     public PaymentResponse createPayment(Integer managementUserID, PaymentCrudRequest request) {
         paymentAccessService.requireManagementUser(managementUserID);
         validatePaymentRequest(request);
-        verifyOrderExists(request.getOrderID());
+        requirePayableOrder(request.getOrderID());
 
         Payment payment = new Payment(request.getAmount().doubleValue(), request.getOrderID());
         payment.setPaymentMethod(request.getPaymentMethod());
@@ -144,7 +147,7 @@ public class PaymentService {
     public PaymentResponse updatePayment(Integer managementUserID, Integer paymentID, PaymentCrudRequest request) {
         paymentAccessService.requireManagementUser(managementUserID);
         validatePaymentRequest(request);
-        verifyOrderExists(request.getOrderID());
+        requirePayableOrder(request.getOrderID());
 
         Payment payment = paymentRepository.findById(paymentID).orElseThrow();
         payment.setAmount(request.getAmount().doubleValue());
@@ -164,6 +167,12 @@ public class PaymentService {
 
     public PaymentConfirmationResponse submitPayment(Integer orderID, Integer customerID, PaymentRequest request) {
         PaymentStatusResponse currentStatus = getPaymentStatus(orderID, customerID);
+
+        // Checked first: a cancelled order with no payment would otherwise count as UNPAID and
+        // accept a payment like any open order. The controller turns this into a 409 response.
+        if (isCancelled(currentStatus.getOrderStatus())) {
+            throw new IllegalStateException("This order has been cancelled and can no longer be paid");
+        }
 
         if (currentStatus.getStatus() == PaymentStatus.PAID || currentStatus.getStatus() == PaymentStatus.VERIFIED) {
             throw new IllegalStateException("This order is already paid");
@@ -392,7 +401,14 @@ public class PaymentService {
         }
 
         PaymentOrderStatus previousOrderStatus = paymentManagementRepository.findOrderStatus(payment.getOrderID()).orElseThrow();
-        Status updatedStatus = statusService.getByLabel(approved ? PAYMENT_VERIFIED : PAYMENT_FAILED);
+        boolean orderCancelled = isCancelled(previousOrderStatus.getStatusLabel());
+
+        // A payment left pending on a cancelled order cannot be approved: approving would move
+        // the order to "Awaiting Pickup" and send a rider to an order the customer cancelled.
+        if (orderCancelled && approved) {
+            throw new IllegalStateException("This order has been cancelled, so its payment cannot be approved");
+        }
+
         LocalDate verificationDate = LocalDate.now();
         LocalTime verificationTime = LocalTime.now();
 
@@ -400,10 +416,33 @@ public class PaymentService {
         payment.ensureRecordedPaymentFields();
         paymentRepository.save(payment);
 
+        // Rejecting is still allowed on a cancelled order, so the leftover payment can be closed,
+        // but only the payment changes. The order keeps its "Cancelled" status instead of being
+        // moved to "Payment Failed".
+        if (orderCancelled) {
+            return new PaymentVerificationResponse(
+                    paymentID,
+                    payment.getOrderID(),
+                    previousOrderStatus.getStatusLabel(),
+                    previousOrderStatus.getStatusLabel(),
+                    managementUserID,
+                    verificationDate,
+                    verificationTime,
+                    "Payment rejected"
+            );
+        }
+
+        Status updatedStatus = statusService.getByLabel(approved ? PAYMENT_VERIFIED : PAYMENT_FAILED);
+
         // No log row is written here. Each status update below fires the database trigger
         // dbo.trg_order_status_log, which adds the dbo.logs row (status before and after, date,
         // time) in the same transaction. Writing one here as well would log every step twice.
-        paymentManagementRepository.updateOrderStatus(payment.getOrderID(), updatedStatus.getStatusID());
+        //
+        // The update skips cancelled orders, so 0 rows means the customer cancelled the order
+        // after the check above. Throwing rolls back the payment change saved a few lines up.
+        if (paymentManagementRepository.updateOrderStatus(payment.getOrderID(), updatedStatus.getStatusID()) != 1) {
+            throw new IllegalStateException("This order has been cancelled, so its payment cannot be verified");
+        }
 
         // Once the payment is verified the order is released for pickup straight away.
         // Nothing else moves an order from "Payment Verified" to "Awaiting Pickup", and the rider
@@ -454,6 +493,19 @@ public class PaymentService {
 
     private void verifyOrderExists(Integer orderID) {
         paymentManagementRepository.findOrderStatus(orderID).orElseThrow();
+    }
+
+    // Used when a manager records or edits a payment by hand: the order must exist and must not
+    // be cancelled, so a payment cannot be attached to a cancelled order that way either.
+    private void requirePayableOrder(Integer orderID) {
+        PaymentOrderStatus orderStatus = paymentManagementRepository.findOrderStatus(orderID).orElseThrow();
+        if (isCancelled(orderStatus.getStatusLabel())) {
+            throw new IllegalArgumentException("Payments cannot be recorded for a cancelled order");
+        }
+    }
+
+    private boolean isCancelled(String orderStatusLabel) {
+        return ORDER_CANCELLED.equalsIgnoreCase(orderStatusLabel);
     }
 
     private PaymentResponse toPaymentResponse(Payment payment) {

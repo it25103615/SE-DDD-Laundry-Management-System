@@ -313,6 +313,14 @@
     return { invoice, status };
   }
 
+  // A cancelled order can no longer be paid. The server refuses the payment as well; this just
+  // keeps the pages from offering it. status.orderStatus is the order's current status label.
+  const CANCELLED_ORDER_MESSAGE = "This order has been cancelled and can no longer be paid.";
+
+  function isCancelledOrder(status) {
+    return String((status && status.orderStatus) || "").toLowerCase() === "cancelled";
+  }
+
   function displayPaymentStatus(id, status, payLink) {
     const outstandingAmount = displayOutstanding(status);
     setText("outstanding-amount", money(outstandingAmount));
@@ -322,7 +330,11 @@
     setText("payment-order-line", `Order #${id} · ${statusText}`);
     if (payLink) {
       payLink.href = paymentFlowUrl("payment_method.html", id);
-      if (status.status === "PENDING") {
+      if (isCancelledOrder(status)) {
+        payLink.textContent = "Order cancelled";
+        payLink.setAttribute("aria-disabled", "true");
+        payLink.removeAttribute("href");
+      } else if (status.status === "PENDING") {
         payLink.textContent = "Awaiting verification";
         payLink.setAttribute("aria-disabled", "true");
         payLink.removeAttribute("href");
@@ -510,7 +522,9 @@
       const { status } = await refreshBillingAndStatus(id);
       const outstandingAmount = displayOutstanding(status);
       setText("method-amount", money(outstandingAmount));
-      if (status.status === "PENDING") {
+      if (isCancelledOrder(status)) {
+        showError(errorBox, CANCELLED_ORDER_MESSAGE);
+      } else if (status.status === "PENDING") {
         showError(errorBox, "Payment submitted - awaiting verification.");
       } else if (outstandingAmount <= 0) {
         showError(errorBox, "This order does not have an outstanding balance.");
@@ -683,7 +697,9 @@
       amount = displayOutstanding(status);
       setText("summary-amount", money(amount));
       setText("checkout-title", method === "CASH" ? `Confirm ${money(amount)}` : `Pay ${money(amount)}`);
-      if (status.status === "PENDING") {
+      if (isCancelledOrder(status)) {
+        showError(errorBox, CANCELLED_ORDER_MESSAGE);
+      } else if (status.status === "PENDING") {
         showError(errorBox, "Payment submitted - awaiting verification.");
       } else if (amount <= 0) {
         showError(errorBox, "This order does not have an outstanding balance.");

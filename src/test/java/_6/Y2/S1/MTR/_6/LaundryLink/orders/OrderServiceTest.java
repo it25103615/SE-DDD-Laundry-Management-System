@@ -84,6 +84,8 @@ class OrderServiceTest {
         when(orderRepository.cancelEligibleOrder(100, 1, 1, 20)).thenReturn(0);
         assertEquals(HttpStatus.CONFLICT, assertThrows(ResponseStatusException.class,
                 () -> orderService.cancelCustomerOrder(1, 100)).getStatusCode());
+        // No cancellation went through, so no pending payment may be rejected.
+        verify(orderRepository, never()).rejectPendingPayments(any());
     }
 
     @Test
@@ -109,6 +111,8 @@ class OrderServiceTest {
         OrderDetailResponse response = orderService.cancelCustomerOrder(1, 100);
         assertEquals(20, response.getStatusID());
         assertEquals("Cancelled", response.getStatusLabel());
+        // A payment still awaiting verification is rejected along with the cancellation.
+        verify(orderRepository).rejectPendingPayments(100);
     }
 
     @Test
