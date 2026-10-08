@@ -5,7 +5,6 @@ import _6.Y2.S1.MTR._6.LaundryLink.processing.dto.IssueRequest;
 import _6.Y2.S1.MTR._6.LaundryLink.processing.dto.ProcessingOrderDetail;
 import _6.Y2.S1.MTR._6.LaundryLink.processing.dto.QualityCheckRequest;
 import _6.Y2.S1.MTR._6.LaundryLink.processing.dto.ReceiveItemsRequest;
-import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,16 +26,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Runs the processing test cases against the real database, including the
  * dbo.sp_UpdateProcessingStatus procedure and the order-notification trigger.
  *
- * <p>Needs the sample data and migration 005 (the test orders of priya.fernando@...). Each test
- * runs in a transaction that is rolled back afterwards, so the test orders keep their starting
- * statuses. When the test orders are missing, the tests are skipped instead of failing.
+ * <p>Each test creates its own order fixture inside the rollback transaction. It needs the
+ * demo customer/staff accounts, service catalogue and processing schema, but no pre-seeded orders.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
 class ProcessingIntegrationTest {
-
-    private static final String TEST_CUSTOMER = "priya.fernando@assignment.laundrylink.lk";
 
     @Autowired ProcessingService processing;
     @Autowired ProcessingIssueService issues;
@@ -50,14 +46,17 @@ class ProcessingIntegrationTest {
         staff = processing.currentStaff(() -> "sam@staff.com");
     }
 
-    /** The newest test order of the processing customer at the given status, or skip the test. */
+    /** Disposable order and lines; all fixture writes and notifications roll back after the test. */
     int testOrderAt(int statusID) {
-        List<Integer> ids = db.queryForList("""
-                SELECT o.orderID FROM orders o JOIN users u ON u.userID = o.userID
-                WHERE u.email = ? AND o.statusID = ? ORDER BY o.orderID DESC
-                """, Integer.class, TEST_CUSTOMER, statusID);
-        assumeTrue(!ids.isEmpty(), "Migration 005 test orders not found - run database/migrations/005_processing.sql");
-        return ids.getFirst();
+        int customer = db.queryForObject("SELECT userID FROM users WHERE email='anna@customer.com'", Integer.class);
+        db.update("INSERT INTO addresses(nickname,street,city,state,DeliveryInstructions,isDefault,userID) VALUES('Test fixture','Test street','Colombo','Western','Ring bell twice',1,?)", customer);
+        int order = db.queryForObject("SET NOCOUNT ON; INSERT INTO orders(statusID,userID) VALUES(?,?); SELECT CAST(SCOPE_IDENTITY() AS INT)", Integer.class, statusID, customer);
+        var price = db.queryForMap("SELECT TOP 1 p.itemID,p.serviceID,p.price FROM servicePricing p JOIN services s ON s.serviceID=p.serviceID WHERE s.serviceName='Wash and Fold' ORDER BY p.itemID");
+        db.update("INSERT INTO orderLines(orderID,itemID,serviceID,quantity,linePrice) VALUES(?,?,?,3,?)", order, price.get("itemID"), price.get("serviceID"), ((java.math.BigDecimal)price.get("price")).multiply(java.math.BigDecimal.valueOf(3)));
+        if (statusID != ProcessingTransitions.IN_SHOP) {
+            db.update("INSERT INTO receivedItems(orderLineID,receivedQuantity,itemCondition,receivedBy) SELECT orderLineID,quantity,'As expected',? FROM orderLines WHERE orderID=?", staff.userID(), order);
+        }
+        return order;
     }
 
     int logRows(int orderID, int before, int after) {
@@ -102,9 +101,9 @@ class ProcessingIntegrationTest {
     @Test
     void cleaningStagesQualityCheckAndRelease() {
         int order = testOrderAt(ProcessingTransitions.WASHING);
-        // Quality Inspection (21) is added by migration 013; skip instead of failing without it.
+        // Quality Inspection (21) is added by migration 014; skip instead of failing without it.
         assumeTrue(db.queryForObject("SELECT COUNT(*) FROM status WHERE statusID = 21", Integer.class) == 1,
-                "Status 21 not found - run database/migrations/013_quality_inspection_and_routes.sql");
+                "Status 21 not found - run database/migrations/014_quality_inspection_and_routes.sql");
         int washToDry = logRows(order, 9, 10), reworkLogs = logRows(order, 21, 9), releaseLogs = logRows(order, 21, 12);
 
         processing.changeStatus(order, ProcessingTransitions.DRYING);                         // TC-LP07

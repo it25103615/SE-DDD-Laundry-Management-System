@@ -9,7 +9,11 @@ window.Support = (() => {
     const parsed=new Date(value);
     return Number.isNaN(parsed.getTime())?String(value):parsed.toLocaleString('en-LK',{dateStyle:'medium',timeStyle:'short'});
   };
-  function notice(message,kind='') { $('notice').textContent=message; $('notice').className='notice '+kind; $('notice').hidden=!message; }
+  function notice(message,kind='') {
+    $('notice').textContent=message;$('notice').className='notice '+kind;$('notice').hidden=!message;
+    const inline=$('detail-notice');
+    if(inline){inline.textContent=message;inline.className='notice '+kind;inline.hidden=!message;}
+  }
   async function api(path,method='GET',body) {
     const headers={'Accept':'application/json'};
     if(csrf && method!=='GET') headers[csrf.headerName]=csrf.token;

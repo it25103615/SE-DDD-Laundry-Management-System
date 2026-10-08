@@ -145,7 +145,7 @@ if (location.protocol === "file:") {
 
   //Links that more than one role shares, written once so the label and the
   //  address stay the same everywhere
-  const supportCases = { label: "Support cases", href: SUPPORT + "/complaints.html" };
+  const supportCases = { label: "Support cases", href: "/html/support/cases.html" };
   const orderLookup = { label: "Order lookup", href: SUPPORT + "/orders.html" };
   const staffAccounts = { label: "Staff accounts", href: "/html/admin/manager/staff_accounts.html" };
 
@@ -213,6 +213,7 @@ if (location.protocol === "file:") {
         pages: ["/html/admin/owner/payment_detail.html"],
       },
       { label: "Promotions", href: "/html/admin/owner/promotions.html" },
+      { label: "Assign Riders", href: "/html/admin/manager/assign_riders.html" },
       { label: "Service catalogue", href: "/html/admin/manager/service_catalog.html" },
       staffAccounts,
       supportCases,

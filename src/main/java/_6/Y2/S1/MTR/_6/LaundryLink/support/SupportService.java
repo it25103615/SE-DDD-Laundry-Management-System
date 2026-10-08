@@ -27,6 +27,9 @@ public class SupportService {
     public SupportService(SupportRepository repo, SupportAccess access, NotificationService notifications) { this.repo = repo; this.access = access; this.notifications = notifications; }
 
     public List<Map<String, Object>> cases(Actor actor, String search, String status, String type, String priority, Integer assigneeId, int page) {
+        return cases(actor,search,status,type,priority,assigneeId,page,null);
+    }
+    public List<Map<String, Object>> cases(Actor actor, String search, String status, String type, String priority, Integer assigneeId, int page, String topic) {
         if (page < 0) throw new ResponseStatusException(BAD_REQUEST, "Invalid page.");
         String sql = SupportRepository.CASE_SELECT;
         List<Object> args = new ArrayList<>();
@@ -41,7 +44,9 @@ public class SupportService {
         if ("pending".equalsIgnoreCase(status)) sql += " AND f.caseStatus IN ('New','Assigned','Reopened')";
         else if ("resolved".equalsIgnoreCase(status)) sql += " AND f.caseStatus IN ('Resolved','Closed')";
         else if (status != null && !status.isBlank()) { sql += " AND f.caseStatus=?"; args.add(status); }
-        if (type != null && !type.isBlank()) { sql += " AND f.caseType=?"; args.add(type); }
+        if ("Complaint".equals(type)) sql += " AND f.caseType IN ('Complaint','Damaged item','Existing stain','Missing item','Item count mismatch')";
+        else if (type != null && !type.isBlank()) { sql += " AND f.caseType=?"; args.add(type); }
+        if (topic != null && !topic.isBlank()) { sql += " AND f.topic=?"; args.add(topic); }
         if (priority != null && !priority.isBlank()) { sql += " AND f.priority=?"; args.add(priority); }
         if (assigneeId != null && actor.seesAllCases()) { sql += " AND f.assigneeID=?"; args.add(assigneeId); }
         sql += " ORDER BY f.updatedAt DESC, f.feedbackID DESC OFFSET ? ROWS FETCH NEXT 25 ROWS ONLY";
@@ -71,7 +76,7 @@ public class SupportService {
     }
     public Map<String, Object> detail(Actor actor, int id) {
         var item = new LinkedHashMap<>(one(actor, id));
-        item.put("history", repo.query("""
+        if (Set.of("CSM","CUSTOMER_SERVICE_MANAGER").contains(actor.role())) item.put("history", repo.query("""
             SELECT a.activityID AS id, a.action, a.details, a.createdAt, CONCAT(u.firstName, ' ', u.lastName) AS actor
             FROM support_activity a JOIN users u ON u.userID=a.actorID
             WHERE a.feedbackID=? ORDER BY a.createdAt, a.activityID
@@ -94,12 +99,15 @@ public class SupportService {
     public Map<String, Object> create(Actor actor, CaseInput input) {
         validateCase(actor, input);
         int id = repo.insert("""
-            INSERT INTO feedback(feedback, userID, orderID, caseType, subject, rating)
-            OUTPUT INSERTED.feedbackID VALUES (?, ?, ?, ?, ?, ?)
-            """, input.message().trim(), actor.id(), input.orderId(), input.type(), input.subject().trim(), input.rating());
+            SET NOCOUNT ON;
+            DECLARE @created TABLE (id INT);
+            INSERT INTO feedback(feedback, userID, orderID, caseType, subject, rating, topic)
+            OUTPUT INSERTED.feedbackID INTO @created VALUES (?, ?, ?, ?, ?, ?, ?);
+            SELECT id FROM @created;
+            """, input.message().trim(), actor.id(), input.orderId(), input.type(), input.subject().trim(), input.rating(), input.topic()==null?"General":input.topic());
         repo.audit(id, actor.id(), "Created", input.type() + " submitted");
         notifications.notifyRoles(Set.of("CSM","CUSTOMER_SERVICE_MANAGER","OWNER","ADMIN"), "SUPPORT", "New support case",
-                input.type() + " #" + id + ": " + input.subject().trim(), "/html/admin/customer-service-manager/complaints.html?caseId=" + id, "SUPPORT", id, actor.id());
+                input.type() + " #" + id + ": " + input.subject().trim(), "/html/support/cases.html?caseId=" + id, "SUPPORT", id, actor.id());
         return detail(actor, id);
     }
     @Transactional
@@ -109,9 +117,9 @@ public class SupportService {
         validateCase(actor, input);
         if (!"New".equals(item.get("status"))) throw new ResponseStatusException(CONFLICT, "Only new cases can be edited.");
         changed(repo.update("""
-            UPDATE feedback SET feedback=?, orderID=?, caseType=?, subject=?, rating=?, updatedAt=SYSDATETIME(), version=version+1
+            UPDATE feedback SET feedback=?, orderID=?, caseType=?, subject=?, rating=?, topic=?, updatedAt=SYSDATETIME(), version=version+1
             WHERE feedbackID=? AND deleted=0 AND caseStatus='New' AND version=?
-            """, input.message().trim(), input.orderId(), input.type(), input.subject().trim(), input.rating(), id, input.version()));
+            """, input.message().trim(), input.orderId(), input.type(), input.subject().trim(), input.rating(), input.topic()==null?"General":input.topic(), id, input.version()));
         repo.audit(id, actor.id(), "Edited", "Customer updated the case details");
         return detail(actor, id);
     }
@@ -128,15 +136,17 @@ public class SupportService {
     static boolean allowed(String before, String after) { return before.equals(after) || TRANSITIONS.getOrDefault(before, Set.of()).contains(after); }
     @Transactional
     public Map<String, Object> handle(Actor actor, int id, CaseUpdate input) {
-        access.coordinator(actor);
+        if (!actor.staff()) throw new ResponseStatusException(FORBIDDEN, "Staff access required.");
         var item = one(actor, id);
+        if (!actor.coordinator() && !Objects.equals(item.get("assigneeId"), input.assigneeId()))
+            throw new ResponseStatusException(FORBIDDEN, "Only a support coordinator can reassign a case.");
         String note = input.note() == null ? "" : input.note().trim();
         if (Set.of("Resolved", "Closed").contains(input.status()) && note.isBlank())
             throw new ResponseStatusException(BAD_REQUEST, "Add a resolution note before resolving or closing a case.");
         if (!allowed((String) item.get("status"), input.status())) throw new ResponseStatusException(CONFLICT, "Invalid case transition. Assign or review before resolving; resolve before closing.");
         if (!"New".equals(input.status()) && input.assigneeId() == null) throw new ResponseStatusException(BAD_REQUEST, "Assign a staff member before progressing the case.");
-        if (input.assigneeId() != null && repo.count("SELECT COUNT(*) FROM users WHERE userID=? AND active=1 AND UPPER(type) IN ('ADMIN','MANAGER','OWNER','CSM','CUSTOMER_SERVICE_MANAGER')", input.assigneeId()) != 1)
-            throw new ResponseStatusException(BAD_REQUEST, "Assignee must be an active customer-service manager or authorised manager.");
+        if (input.assigneeId() != null && repo.count("SELECT COUNT(*) FROM users WHERE userID=? AND active=1 AND UPPER(type) IN ('ADMIN','MANAGER','OWNER','CSM','CUSTOMER_SERVICE_MANAGER','STAFF','RIDER')", input.assigneeId()) != 1)
+            throw new ResponseStatusException(BAD_REQUEST, "Assignee must be an active staff member.");
         changed(repo.update("""
             UPDATE feedback SET caseStatus=?, priority=?, assigneeID=?, version=version+1, updatedAt=SYSDATETIME()
             WHERE feedbackID=? AND version=? AND deleted=0
@@ -152,7 +162,7 @@ public class SupportService {
         Object previousAssignee = item.get("assigneeId");
         if (input.assigneeId() != null && (!(previousAssignee instanceof Number) || ((Number) previousAssignee).intValue() != input.assigneeId()))
             notifications.notifyUser(input.assigneeId(), "ASSIGNMENT", "Support case assigned",
-                    "Case #" + id + " was assigned to you.", "/html/admin/customer-service-manager/complaints.html?caseId=" + id, "SUPPORT", id);
+                    "Case #" + id + " was assigned to you.", "/html/support/cases.html?caseId=" + id, "SUPPORT", id);
         return detail(actor, id);
     }
     @Transactional
@@ -166,16 +176,16 @@ public class SupportService {
         if ("CUSTOMER".equals(actor.role())) {
             Object assignee = item.get("assigneeId");
             if (assignee instanceof Number) notifications.notifyUser(((Number) assignee).intValue(), "SUPPORT", "Customer replied",
-                    "The customer replied to case #" + id + ".", "/html/admin/customer-service-manager/complaints.html?caseId=" + id, "SUPPORT", id);
+                    "The customer replied to case #" + id + ".", "/html/support/cases.html?caseId=" + id, "SUPPORT", id);
             else notifications.notifyRoles(Set.of("CSM","CUSTOMER_SERVICE_MANAGER","OWNER","ADMIN"), "SUPPORT", "Customer replied",
-                    "A customer replied to unassigned case #" + id + ".", "/html/admin/customer-service-manager/complaints.html?caseId=" + id, "SUPPORT", id, actor.id());
+                    "A customer replied to unassigned case #" + id + ".", "/html/support/cases.html?caseId=" + id, "SUPPORT", id, actor.id());
         } else notifications.notifyUser(number(item, "customerId"), "SUPPORT", "Support replied",
                 "A support reply was added to case #" + id + ".", "/html/customer/feedback.html?caseId=" + id, "SUPPORT", id);
         return detail(actor, id);
     }
     public Map<String, Object> options(Actor actor) {
         var orders = repo.query("SELECT orderID AS id FROM orders WHERE userID=? ORDER BY orderID DESC", actor.id());
-        var staff = actor.coordinator() ? repo.query("SELECT userID AS id, CONCAT(firstName, ' ', lastName) AS name, UPPER(type) AS role FROM users WHERE active=1 AND UPPER(type) IN ('ADMIN','MANAGER','OWNER','CSM','CUSTOMER_SERVICE_MANAGER') ORDER BY type, firstName") : List.of();
+        var staff = actor.staff() ? repo.query("SELECT userID AS id, CONCAT(firstName, ' ', lastName) AS name, UPPER(type) AS role FROM users WHERE active=1 AND UPPER(type) IN ('ADMIN','MANAGER','OWNER','CSM','CUSTOMER_SERVICE_MANAGER','STAFF','RIDER')" + (actor.coordinator() ? "" : " AND userID=" + actor.id()) + " ORDER BY type, firstName") : List.of();
         return Map.of("actor", actor, "orders", orders, "staff", staff);
     }
     static boolean canView(Actor actor, Map<String, Object> item) {

@@ -1,151 +1,47 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Manager Dashboard | LaundryLink</title>
-    <link rel="stylesheet" href="../../../css/global.css" />
-    <link rel="stylesheet" href="../../../css/dashboard.css" />
-    <script src="../../../js/global-pre.js"></script>
-    <script src="../../../js/global-post.js" defer></script>
-    <script src="../../../js/account/dashboard-identity.js" defer></script>
-  </head>
-  <body>
-    <nav class="dashboard_nav"></nav>
-    <main>
-      <header class="welcome_banner" style="margin-top: 34px">
-        <div class="subtitle">SHOP MANAGER</div>
-        <div class="top_bar">
-          <div>
-            <h1 id="dashboard-greeting">Welcome back</h1>
-            <p class="muted">
-              Colombo Central is busy and performing ahead of target.
-            </p>
-          </div>
-          <span class="status status_success">● LIVE OPERATIONS</span>
-        </div>
-      </header>
-      <section
-        class="grid grid_three"
-        style="grid-template-columns: repeat(4, 1fr); margin-top: 20px"
-      >
-        <article class="card metric">
-          <div class="icon_bubble">▤</div>
-          <span class="muted small">LIVE ORDERS</span
-          ><strong data-counter="42">0</strong
-          ><span class="status status_info">+8 today</span>
-        </article>
-        <article class="card metric">
-          <div class="icon_bubble">₨</div>
-          <span class="muted small">TODAY'S REVENUE</span><strong>86.4K</strong
-          ><span class="status status_success">↑ 12.8%</span>
-        </article>
-        <article class="card metric">
-          <div class="icon_bubble">✓</div>
-          <span class="muted small">ON-TIME RATE</span
-          ><strong data-counter="94" data-suffix="%">0</strong>
-          <div class="progress"><span style="width: 94%"></span></div>
-        </article>
-        <article class="card metric">
-          <div class="icon_bubble">!</div>
-          <span class="muted small">INVENTORY ALERTS</span
-          ><strong data-counter="3">0</strong
-          ><span class="status status_warning">Needs review</span>
-        </article>
-      </section>
-      <section class="grid grid_two" style="margin-top: 22px">
-        <article class="card">
-          <div class="top_bar">
-            <div>
-              <h2>Orders through the day</h2>
-              <p class="muted">Live workload by hour</p>
-            </div>
-            <span class="status status_info">UPDATED NOW</span>
-          </div>
-          <div class="chart">
-            <span style="--value: 32%"></span><span style="--value: 46%"></span
-            ><span style="--value: 64%"></span><span style="--value: 82%"></span
-            ><span style="--value: 71%"></span><span style="--value: 94%"></span
-            ><span style="--value: 78%"></span>
-          </div>
-          <div class="top_bar small">
-            <span>8 AM</span><strong class="link">Peak: 2 PM</strong
-            ><span>6 PM</span>
-          </div>
-        </article>
-        <article class="card">
-          <h2>Staff performance</h2>
-          <div class="activity_item">
-            <span class="activity_dot"></span>
-            <div>
-              <strong>Nimal Silva</strong>
-              <p class="muted small">18 orders processed · 98% accuracy</p>
-            </div>
-            <span class="status status_success">Excellent</span>
-          </div>
-          <div class="activity_item">
-            <span class="activity_dot" style="background: var(--purple)"></span>
-            <div>
-              <strong>Fathima Noor</strong>
-              <p class="muted small">15 orders processed · 96% accuracy</p>
-            </div>
-            <span class="status status_info">Strong</span>
-          </div>
-          <div class="activity_item">
-            <span class="activity_dot" style="background: var(--orange)"></span>
-            <div>
-              <strong>Kasun Perera</strong>
-              <p class="muted small">9 orders processed · 88% accuracy</p>
-            </div>
-            <span class="status status_warning">Coach</span>
-          </div>
-        </article>
-      </section>
-      <section class="grid grid_two" style="margin-top: 22px">
-        <article class="card">
-          <h2>Inventory alerts</h2>
-          <div class="activity_item">
-            <span class="activity_dot" style="background: var(--orange)"></span>
-            <div>
-              <strong>Fragrance-free detergent</strong>
-              <p class="muted small">18% remaining · roughly 2 days</p>
-              <div class="progress">
-                <span
-                  style="
-                    width: 18%;
-                    background: linear-gradient(90deg, var(--orange), #ffcf72);
-                  "
-                ></span>
-              </div>
-            </div>
-            <a class="link" href="service_catalog.html">Restock</a>
-          </div>
-          <div class="activity_item">
-            <span class="activity_dot" style="background: var(--purple)"></span>
-            <div>
-              <strong>Garment bags</strong>
-              <p class="muted small">31% remaining</p>
-              <div class="progress"><span style="width: 31%"></span></div>
-            </div>
-            <a class="link" href="service_catalog.html">Review</a>
-          </div>
-        </article>
-        <article class="card">
-          <h2>Quick controls</h2>
-          <div
-            class="quick_panel"
-            style="grid-template-columns: repeat(2, 1fr)"
-          >
-            <a class="quick_action" href="../../staff/processing_board.html"
-              >Processing board</a
-            ><a class="quick_action" href="../../staff/issue_reports.html"
-              >Issue reports</a
-            ><a class="quick_action" href="../customer-service-manager/complaints.html"
-              >Support cases</a
-            >
-          </div>
-        </article>
-      </section>
-    </main>
-  </body>
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manager Dashboard | LaundryLink</title>
+<link rel="stylesheet" href="../../../css/global.css">
+<link rel="stylesheet" href="../../../css/dashboard.css">
+<link rel="stylesheet" href="../../../css/support/support.css">
+<script src="../../../js/global-pre.js"></script>
+<script src="../../../js/global-post.js" defer></script>
+<script src="../../../js/account/dashboard-identity.js" defer></script>
+<script src="../../../js/support/common.js" defer></script>
+<script src="../../../js/manager/dashboard.js" defer></script>
+</head>
+<body>
+<nav class="dashboard_nav"></nav>
+<main>
+<header class="welcome_banner" style="margin-top:34px">
+<div class="subtitle">SHOP MANAGER</div>
+<div class="top_bar"><div><h1 id="dashboard-greeting">Welcome back</h1>
+<p class="muted">Business totals from recorded orders and payments · all time.</p></div>
+<button id="refresh-dashboard" class="custom_button custom_button_bg" type="button">Refresh</button></div>
+<p id="dashboard-updated" class="small muted" role="status">Connecting to the database…</p>
+</header>
+<div id="notice" class="notice" role="alert" hidden></div>
+<section class="grid grid_two" style="margin-top:20px" aria-label="Business totals">
+<article class="card metric"><span class="muted small">TOTAL ORDERS</span><strong id="total-orders">—</strong></article>
+<article class="card metric"><span class="muted small">RECORDED PAYMENTS (ALL TIME)</span><strong id="recorded-payments">—</strong></article>
+<article class="card metric"><span class="muted small">DELIVERED / COMPLETED ORDERS</span><strong id="completed-orders">—</strong></article>
+<article class="card metric"><span class="muted small">OPEN SUPPORT CASES</span><strong id="open-cases">—</strong></article>
+</section>
+<section class="grid grid_two" style="margin-top:22px">
+<article class="card"><h2>Current order statuses</h2><p class="muted small">All recorded orders grouped by their current status.</p><div id="status-chart">Loading…</div></article>
+<article class="card"><h2>Service workload</h2><p class="muted small">Recorded orders and quantities by service.</p><div class="table_wrap"><table><thead><tr><th>Service</th><th>Orders</th><th>Items</th><th>Line value</th></tr></thead><tbody id="service-rows"><tr><td colspan="4">Loading…</td></tr></tbody></table></div></article>
+</section>
+<section class="grid grid_two" style="margin-top:22px">
+<article class="card"><h2>Operational alerts</h2><p class="muted small">Live issue counts · amber needs attention, green means none.</p><div id="operational-alerts">Loading…</div></article>
+<article class="card"><h2>Quick controls</h2><div class="quick_panel" style="grid-template-columns:repeat(2,1fr)">
+<a class="quick_action" href="../../staff/processing_board.html">Processing board</a>
+<a class="quick_action" href="assign_riders.html">Assign riders</a>
+<a class="quick_action" href="../../staff/issue_reports.html">Issue reports</a>
+<a class="quick_action" href="../customer-service-manager/complaints.html">Support cases</a>
+</div></article>
+</section>
+</main>
+</body>
 </html>

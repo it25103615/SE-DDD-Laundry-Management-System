@@ -148,8 +148,8 @@ An order that was at Ironing with a passed check before the change is not lost: 
 | Board | `ProcessingRepository.java` | Route picked by `routeFor` instead of a second rule in SQL; status 21 included |
 | Pages | `src/main/resources/static/js/staff/order-processing.js` | Timelines for the four routes; quality check form shown at status 21 |
 | Pages | `src/main/resources/static/js/staff/processing-board.js` | "Quality inspection" column; route label for the new routes |
-| Database | `database/migrations/013_quality_inspection_and_routes.sql` | Adds status 21, a Shoe Cleaning test order, and a read-only check of orders in processing |
-| Database | `initialize_database.sql`, `database/ddd_assignment2_sample_data.sql`, `scripts/Initialize-SupportDatabase.ps1` | Status 21 in the seed data; migration 013 added to the script |
+| Database | `database/migrations/014_quality_inspection_and_routes.sql` | Adds status 21, a Shoe Cleaning test order, and a read-only check of orders in processing |
+| Database | `initialize_database.sql`, `database/ddd_assignment2_sample_data.sql`, `scripts/Initialize-SupportDatabase.ps1` | Status 21 in the seed data; migration 014 added to the script |
 | Tests | `src/test/.../processing/ProcessingRouteTest.java` | Replaces `ProcessingTransitionsTest`; covers all four routes and the selection rule |
 | Tests | `ProcessingServiceTest.java`, `ProcessingIntegrationTest.java` | Updated for the new routes and status 21 |
 
@@ -185,7 +185,7 @@ If Maven reports that `JAVA_HOME` is not defined, point it at your JDK first:
 $env:JAVA_HOME = "$env:USERPROFILE\.jdks\<your-jdk-folder>"
 ```
 
-`ProcessingIntegrationTest` uses the real database and needs migration 013 applied; its quality check case skips itself when status 21 is missing.
+`ProcessingIntegrationTest` uses the real database and needs migration 014 applied; its quality check case skips itself when status 21 is missing.
 
 ### Manual check in the app
 

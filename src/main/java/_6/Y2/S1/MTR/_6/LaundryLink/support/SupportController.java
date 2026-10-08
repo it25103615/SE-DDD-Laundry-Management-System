@@ -22,7 +22,7 @@ public class SupportController {
     @GetMapping("/context")
     public Object context(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo) { return support.options(access.actor(p,demo)); }
     @GetMapping("/cases")
-    public Object list(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@RequestParam(required=false) String search,@RequestParam(required=false) String status,@RequestParam(required=false) String type,@RequestParam(required=false) String priority,@RequestParam(required=false) Integer assigneeId,@RequestParam(defaultValue="0") int page) { return support.cases(access.actor(p,demo),search,status,type,priority,assigneeId,page); }
+    public Object list(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@RequestParam(required=false) String search,@RequestParam(required=false) String status,@RequestParam(required=false) String type,@RequestParam(required=false) String priority,@RequestParam(required=false) Integer assigneeId,@RequestParam(defaultValue="0") int page,@RequestParam(required=false) String topic) { return support.cases(access.actor(p,demo),search,status,type,priority,assigneeId,page,topic); }
     @GetMapping("/cases/summary")
     public Object summary(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo) { return support.summary(access.actor(p,demo)); }
     @GetMapping("/cases/{id}")

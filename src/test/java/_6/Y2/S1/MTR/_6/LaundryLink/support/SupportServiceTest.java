@@ -100,14 +100,14 @@ class SupportServiceTest {
         when(repo.insert(anyString(),any(Object[].class))).thenReturn(1);
         var result=service.create(customer,new CaseInput("Complaint","  Missing button  ","  Please help  ",null,null,null));
         assertEquals(1,result.get("id"));
-        verify(repo).insert(anyString(),eq("Please help"),eq(1),isNull(),eq("Complaint"),eq("Missing button"),isNull());
+        verify(repo).insert(anyString(),eq("Please help"),eq(1),isNull(),eq("Complaint"),eq("Missing button"),isNull(),eq("General"));
         verify(repo).audit(1,1,"Created","Complaint submitted");
     }
     @Test void editsNewCaseWithExpectedVersion() {
         found("New");
         when(repo.update(anyString(),any(Object[].class))).thenReturn(1);
         service.edit(customer,1,new CaseInput("Question","Updated","New text",null,null,0));
-        verify(repo).update(anyString(),eq("New text"),isNull(),eq("Question"),eq("Updated"),isNull(),eq(1),eq(0));
+        verify(repo).update(anyString(),eq("New text"),isNull(),eq("Question"),eq("Updated"),isNull(),eq("General"),eq(1),eq(0));
         verify(repo).audit(1,1,"Edited","Customer updated the case details");
     }
     @Test void staffReviewWritesResolutionHistory() {

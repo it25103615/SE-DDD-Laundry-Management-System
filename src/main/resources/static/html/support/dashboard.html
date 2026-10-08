@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Support Dashboard | LaundryLink</title>
+<link rel="stylesheet" href="../../css/global.css"><link rel="stylesheet" href="../../css/dashboard.css"><link rel="stylesheet" href="../../css/support/support.css">
+<script src="../../js/global-pre.js" defer></script><script src="../../js/support/common.js" defer></script><script src="../../js/support/overview.js" defer></script>
+</head><body data-page="support-overview"><nav class="dashboard_nav"></nav>
+<main class="support-page support-overview">
+<header class="support-header"><div><div class="subtitle">CUSTOMER CARE</div><h1>Support dashboard</h1><p class="muted">A quick look at your queue and what needs attention.</p><p id="identity" class="small muted">Connecting…</p></div><a class="custom_button custom_button_bg" href="cases.html">Open support cases →</a></header>
+<div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+<section class="support-summary" aria-label="Support overview">
+<a class="summary-card" href="cases.html"><span class="summary-icon" aria-hidden="true">◎</span><span><small>Total cases</small><strong id="overview-total">—</strong><em>View the full queue</em></span></a>
+<a class="summary-card" href="cases.html?status=pending"><span class="summary-icon pending" aria-hidden="true">!</span><span><small>Awaiting action</small><strong id="overview-pending">—</strong><em>New, assigned or reopened</em></span></a>
+<a class="summary-card" href="cases.html?status=In%20Review"><span class="summary-icon review" aria-hidden="true">↻</span><span><small>In review</small><strong id="overview-progress">—</strong><em>Currently being investigated</em></span></a>
+<a class="summary-card" href="cases.html?status=resolved"><span class="summary-icon resolved" aria-hidden="true">✓</span><span><small>Resolved / closed</small><strong id="overview-resolved">—</strong><em>Finished cases</em></span></a>
+</section>
+<div class="overview-layout">
+<section class="overview-card"><div class="overview-heading"><div><h2>Needs attention</h2><p class="muted">Latest pending cases, with high priority first.</p></div><a href="cases.html?status=pending">View all →</a></div><div id="attention-cases" aria-live="polite" aria-busy="true"><p class="muted">Loading cases…</p></div></section>
+<aside class="overview-card overview-guide"><div class="subtitle">YOUR WORKSPACE</div><h2>Where to start</h2><a href="cases.html?status=pending"><strong>1. Review pending cases →</strong><span>Open an assigned case and start investigating.</span></a><a href="cases.html"><strong>2. Continue a conversation →</strong><span>Open a case, then choose Chats to read and reply.</span></a><a href="cases.html"><strong>3. Review order details →</strong><span>Open the case details to see its linked order ID.</span></a><p class="overview-priority"><strong id="overview-high">—</strong> active high-priority cases</p></aside>
+</div>
+<section class="overview-card section"><div class="overview-heading"><div><h2>Recently updated</h2><p class="muted">The latest activity across your support cases.</p></div><a href="cases.html">Browse cases →</a></div><div id="recent-cases" aria-live="polite" aria-busy="true"><p class="muted">Loading cases…</p></div></section>
+</main></body></html>
