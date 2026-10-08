@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
@@ -143,14 +142,10 @@ public class PromotionService {
             throw new IllegalArgumentException("Subtotal must not be negative");
         }
 
-        BigDecimal discountAmount;
-        if (promotion.getDiscountType() == DiscountType.PERCENTAGE) {
-            discountAmount = subtotal
-                    .multiply(promotion.getDiscountValue())
-                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        } else {
-            discountAmount = promotion.getDiscountValue();
-        }
+        // Strategy pattern: the promotion's discount type supplies the calculation, so there is
+        // no if/else on the type here. A new discount type only needs a new DiscountStrategy.
+        DiscountStrategy strategy = promotion.getDiscountType().strategy();
+        BigDecimal discountAmount = strategy.calculate(subtotal, promotion.getDiscountValue());
 
         if (discountAmount.compareTo(subtotal) > 0) {
             return subtotal;
