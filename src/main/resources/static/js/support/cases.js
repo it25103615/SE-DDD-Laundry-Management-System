@@ -54,13 +54,38 @@
      $('visible-count').textContent=rows.length+(rows.length===1?' case shown':' cases shown');
    } finally { wrap.setAttribute('aria-busy','false'); }
  }
+ let activeCaseTab='details';
+ function selectCaseTab(name,focus=false) {
+   activeCaseTab=name;
+   document.querySelectorAll('[data-case-tab]').forEach(tab=>{
+     const selected=tab.dataset.caseTab===name;
+     tab.setAttribute('aria-selected',String(selected));tab.tabIndex=selected?0:-1;
+     $(tab.getAttribute('aria-controls')).hidden=!selected;
+     if(selected&&focus)tab.focus();
+   });
+   if(name==='chats')requestAnimationFrame(()=>{const thread=$('messages').querySelector('.conversation-thread');if(thread)thread.scrollTop=thread.scrollHeight;});
+ }
+ document.querySelectorAll('[data-case-tab]').forEach((tab,index,tabs)=>{
+   tab.onclick=()=>selectCaseTab(tab.dataset.caseTab);
+   tab.onkeydown=event=>{
+     let next=index;
+     if(event.key==='ArrowRight')next=(index+1)%tabs.length;
+     else if(event.key==='ArrowLeft')next=(index+tabs.length-1)%tabs.length;
+     else if(event.key==='Home')next=0;
+     else if(event.key==='End')next=tabs.length-1;
+     else return;
+     event.preventDefault();selectCaseTab(tabs[next].dataset.caseTab,true);
+   };
+ });
  function closeDetail() {
    $('case-detail').hidden=true;$('detail-backdrop').hidden=true;document.body.classList.remove('case-panel-open');current=null;
    if(lastFocus?.isConnected) lastFocus.focus();
  }
  async function open(id,focus=true) {
    lastFocus=document.activeElement;
+   const sameCase=current?.id===Number(id);
    current=await api('/cases/'+id);
+   selectCaseTab(sameCase?activeCaseTab:'details');
    $('case-detail').hidden=false;$('detail-backdrop').hidden=false;document.body.classList.add('case-panel-open');
    $('detail-title').textContent='#'+current.id+' — '+current.subject;
    $('detail-meta').innerHTML=[`<span>${e(current.type)}</span>`,statusBadge(current.status),priorityBadge(current.priority),`<span>${current.orderId?'Order #'+e(current.orderId):'General enquiry'}</span>`,current.rating?`<span>★ ${e(current.rating)}/5</span>`:'',`<span>Submitted ${e(date(current.createdAt))}</span>`,current.assignee?`<span>Assigned to ${e(current.assignee)}</span>`:'<span>Unassigned</span>'].filter(Boolean).join('');
@@ -69,7 +94,8 @@
    $('status').value=current.status;$('priority').value=current.priority;$('assignee').value=current.assigneeId||'';$('note').value='';
    const next={New:['New','Assigned','In Review'],Assigned:['Assigned','In Review'],'In Review':['In Review','Resolved'],Resolved:['Resolved','Closed','Reopened'],Closed:['Closed','Reopened'],Reopened:['Reopened','Assigned','In Review']};
    [...$('status').options].forEach(option=>option.disabled=!next[current.status]?.includes(option.value));updateNoteHint();
-   $('messages').innerHTML=current.messages.length?`<div class="conversation-thread">${current.messages.map(message=>{const customer=message.authorRole==='CUSTOMER';return `<article class="message-row ${customer?'from-customer':'from-support'}"><span class="message-avatar" aria-hidden="true">${e(initials(message.author))}</span><div class="message-bubble"><div class="message-heading"><strong>${e(message.author)}</strong><span>${customer?'Customer':'Support team'}</span></div><p>${e(message.message)}</p><time>${e(date(message.sentAt))}</time></div></article>`;}).join('')}</div>`:'<div class="conversation-empty"><span aria-hidden="true">✉</span><strong>No replies yet</strong><span>Messages between the customer and support team will appear here.</span></div>';
+   const chatMessages=[{author:current.customer||'Customer',authorRole:'CUSTOMER',message:current.message,sentAt:current.createdAt},...current.messages].sort((a,b)=>new Date(a.sentAt)-new Date(b.sentAt));
+   $('messages').innerHTML=chatMessages.length?`<div class="conversation-thread">${chatMessages.map(message=>{const customer=message.authorRole==='CUSTOMER';return `<article class="message-row ${customer?'from-customer':'from-support'}"><span class="message-avatar" aria-hidden="true">${e(initials(message.author))}</span><div class="message-bubble"><div class="message-heading"><strong>${e(message.author)}</strong><span>${customer?'Customer':'Support team'}</span></div><p>${e(message.message)}</p><time>${e(date(message.sentAt))}</time></div></article>`;}).join('')}</div>`:'<div class="conversation-empty"><span aria-hidden="true">✉</span><strong>No replies yet</strong><span>Messages between the customer and support team will appear here.</span></div>';
    $('history').innerHTML=current.history.length?`<div class="case-timeline">${current.history.map(item=>`<article class="timeline-item history-${slug(item.action)}"><div class="timeline-marker" aria-hidden="true">${historyIcon(item.action)}</div><div class="timeline-card"><div class="timeline-heading"><strong>${e(historyTitle(item.action))}</strong><time>${e(date(item.createdAt))}</time></div><div class="timeline-actor"><span>${e(item.actor)}</span><span class="history-action">${e(item.action)}</span></div><div class="timeline-details">${e(historyDetails(item))}</div></div></article>`).join('')}</div>`:'<div class="conversation-empty"><strong>No history yet</strong><span>Assignments, status changes and resolution notes will appear here.</span></div>';
    $('reply-form').hidden=current.status==='Closed';$('reply').value='';
    requestAnimationFrame(()=>{const thread=$('messages').querySelector('.conversation-thread');if(thread)thread.scrollTop=thread.scrollHeight;});
@@ -93,11 +119,14 @@
  $('reply-form').onsubmit=async event=>{event.preventDefault();const button=$('send-reply'),label=button.innerHTML;button.innerHTML='Sending…';try{await run(async()=>{const message=$('reply').value.trim();if(!message)throw new Error('Enter a reply.');await api('/cases/'+current.id+'/messages','POST',{message});await refresh(true);notice('Reply sent successfully.','success');},button);}finally{button.innerHTML=label;}};
  run(async()=>{
    context=await Support.init();$('case-editor').hidden=staff();
-   $('queue-title').textContent=context.actor.role==='CUSTOMER'?'Your support requests':coordinator()?'Customer service queue':'Complaints assigned to you';
+   $('queue-title').textContent=context.actor.role==='CUSTOMER'?'Your support requests':coordinator()?'All support cases':'Complaints assigned to you';
    $('queue-description').textContent=coordinator()?'Review priority, assignment and customer conversations from one workspace.':'Track your cases and continue the conversation.';
    $('order').innerHTML='<option value="">General enquiry</option>'+context.orders.map(order=>`<option value="${order.id}">Order #${order.id}</option>`).join('');
    $('assignee').innerHTML='<option value="">Unassigned — CSM queue</option>'+context.staff.map(person=>`<option value="${person.id}">${e(person.name)} — ${e(person.role)}</option>`).join('');
    $('filter-assignee').innerHTML='<option value="">Anyone</option>'+context.staff.map(person=>`<option value="${person.id}">${e(person.name)}</option>`).join('');
+   const initialStatus=new URLSearchParams(location.search).get('status');
+   if(['pending','resolved'].includes(initialStatus))setSummarySelection(initialStatus);
+   else if([...$('filter-status').options].some(option=>option.value===initialStatus))$('filter-status').value=initialStatus;
    $('assignee-filter-field').hidden=!coordinator();rating();await Promise.all([load(),loadSummary()]);
    const requested=new URLSearchParams(location.search).get('caseId');if(requested&&/^\d+$/.test(requested))await open(requested);
  });

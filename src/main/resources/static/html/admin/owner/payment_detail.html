@@ -11,20 +11,7 @@
     <script src="../../../js/admin/payment-management.js" defer></script>
   </head>
   <body data-payment-admin-page="detail">
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="administration_overview.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="administration_overview.html">Dashboard</a
-          ><a href="payments_billing.html">Payments &amp; Billing</a
-          ><a href="promotions.html">Promotions</a
-          ><a href="reports.html">Reports</a
-          ><span class="profile_badge">AD</span>
-        </li>
-      </ul>
-    </nav>
+    <nav class="dashboard_nav"></nav>
     <main>
       <header class="page_header">
         <div class="subtitle">FINANCE</div>
@@ -52,8 +39,44 @@
             <strong id="detail-payment-status">-</strong>
           </div>
           <div class="top_bar">
+            <span>Payment Method</span>
+            <strong id="detail-payment-method">-</strong>
+          </div>
+          <div class="top_bar">
+            <span>Reference</span>
+            <strong id="detail-payment-reference">-</strong>
+          </div>
+          <div class="top_bar">
+            <span>Processed At</span>
+            <strong id="detail-processed-at">-</strong>
+          </div>
+          <div class="top_bar">
             <span>Order Status</span>
             <strong id="detail-order-status">-</strong>
+          </div>
+          <div class="top_bar" id="detail-refund-amount-row" hidden>
+            <span>Refunded Amount</span>
+            <strong id="detail-refund-amount">-</strong>
+          </div>
+          <div class="top_bar" id="detail-refund-date-row" hidden>
+            <span>Refunded At</span>
+            <strong id="detail-refund-date">-</strong>
+          </div>
+          <div id="detail-refund-reason-row" hidden>
+            <span class="muted small">REFUND REASON</span>
+            <p id="detail-refund-reason">-</p>
+          </div>
+          <div class="top_bar" id="detail-refund-status-row" hidden>
+            <span>Refund Status</span>
+            <strong id="detail-refund-status">-</strong>
+          </div>
+          <div class="top_bar" id="detail-refund-requested-row" hidden>
+            <span>Requested At</span>
+            <strong id="detail-refund-requested">-</strong>
+          </div>
+          <div class="top_bar" id="detail-refund-requested-by-row" hidden>
+            <span>Requested By</span>
+            <strong id="detail-refund-requested-by">-</strong>
           </div>
         </article>
         <article class="card">
@@ -81,6 +104,15 @@
           <p class="alert alert_success" id="detail-success" hidden></p>
           <p class="alert alert_error" id="detail-error" hidden></p>
           <p class="alert" id="detail-final-status" hidden></p>
+          <div class="card" id="refund-panel" style="box-shadow: none" hidden>
+            <span class="muted small">REFUND REQUEST</span>
+            <p class="muted">Refund amount: <strong id="refund-panel-amount">-</strong></p>
+            <p class="muted">Reason: <strong id="refund-panel-reason">-</strong></p>
+            <div class="actions">
+              <button class="custom_button custom_button_bg" id="approve-refund" type="button">Approve Refund</button>
+              <button class="custom_button custom_button_border" id="reject-refund" type="button">Reject Request</button>
+            </div>
+          </div>
           <div class="actions">
             <button class="custom_button custom_button_bg" id="approve-payment">Accept Payment</button>
             <button class="custom_button custom_button_border" id="reject-payment">Reject Payment</button>

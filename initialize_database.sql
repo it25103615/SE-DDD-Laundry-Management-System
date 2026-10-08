@@ -289,12 +289,19 @@ CREATE TABLE payments(
     paymentID INTEGER IDENTITY(1, 1) PRIMARY KEY,
     amount DECIMAL(10,2) NOT NULL,
     orderID INTEGER NOT NULL,
-    paymentStatus VARCHAR(20) NOT NULL DEFAULT 'PAID',
-    processedAt DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    -- The defaults are named to match migrations 003, 009 and 012. Migration 012 drops and
+    -- re-adds df_payments_status by name, so an unnamed default here makes it fail with
+    -- "Column already has a DEFAULT bound to it".
+    -- A customer payment starts as PENDING and waits for manager/owner verification (migration 012).
+    paymentStatus VARCHAR(20) NOT NULL CONSTRAINT df_payments_status DEFAULT 'PENDING',
+    processedAt DATETIME2 NOT NULL CONSTRAINT df_payments_processed DEFAULT SYSDATETIME(),
 
     CONSTRAINT payments_orders_fk FOREIGN KEY(orderID)
         REFERENCES orders(orderID),
-    CONSTRAINT ck_payments_amount_nonnegative CHECK(amount >= 0)
+    CONSTRAINT ck_payments_amount_nonnegative CHECK(amount >= 0),
+    -- The payment states the application uses (migration 012).
+    CONSTRAINT ck_payments_status
+        CHECK (paymentStatus IN ('PENDING','PAID','VERIFIED','REJECTED','REFUNDED'))
 );
 GO
 
@@ -563,7 +570,7 @@ BEGIN
     SET NOCOUNT ON;
     INSERT dbo.notifications(recipientID,category,title,message,link,relatedType,relatedID)
     SELECT o.userID,'PAYMENT','Payment accepted',CONCAT('Payment for order #',i.orderID,' was ',LOWER(i.paymentStatus),'.'),
-           CONCAT('/html/customer/receipt.html?orderId=',i.orderID),'PAYMENT',i.paymentID
+           CONCAT('/html/customer/receipt.html?orderID=',i.orderID,'&paymentID=',i.paymentID),'PAYMENT',i.paymentID
     FROM inserted i JOIN orders o ON o.orderID=i.orderID LEFT JOIN deleted d ON d.paymentID=i.paymentID
     WHERE i.paymentStatus IN('PAID','VERIFIED') AND (d.paymentID IS NULL OR COALESCE(d.paymentStatus,'')<>i.paymentStatus);
 END;
@@ -751,7 +758,8 @@ IF OBJECT_ID('dbo.status', 'U') IS NOT NULL
         (16, 'Payment Failed'),
         (17, 'Pickup Failed'),
         (18, 'Delivery Failed'),
-        (19, 'Dry Clean');
+        (19, 'Dry Clean'),
+        (20, 'Cancelled');
     GO
 -- ================ Populate Status Table - End ===============
 -- ============================================================

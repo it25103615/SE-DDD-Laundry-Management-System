@@ -8,11 +8,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 
 @Service
 public class PromotionService {
@@ -49,6 +49,7 @@ public class PromotionService {
     public Promotion createPromotion(PromotionRequest request) {
         Promotion promotion = toPromotion(null, request);
         validatePromotionDefinition(promotion);
+        ensurePromotionCodeAvailable(promotion);
         return promotionRepository.save(promotion);
     }
 
@@ -56,6 +57,7 @@ public class PromotionService {
         promotionRepository.findById(promotionID).orElseThrow();
         Promotion promotion = toPromotion(promotionID, request);
         validatePromotionDefinition(promotion);
+        ensurePromotionCodeAvailable(promotion);
         return promotionRepository.update(promotion);
     }
 
@@ -81,21 +83,21 @@ public class PromotionService {
     public PromotionValidationResponse validatePromotion(String promotionCode, Integer orderID) {
         Promotion promotion = findByCode(promotionCode);
         BillingDetails billingDetails = billingService.getBillingDetails(orderID);
-        return validatePromotionForSubtotal(promotion, billingDetails.getSubtotal());
+        return validatePromotionForBilling(promotion, billingDetails);
     }
 
     public PromotionValidationResponse validatePromotionForCustomer(String promotionCode, Integer orderID, Integer customerID) {
         Promotion promotion = findByCode(promotionCode);
         BillingDetails billingDetails = billingService.getBillingDetails(orderID);
         verifyOrderBelongsToCustomer(billingDetails, customerID);
-        return validatePromotionForSubtotal(promotion, billingDetails.getSubtotal());
+        return validatePromotionForBilling(promotion, billingDetails);
     }
 
     @Transactional
     public PromotionApplicationResponse applyPromotion(String promotionCode, Integer orderID) {
         Promotion promotion = findByCode(promotionCode);
         BillingDetails billingDetails = billingService.getBillingDetails(orderID);
-        PromotionValidationResponse validation = validatePromotionForSubtotal(promotion, billingDetails.getSubtotal());
+        PromotionValidationResponse validation = validatePromotionForBilling(promotion, billingDetails);
 
         if (!validation.isValid()) {
             throw new IllegalArgumentException(validation.getMessage());
@@ -117,7 +119,7 @@ public class PromotionService {
         Promotion promotion = findByCode(promotionCode);
         BillingDetails billingDetails = billingService.getBillingDetails(orderID);
         verifyOrderBelongsToCustomer(billingDetails, customerID);
-        PromotionValidationResponse validation = validatePromotionForSubtotal(promotion, billingDetails.getSubtotal());
+        PromotionValidationResponse validation = validatePromotionForBilling(promotion, billingDetails);
 
         if (!validation.isValid()) {
             throw new IllegalArgumentException(validation.getMessage());
@@ -140,14 +142,10 @@ public class PromotionService {
             throw new IllegalArgumentException("Subtotal must not be negative");
         }
 
-        BigDecimal discountAmount;
-        if (promotion.getDiscountType() == DiscountType.PERCENTAGE) {
-            discountAmount = subtotal
-                    .multiply(promotion.getDiscountValue())
-                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        } else {
-            discountAmount = promotion.getDiscountValue();
-        }
+        // Strategy pattern: the promotion's discount type supplies the calculation, so there is
+        // no if/else on the type here. A new discount type only needs a new DiscountStrategy.
+        DiscountStrategy strategy = promotion.getDiscountType().strategy();
+        BigDecimal discountAmount = strategy.calculate(subtotal, promotion.getDiscountValue());
 
         if (discountAmount.compareTo(subtotal) > 0) {
             return subtotal;
@@ -156,27 +154,43 @@ public class PromotionService {
     }
 
     private PromotionValidationResponse validatePromotionForSubtotal(Promotion promotion, BigDecimal subtotal) {
+        return validatePromotionForAmount(promotion, subtotal, subtotal);
+    }
+
+    private PromotionValidationResponse validatePromotionForBilling(Promotion promotion, BillingDetails billingDetails) {
+        return validatePromotionForAmount(
+                promotion,
+                billingDetails.getSubtotal(),
+                billingDetails.getAmountAfterBulkDiscount()
+        );
+    }
+
+    private PromotionValidationResponse validatePromotionForAmount(
+            Promotion promotion,
+            BigDecimal subtotal,
+            BigDecimal eligibleAmount
+    ) {
         try {
             validatePromotionDefinition(promotion);
         } catch (IllegalArgumentException ex) {
-            return invalid(ex.getMessage(), subtotal);
+            return invalid(ex.getMessage(), eligibleAmount);
         }
 
         if (!promotion.isActive()) {
-            return invalid("Promotion is inactive", subtotal);
+            return invalid("Promotion is inactive", eligibleAmount);
         }
 
         LocalDate today = today();
         if (today.isBefore(promotion.getValidFrom()) || today.isAfter(promotion.getValidTo())) {
-            return invalid("Promotion is expired or not yet active", subtotal);
+            return invalid("Promotion is expired or not yet active", eligibleAmount);
         }
 
         if (subtotal.compareTo(promotion.getMinimumOrderAmount()) < 0) {
-            return invalid("Order does not meet the minimum amount for this promotion", subtotal);
+            return invalid("Order does not meet the minimum amount for this promotion", eligibleAmount);
         }
 
-        BigDecimal discountAmount = calculateDiscount(promotion, subtotal);
-        BigDecimal finalPayableAmount = subtotal.subtract(discountAmount);
+        BigDecimal discountAmount = calculateDiscount(promotion, eligibleAmount);
+        BigDecimal finalPayableAmount = eligibleAmount.subtract(discountAmount);
         if (finalPayableAmount.compareTo(BigDecimal.ZERO) < 0) {
             finalPayableAmount = BigDecimal.ZERO;
         }
@@ -257,6 +271,14 @@ public class PromotionService {
         if (promotion.getValidTo().isBefore(promotion.getValidFrom())) {
             throw new IllegalArgumentException("Promotion end date cannot be before start date");
         }
+    }
+
+    private void ensurePromotionCodeAvailable(Promotion promotion) {
+        promotionRepository.findByCode(promotion.getPromotionCode())
+                .filter(existing -> !Objects.equals(existing.getPromotionID(), promotion.getPromotionID()))
+                .ifPresent(existing -> {
+                    throw new IllegalArgumentException("Promotion code already exists.");
+                });
     }
 
     private PromotionValidationResponse invalid(String message, BigDecimal subtotal) {

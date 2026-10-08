@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Customer support | LaundryLink</title>
+<title>Customer Support | LaundryLink</title>
 <link rel="stylesheet" href="../../../css/global.css">
 <link rel="stylesheet" href="../../../css/dashboard.css">
 <link rel="stylesheet" href="../../../css/support/support.css">
@@ -15,24 +15,12 @@
 </script>
 </head>
 <body data-page="cases">
-<nav class="dashboard_nav">
-<ul class="navigation">
-<li class="logo">
-<a href="/html/portal.html">
-<h3>LaundryLink</h3>
-</a>
-</li>
-<li class="nav_right">
-<a href="/html/admin/customer-service-manager/dashboard.html">Overview</a>
-<a href="/html/admin/customer-service-manager/complaints.html">Support cases</a>
-<a href="/html/admin/customer-service-manager/orders.html">Order lookup</a>
-</li>
-</ul>
-</nav>
+<nav class="dashboard_nav"></nav>
 <main class="support-page">
 <header class="page_header">
 <div class="subtitle">CUSTOMER CARE</div>
-<h1>Customer support</h1>
+<h1>Support cases</h1>
+<p class="muted">Find a case, manage its progress, and continue the customer conversation.</p>
 <p id="identity">Connecting…</p>
 </header>
 <div id="notice" class="notice" role="status" aria-live="polite" hidden>
@@ -159,6 +147,8 @@
 </div>
 <p id="detail-meta" class="muted">
 </p>
+<div class="case-detail-tabs" role="tablist" aria-label="Case views"><button type="button" id="tab-details" role="tab" aria-controls="panel-details" aria-selected="true" tabindex="0" data-case-tab="details">Case details</button><button type="button" id="tab-chats" role="tab" aria-controls="panel-chats" aria-selected="false" tabindex="-1" data-case-tab="chats">Chats</button><button type="button" id="tab-history" role="tab" aria-controls="panel-history" aria-selected="false" tabindex="-1" data-case-tab="history">Case history</button></div>
+<div id="panel-details" role="tabpanel" aria-labelledby="tab-details">
 <p id="detail-message" style="white-space:pre-wrap">
 </p>
 <div class="actions" id="customer-actions">
@@ -202,9 +192,10 @@
 </div>
 <button class="custom_button custom_button_bg" type="submit">Save case update</button>
 </form>
-<div class="split section case-communications">
-<section class="conversation-panel">
-<div class="panel-heading"><div><h3>Conversation</h3><p class="muted small">Customer and support messages</p></div></div>
+</div>
+<div class="section case-communications">
+<section class="conversation-panel" id="panel-chats" role="tabpanel" aria-labelledby="tab-chats" hidden>
+<div class="panel-heading"><div><h3>Chat history</h3><p class="muted small">Customer and support messages</p></div></div>
 <div id="messages">
 </div>
 <form id="reply-form">
@@ -216,7 +207,7 @@
 <button class="custom_button custom_button_bg" id="send-reply" type="submit">Send reply <span aria-hidden="true">→</span></button>
 </form>
 </section>
-<section class="history-panel">
+<section class="history-panel" id="panel-history" role="tabpanel" aria-labelledby="tab-history" hidden>
 <div class="panel-heading"><div><h3>Case history</h3><p class="muted small">Assignments and status changes</p></div></div>
 <div id="history">
 </div>

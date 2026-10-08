@@ -93,3 +93,13 @@
     justify-content: flex-start;
   }
 }
+
+/* Delete account section: a red outline so it reads as a dangerous area. */
+.account-profile .danger-zone{border:1px solid #d9a0a6}
+.account-profile .danger-zone h2{margin-top:0}
+/* The permanent-deletion warning shown above the button. */
+.delete-warning{margin:14px 0 18px;padding:14px 18px;border-radius:12px;background:#fff0f0;color:#92252d}
+/* The message inside the password pop-up (empty password, or a refusal). */
+.delete-error{margin:6px 0 12px;color:#92252d;font-size:.95rem}
+#delete-dialog .field{margin:16px 0}
+#delete-dialog .actions{margin-top:18px}

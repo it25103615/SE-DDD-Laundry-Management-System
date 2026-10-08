@@ -12,6 +12,7 @@ import java.security.Principal;
 public class PaymentAccessService {
     private static final String ADMIN = "ADMIN";
     private static final String MANAGER = "MANAGER";
+    private static final String OWNER = "OWNER";
     private static final String STAFF = "STAFF";
     private static final String CUSTOMER_SERVICE_MANAGER = "CUSTOMER_SERVICE_MANAGER";
     private static final String CSM = "CSM";
@@ -27,7 +28,7 @@ public class PaymentAccessService {
         this.userRepository = userRepository;
     }
 
-    public Integer resolveUserID(Principal principal, Integer headerUserID) {
+    public Integer resolveUserID(Principal principal) {
         if (principal != null && principal.getName() != null && !principal.getName().isBlank()) {
             String identity = principal.getName().trim();
             return userRepository.findByEmailIgnoreCase(identity)
@@ -35,15 +36,11 @@ public class PaymentAccessService {
                     .orElseThrow(() -> new AccessDeniedException("Authenticated user cannot be matched to a user record"));
         }
 
-        if (headerUserID == null) {
-            throw new AccessDeniedException("User identity is required");
-        }
-
-        return headerUserID;
+        throw new AccessDeniedException("Authenticated user identity is required");
     }
 
-    public Integer resolveCustomerID(Principal principal, Integer headerUserID) {
-        Integer userID = resolveUserID(principal, headerUserID);
+    public Integer resolveCustomerID(Principal principal) {
+        Integer userID = resolveUserID(principal);
         requireCustomer(userID);
         return userID;
     }
@@ -65,6 +62,7 @@ public class PaymentAccessService {
         String userType = findUserType(userID);
         if (!ADMIN.equalsIgnoreCase(userType)
                 && !MANAGER.equalsIgnoreCase(userType)
+                && !OWNER.equalsIgnoreCase(userType)
                 && !CUSTOMER_SERVICE_MANAGER.equalsIgnoreCase(userType)
                 && !CSM.equalsIgnoreCase(userType)) {
             throw new AccessDeniedException("Management access is required");
@@ -76,6 +74,7 @@ public class PaymentAccessService {
         if (!STAFF.equalsIgnoreCase(userType)
                 && !ADMIN.equalsIgnoreCase(userType)
                 && !MANAGER.equalsIgnoreCase(userType)
+                && !OWNER.equalsIgnoreCase(userType)
                 && !CUSTOMER_SERVICE_MANAGER.equalsIgnoreCase(userType)
                 && !CSM.equalsIgnoreCase(userType)) {
             throw new AccessDeniedException("Staff or management access is required");

@@ -11,17 +11,8 @@
     <script src="../../js/customer/order-management.js" defer></script>
   </head>
   <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="dashboard.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="dashboard.html">Cancel order</a
-          ><span class="profile_badge">PF</span>
-        </li>
-      </ul>
-    </nav>
+    <nav class="dashboard_nav" data-nav="flow"
+         data-exit-label="Cancel order" data-exit-href="/html/customer/dashboard.html"></nav>
     <main>
       <header class="page_header">
         <div class="subtitle">NEW ORDER</div>
@@ -149,7 +140,9 @@
         const schedule = draft.schedule || {};
         const pickup = document.createElement("p");
         pickup.textContent = `${schedule.date || "Date not selected"} · ${schedule.time || "Time window not selected"}`;
-        addCard("Pickup time").append(pickup);
+        const pickupCard = addCard("Pickup time");
+        pickupCard.append(pickup);
+        addDetail(pickupCard, "Pickup address", [main.dataset.reviewPickupAddress || "Pickup address unavailable."]);
 
         // Instructions, from the instructions step: the ticked preferences and the note. These
         // are sent with the order when it is confirmed. The draft holds each preference as a

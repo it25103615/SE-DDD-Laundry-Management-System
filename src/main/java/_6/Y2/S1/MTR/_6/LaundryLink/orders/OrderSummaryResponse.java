@@ -10,4 +10,5 @@ public class OrderSummaryResponse {
     private Integer statusID;
     private String statusLabel;
     private Double orderTotal;
+    private boolean customerCanModify;
 }

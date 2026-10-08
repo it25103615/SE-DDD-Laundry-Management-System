@@ -66,13 +66,41 @@ public class AccountProfileService {
         String nextEmail=input.email().trim().toLowerCase(Locale.ROOT);
         if(db.queryForObject("SELECT COUNT(*) FROM users WHERE email=? AND userID<>?",Integer.class,nextEmail,id)>0)
             throw new ResponseStatusException(CONFLICT,"That email address belongs to another account.");
-        db.update("UPDATE users SET firstName=?,lastName=?,email=?,phoneNumber=? WHERE userID=?",
+        db.update("UPDATE users SET firstName=?,lastName=?,email=?,phoneNumber=?,updatedAt=SYSDATETIME(),version=version+1 WHERE userID=?",
                 names[0],names.length>1?names[1]:"",nextEmail,input.phone(),id);
         var saved=profile(nextEmail);
         var result=new LinkedHashMap<String,Object>(saved);
         result.put("emailChanged",!signedInEmail.equalsIgnoreCase(nextEmail));
         notifications.notifyUser(id, "ACCOUNT", "Profile updated", "Your LaundryLink profile details were updated.", "/html/account/profile.html", "ACCOUNT", id);
         return result;
+    }
+
+    @Transactional
+    public void deactivateAccount(String signedInEmail, ProfileRequests.Deletion input) {
+        // Keep the verified password and role stable until the transaction commits.
+        var rows = db.queryForList("SELECT userID AS id,password,UPPER(type) AS role FROM users WITH (UPDLOCK, HOLDLOCK) WHERE email=? AND active=1", signedInEmail);
+        if (rows.isEmpty()) throw new ResponseStatusException(UNAUTHORIZED, "Account not found or already inactive.");
+        var user = rows.getFirst();
+        if (!"CUSTOMER".equals(user.get("role")))
+            throw new ResponseStatusException(FORBIDDEN, "Only customers can deactivate their own account.");
+        if (!passwords.matches(input.currentPassword(), (String) user.get("password")))
+            throw new ResponseStatusException(BAD_REQUEST, "Current password is incorrect.");
+        String retiredEmail = replacementEmail(((Number) user.get("id")).intValue());
+        // The random secret is never retained or disclosed; the previous password no longer matches.
+        String retiredPassword = passwords.encode(UUID.randomUUID().toString());
+        int changed = db.update("UPDATE users SET active=0,email=?,password=? WHERE userID=? AND active=1 AND UPPER(type)='CUSTOMER'",
+                retiredEmail, retiredPassword, user.get("id"));
+        if (changed != 1) throw new ResponseStatusException(CONFLICT, "Account could not be deactivated. Try again.");
+    }
+
+    private String replacementEmail(int userId) {
+        for (int attempt = 0; attempt < 5; attempt++) {
+            String candidate = "deleted_" + userId + "_" + UUID.randomUUID().toString().replace("-", "") + "@deleted.invalid";
+            // Range locking reserves an unused candidate until this transaction commits.
+            Integer count = db.queryForObject("SELECT COUNT(*) FROM users WITH (UPDLOCK, HOLDLOCK) WHERE email=?", Integer.class, candidate);
+            if (Integer.valueOf(0).equals(count)) return candidate;
+        }
+        throw new ResponseStatusException(CONFLICT, "Account could not be deactivated. Try again.");
     }
 
     @Transactional
@@ -84,7 +112,7 @@ public class AccountProfileService {
         var row=rows.getFirst();
         if(!passwords.matches(input.currentPassword(),String.valueOf(row.get("password"))))
             throw new ResponseStatusException(BAD_REQUEST,"Current password is incorrect.");
-        db.update("UPDATE users SET password=? WHERE userID=?",passwords.encode(input.newPassword()),row.get("id"));
+        db.update("UPDATE users SET password=?,updatedAt=SYSDATETIME(),version=version+1 WHERE userID=?",passwords.encode(input.newPassword()),row.get("id"));
         notifications.notifyUser(((Number)row.get("id")).intValue(), "SECURITY", "Password changed", "Your LaundryLink password was changed.", "/html/account/profile.html", "ACCOUNT", ((Number)row.get("id")).intValue());
     }
 }

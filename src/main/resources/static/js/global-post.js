@@ -65,7 +65,9 @@
   //    - already has a data-demo handler, OR
   //    - is the "add-item" button, OR
   //    - is the "edit-add-item" button, OR
-  //    - has the "remove-item" class
+  //    - has the "remove-item" class, OR
+  //    - is part of the top navigation bar (bell, Log out, Menu: global-pre.js
+  //      builds those and gives them their own click handlers)
   //
   //  Otherwise, listen for a click on it
   //  When clicked:
@@ -79,7 +81,8 @@
       b.dataset.demo ||
       b.id === "add-item" ||
       b.id === "edit-add-item" ||
-      b.classList.contains("remove-item")
+      b.classList.contains("remove-item") ||
+      b.closest(".navbar, .dashboard_nav")
     )
       return;
     b.addEventListener("click", function () {

@@ -1,38 +1,78 @@
 package _6.Y2.S1.MTR._6.LaundryLink.payment;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 public class PaymentRecordResponse {
     private final Integer paymentID;
     private final Integer orderID;
     private final Integer customerID;
+    private final String customerName;
     private final BigDecimal amount;
     private final BigDecimal payableAmount;
     private final BigDecimal paidAmount;
     private final BigDecimal outstandingAmount;
     private final PaymentStatus paymentStatus;
+    private final PaymentMethod paymentMethod;
+    private final String transactionReference;
+    private final LocalDateTime processedAt;
+    private final LocalDateTime recordDate;
     private final String orderStatus;
+    private final BigDecimal refundAmount;
+    private final String refundReason;
+    private final RefundStatus refundStatus;
+    private final LocalDateTime refundRequestedAt;
+    private final LocalDateTime refundProcessedAt;
+    private final LocalDateTime refundedAt;
+    private final Integer refundRequestedBy;
+    private final Integer refundProcessedBy;
 
     public PaymentRecordResponse(
             Integer paymentID,
             Integer orderID,
             Integer customerID,
+            String customerName,
             BigDecimal amount,
             BigDecimal payableAmount,
             BigDecimal paidAmount,
             BigDecimal outstandingAmount,
             PaymentStatus paymentStatus,
-            String orderStatus
+            PaymentMethod paymentMethod,
+            String transactionReference,
+            LocalDateTime processedAt,
+            LocalDateTime recordDate,
+            String orderStatus,
+            BigDecimal refundAmount,
+            String refundReason,
+            RefundStatus refundStatus,
+            LocalDateTime refundRequestedAt,
+            LocalDateTime refundProcessedAt,
+            LocalDateTime refundedAt,
+            Integer refundRequestedBy,
+            Integer refundProcessedBy
     ) {
         this.paymentID = paymentID;
         this.orderID = orderID;
         this.customerID = customerID;
+        this.customerName = customerName;
         this.amount = amount;
         this.payableAmount = payableAmount;
         this.paidAmount = paidAmount;
         this.outstandingAmount = outstandingAmount;
         this.paymentStatus = paymentStatus;
+        this.paymentMethod = paymentMethod;
+        this.transactionReference = transactionReference;
+        this.processedAt = processedAt;
+        this.recordDate = recordDate;
         this.orderStatus = orderStatus;
+        this.refundAmount = refundAmount;
+        this.refundReason = refundReason;
+        this.refundStatus = refundStatus;
+        this.refundRequestedAt = refundRequestedAt;
+        this.refundProcessedAt = refundProcessedAt;
+        this.refundedAt = refundedAt;
+        this.refundRequestedBy = refundRequestedBy;
+        this.refundProcessedBy = refundProcessedBy;
     }
 
     public Integer getPaymentID() {
@@ -45,6 +85,10 @@ public class PaymentRecordResponse {
 
     public Integer getCustomerID() {
         return customerID;
+    }
+
+    public String getCustomerName() {
+        return customerName;
     }
 
     public BigDecimal getAmount() {
@@ -67,7 +111,55 @@ public class PaymentRecordResponse {
         return paymentStatus;
     }
 
+    public PaymentMethod getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public String getTransactionReference() {
+        return transactionReference;
+    }
+
+    public LocalDateTime getProcessedAt() {
+        return processedAt;
+    }
+
+    public LocalDateTime getRecordDate() {
+        return recordDate;
+    }
+
     public String getOrderStatus() {
         return orderStatus;
+    }
+
+    public BigDecimal getRefundAmount() {
+        return refundAmount;
+    }
+
+    public String getRefundReason() {
+        return refundReason;
+    }
+
+    public RefundStatus getRefundStatus() {
+        return refundStatus;
+    }
+
+    public LocalDateTime getRefundRequestedAt() {
+        return refundRequestedAt;
+    }
+
+    public LocalDateTime getRefundProcessedAt() {
+        return refundProcessedAt;
+    }
+
+    public LocalDateTime getRefundedAt() {
+        return refundedAt;
+    }
+
+    public Integer getRefundRequestedBy() {
+        return refundRequestedBy;
+    }
+
+    public Integer getRefundProcessedBy() {
+        return refundProcessedBy;
     }
 }

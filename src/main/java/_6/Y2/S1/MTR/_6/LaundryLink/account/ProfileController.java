@@ -3,6 +3,11 @@ package _6.Y2.S1.MTR._6.LaundryLink.account;
 import java.security.Principal;
 import java.util.Map;
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
@@ -26,6 +31,20 @@ public class ProfileController {
         accounts.updatePassword(email(principal),input);
         return Map.of("message","Password updated.");
     }
+    @DeleteMapping
+    public ResponseEntity<Map<String,String>> delete(Authentication authentication,
+            @Valid @RequestBody ProfileRequests.Deletion input,
+            HttpServletRequest request, HttpServletResponse response) {
+        try {
+            accounts.deactivateAccount(email(authentication), input);
+        } catch (ResponseStatusException error) {
+            return ResponseEntity.status(error.getStatusCode()).body(Map.of("message", error.getReason()));
+        }
+        // The transactional service has committed before the current session is invalidated.
+        new SecurityContextLogoutHandler().logout(request, response, authentication);
+        return ResponseEntity.ok(Map.of("message", "Account deactivated."));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String,String> invalid(MethodArgumentNotValidException error) {

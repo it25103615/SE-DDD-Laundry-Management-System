@@ -4,6 +4,7 @@ import jakarta.validation.constraints.*;
 
 public final class ProfileRequests {
     private ProfileRequests() {}
+    public record Deletion(@NotBlank(message="Enter your current password.") String currentPassword) {}
     public record Details(
             @NotBlank @Size(min=2,max=100) String fullName,
             @NotBlank @Email @Size(max=100) String email,

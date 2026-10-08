@@ -4,7 +4,8 @@
  * 1. Staff enter an order number; the order and its lines are loaded.
  * 2. For each line they enter the received quantity (at least 1) and its condition.
  * 3. Confirm sends the counts. The server either saves them and moves the order to
- *    Verifying Items (200), or saves nothing and returns the mismatched lines (422), which are
+ *    Verifying Items (200; the order details are then hidden, leaving only the success message),
+ *    or saves nothing and returns the mismatched lines (422), which are
  *    shown with a link to report a missing item or count mismatch.
  */
 (() => {
@@ -62,9 +63,15 @@
 
     try {
       const result = await api(`/orders/${order.orderID}/receive`, "POST", { lines });
-      // Reload first (the form locks now the order is no longer In Shop), then show the success message.
-      await loadOrder(order.orderID);
-      notice(`${escape(result.message)} <a class="link" href="order_processing.html?orderId=${order.orderID}">Open the order →</a>`, "success");
+      // Receipt succeeded: hide the order details so only the success message is left, and
+      // drop ?orderId= so a page refresh does not bring the received order back.
+      const receivedId = order.orderID;
+      $("order-section").hidden = true;
+      order = null;
+      history.replaceState(null, "", "receive_items.html");
+      // The order has left In Shop, so refresh the drop-down; it no longer lists this order.
+      await loadReceivableOrders();
+      notice(`${escape(result.message)} <a class="link" href="order_processing.html?orderId=${receivedId}">Open the order →</a>`, "success");
     } catch (error) {
       if (error.status !== 422) throw error;
       // TC-LP02 / LP04: counts do not match, nothing was saved.
@@ -78,10 +85,39 @@
     }
   }
 
+  /**
+   * Makes sure the drop-down has an option for this order and selects it. Used for orders that are
+   * not in the In Shop list (a ?orderId= link to an already received order, or one just received).
+   */
+  function selectOrder(orderId, label) {
+    const select = $("order-number");
+    let option = [...select.options].find((o) => o.value === String(orderId));
+    if (!option) {
+      option = new Option(label || `#${orderId}`, orderId);
+      select.add(option);
+    }
+    select.value = String(orderId);
+  }
+
+  /** Fills the drop-down with the orders that can be received (In Shop, status 7). */
+  async function loadReceivableOrders(keepOrderId) {
+    const select = $("order-number");
+    const orders = await api("/orders?status=7");
+    select.innerHTML = '<option value="">Select an order to receive</option>' +
+      orders.map((o) => `<option value="${o.orderID}">#${o.orderID} · ${escape(o.customerName)} · ` +
+        `${o.itemCount} item${o.itemCount === 1 ? "" : "s"}</option>`).join("");
+    // An order the page is already showing stays selected even if it has left the In Shop list.
+    if (keepOrderId) selectOrder(keepOrderId);
+    const nothingToPick = orders.length === 0 && !keepOrderId;
+    if (nothingToPick) notice("No orders are waiting to be received.");
+    select.disabled = nothingToPick;
+    $("find-form").querySelector("button").disabled = nothingToPick;
+  }
+
   $("find-form").addEventListener("submit", (event) => {
     event.preventDefault();
-    const orderId = $("order-number").value.trim().replace(/^#/, "");
-    if (!/^\d+$/.test(orderId)) return notice("Enter an order number, e.g. 6.", "error");
+    const orderId = $("order-number").value;
+    if (!orderId) return notice("Select an order to receive.", "error");
     history.replaceState(null, "", `?orderId=${orderId}`);
     run(() => loadOrder(orderId), event.submitter);
   });
@@ -93,8 +129,9 @@
 
   // Opening receive_items.html?orderId=6 loads that order straight away.
   const fromLink = param("orderId");
-  if (fromLink) {
-    $("order-number").value = fromLink;
-    run(() => loadOrder(fromLink));
-  }
+  run(async () => {
+    // The linked order may no longer be In Shop; keepOrderId adds it to the list if it is missing.
+    await loadReceivableOrders(fromLink);
+    if (fromLink) await loadOrder(fromLink);
+  });
 })();

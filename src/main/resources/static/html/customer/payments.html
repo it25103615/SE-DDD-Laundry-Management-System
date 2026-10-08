@@ -11,33 +11,15 @@
     <script src="../../js/customer/payment-flow.js" defer></script>
   </head>
   <body data-payment-page="payments">
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="dashboard.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="dashboard.html">Dashboard</a
-          ><a href="my_orders.html">My Orders</a
-          ><a href="payments.html">Payments</a
-          ><span class="profile_badge">PF</span>
-        </li>
-      </ul>
-    </nav>
+    <nav class="dashboard_nav"></nav>
     <main>
       <header class="page_header">
         <div class="subtitle">YOUR ACCOUNT</div>
         <h1>Payments</h1>
         <p>Review balances, invoices and receipts.</p>
       </header>
-      <div class="account_layout">
-        <nav class="side_navigation" aria-label="Account pages">
-          <a href="my_orders.html">My Orders</a
-          ><a class="active" href="payments.html">Payments</a
-          ><a href="addresses.html">Addresses</a
-          ><a href="profile.html">Profile</a
-          ><a href="feedback.html">Feedback &amp; Complaints</a>
-        </nav>
+      <!-- Side navigation removed, so the layout is a single full-width column -->
+      <div class="account_layout" style="grid-template-columns: minmax(0, 1fr)">
         <section>
           <article class="card top_bar">
             <div>
@@ -65,11 +47,40 @@
               <strong id="billing-subtotal">Loading...</strong>
             </div>
             <div class="top_bar">
-              <span id="billing-promotion-label">Promotion discount</span>
-              <strong id="billing-discount">Loading...</strong>
+              <span>Automatic Bulk Discount</span>
+              <strong id="billing-bulk-discount">Loading...</strong>
+            </div>
+            <div class="top_bar">
+              <span id="billing-promotion-label">Promotion Discount</span>
+              <strong id="billing-promotion-discount">Loading...</strong>
+            </div>
+            <div class="top_bar">
+              <span>Total Discount</span>
+              <strong id="billing-total-discount">Loading...</strong>
+            </div>
+            <div class="top_bar">
+              <span>Final Payable</span>
+              <strong id="billing-final-payable">Loading...</strong>
             </div>
             <hr />
+            <h2>Discounts &amp; Promotions</h2>
+            <div class="card" style="margin-top: 16px; box-shadow: none" id="bulk-discount-card">
+              <span class="muted small">AUTOMATIC BULK DISCOUNT</span>
+              <h3 id="bulk-discount-title">Checking eligibility...</h3>
+              <p class="muted" id="bulk-discount-message">Loading discount details.</p>
+              <strong id="bulk-discount-savings">Loading...</strong>
+            </div>
+            <div style="margin-top: 18px">
+              <div class="top_bar">
+                <h3>Available Promotions</h3>
+                <span class="muted small" id="available-promotions-count">Loading...</span>
+              </div>
+              <div class="grid grid_two" id="available-promotions-list">
+                <div class="card">Loading promotions...</div>
+              </div>
+            </div>
             <form class="unstyled_form" id="promotion-form" style="padding: 0; box-shadow: none; border: 0; background: transparent">
+              <h3>Have a promotion code?</h3>
               <div class="field">
                 <label for="promotion-code">Promotion code</label>
                 <input class="input" id="promotion-code" name="promotionCode" type="text" autocomplete="off" placeholder="Enter promotion code" />
@@ -87,14 +98,17 @@
                 <tr>
                   <th>PAYMENT</th>
                   <th>ORDER</th>
-                  <th>STATUS</th>
                   <th>AMOUNT</th>
+                  <th>METHOD</th>
+                  <th>REFERENCE</th>
+                  <th>STATUS</th>
+                  <th>PAID AT</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody id="payment-history-body">
                 <tr>
-                  <td colspan="5">Loading payment history...</td>
+                  <td colspan="8">Loading payment history...</td>
                 </tr>
               </tbody>
             </table>
