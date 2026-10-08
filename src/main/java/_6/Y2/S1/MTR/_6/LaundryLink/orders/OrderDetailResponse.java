@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 @Getter
 @AllArgsConstructor
@@ -19,4 +20,8 @@ public class OrderDetailResponse {
     private String instructions;
     // The ticked preferences as display labels (e.g. "Fragrance-free detergent"); empty when none.
     private List<String> preferences;
+    private boolean customerCanModify;
+    private LocalDateTime pickupScheduled;
+    private Integer pickupAddressID;
+    private List<String> preferenceCodes;
 }

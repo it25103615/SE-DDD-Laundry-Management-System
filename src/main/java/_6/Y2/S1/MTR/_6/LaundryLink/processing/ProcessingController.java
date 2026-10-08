@@ -45,7 +45,7 @@ public class ProcessingController {
         this.issues = issues;
     }
 
-    /** Orders on the processing board (statuses 7-11 and 19); status narrows it to one stage. */
+    /** Orders on the processing board (statuses 7-11, 19 and 21); status narrows it to one stage. */
     @GetMapping("/orders")
     public List<ProcessingOrderSummary> listOrders(Principal principal, @RequestParam(required = false) Integer status) {
         processing.currentStaff(principal);
@@ -79,7 +79,7 @@ public class ProcessingController {
         return processing.changeStatus(orderID, request.statusID());
     }
 
-    /** Records the quality check after Ironing; a failed check sends the order back for rework. */
+    /** Records the quality check at Quality Inspection; a failed check sends the order back for rework. */
     @PostMapping("/orders/{orderID}/quality-check")
     public ResponseEntity<ProcessingOrderDetail> recordQualityCheck(Principal principal, @PathVariable int orderID,
                                                                     @Valid @RequestBody QualityCheckRequest request) {
@@ -94,7 +94,7 @@ public class ProcessingController {
         return processing.pack(orderID);
     }
 
-    /** Releases a passed, packed order: Ironing -> Awaiting Delivery. */
+    /** Releases a passed, packed order: Quality Inspection -> Awaiting Delivery. */
     @PostMapping("/orders/{orderID}/ready")
     public ProcessingOrderDetail markReady(Principal principal, @PathVariable int orderID) {
         processing.currentStaff(principal);

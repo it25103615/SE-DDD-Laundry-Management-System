@@ -2,8 +2,9 @@ package _6.Y2.S1.MTR._6.LaundryLink.payment;
 
 public enum PaymentStatus {
     UNPAID,
-    PARTIALLY_PAID,
+    PENDING,
     PAID,
     VERIFIED,
-    REJECTED
+    REJECTED,
+    REFUNDED
 }

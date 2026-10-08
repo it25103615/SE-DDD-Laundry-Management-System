@@ -4,6 +4,11 @@
  * Awaiting Delivery) - receiving and counting items, the cleaning stages, issue reports and
  * the quality check.
  *
+ * <p>The cleaning stages are a Strategy pattern: {@link ProcessingRoute} is the strategy
+ * interface, with one class per route (wash, dry-clean, shoe cleaning, ironing), and
+ * {@link ProcessingService} is the context. See
+ * {@code Documentation/Design Patterns/Strategy-Pattern-Processing-Routes.md}.
+ *
  * <p>Layout follows package-by-feature: controller, services, repositories and DTOs for the
  * feature live here. Every status change goes through the database procedure
  * {@code dbo.sp_UpdateProcessingStatus}, which also writes the log row.

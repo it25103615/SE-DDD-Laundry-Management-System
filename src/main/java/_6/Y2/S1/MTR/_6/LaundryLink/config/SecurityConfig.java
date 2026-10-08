@@ -1,6 +1,9 @@
 package _6.Y2.S1.MTR._6.LaundryLink.config;
 
 import _6.Y2.S1.MTR._6.LaundryLink.orders.OrderAccess;
+import _6.Y2.S1.MTR._6.LaundryLink.account.AccountSessionGuard;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -10,7 +13,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.provisioning.JdbcUserDetailsManager;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import javax.sql.DataSource;
@@ -41,16 +44,23 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, OrderAccess orderAccess) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, OrderAccess orderAccess, DataSource dataSource) throws Exception {
+        http.addFilterBefore(new AccountSessionGuard(new JdbcTemplate(dataSource)), AuthorizationFilter.class);
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/admin/**").hasAnyRole("OWNER", "ADMIN")
+                        .requestMatchers("/html/customer/**").hasRole("CUSTOMER")
+                        .requestMatchers(
+                                "/html/admin/owner/payments_billing.html",
+                                "/html/admin/owner/payment_detail.html",
+                                "/html/admin/owner/promotions.html"
+                        ).hasAnyRole("MANAGER", "OWNER", "ADMIN")
                         .requestMatchers("/html/admin/owner/**").hasAnyRole("OWNER", "ADMIN")
                         .requestMatchers("/html/admin/manager/**").hasAnyRole("MANAGER", "OWNER", "ADMIN")
                         .requestMatchers("/html/admin/customer-service-manager/**").hasAnyRole("CSM", "CUSTOMER_SERVICE_MANAGER", "MANAGER", "OWNER", "ADMIN")
                         .requestMatchers("/api/support/**").authenticated()
                         .requestMatchers("/api/notifications/**").authenticated()
-                        .requestMatchers("/api/customer/dashboard").authenticated()
+                        .requestMatchers("/api/customer/dashboard").hasRole("CUSTOMER")
                         .requestMatchers("/api/account/**").authenticated()
                         // Laundry processing: the staff pages and their API are for staff, managers and owners only.
                         .requestMatchers("/api/processing/**", "/html/staff/**").hasAnyRole("STAFF", "MANAGER", "OWNER", "ADMIN")
@@ -71,6 +81,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/orders/customer/{userID}/**").access((authentication, context) ->
                                 new AuthorizationDecision(orderAccess.isOwnAccount(authentication.get(), customerID(context))))
                         .requestMatchers("/api/orders/**").authenticated()
+                        // Order status logs: customers, staff, managers, owners/admins and customer
+                        // service managers only, so riders and visitors who are not signed in are
+                        // refused. LogController then limits a customer to their own orders' logs.
+                        .requestMatchers("/api/logs/**").hasAnyRole(
+                                "CUSTOMER", "STAFF", "MANAGER", "OWNER", "ADMIN", "CSM", "CUSTOMER_SERVICE_MANAGER")
                         // Billing and invoice data is protected in BillingController:
                         // finance management can inspect all orders, customers only their own.
                         .requestMatchers("/api/billing/**").authenticated()
@@ -83,6 +98,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/payments/orders/*/status").hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.POST, "/api/payments/orders/*").hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.GET, "/api/payments/orders/*").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/payments/*/receipt.pdf").hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.GET, "/api/payments/*/receipt").hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.GET, "/api/payments/*").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/payments").hasAnyRole(FINANCE_MANAGEMENT_ROLES)
@@ -128,10 +144,15 @@ public class SecurityConfig {
 
     @Bean
     public UserDetailsService userDetailsService(DataSource dataSource) {
-        JdbcUserDetailsManager users = new JdbcUserDetailsManager(dataSource);
-        users.setUsersByUsernameQuery("SELECT email, password, active FROM users WHERE email = ?");
-        users.setAuthoritiesByUsernameQuery("SELECT email, CONCAT('ROLE_', UPPER(type)) FROM users WHERE email = ? AND active=1");
-        return users;
+        JdbcTemplate db = new JdbcTemplate(dataSource);
+        return email -> {
+            var users = db.query("SELECT userID,email,password,active,UPPER(type) AS role FROM users WHERE email=?",
+                    (rs, row) -> new AccountSessionGuard.AccountPrincipal(rs.getInt("userID"),
+                            rs.getString("email"), rs.getString("password"),
+                            rs.getBoolean("active"), rs.getString("role")), email);
+            if (users.isEmpty()) throw new UsernameNotFoundException("Invalid email or password.");
+            return users.getFirst();
+        };
     }
 
     @Bean

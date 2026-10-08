@@ -63,6 +63,17 @@ public class OrderController {
         return service.modifyCustomerOrder(userID, orderID, request);
     }
 
+    @PostMapping("/customer/{userID}/{orderID}/cancel")
+    public OrderDetailResponse cancelCustomerOrder(
+            Authentication authentication,
+            @PathVariable Integer userID,
+            @PathVariable Integer orderID) {
+        if (!orderAccess.isOwnAccount(authentication, userID)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only cancel your own orders.");
+        }
+        return service.cancelCustomerOrder(userID, orderID);
+    }
+
     @GetMapping("/management")
     public List<ManagerOrderSummaryResponse> searchManagementOrders(
             @RequestParam(required = false) String search,

@@ -40,12 +40,12 @@
           <div class="field">
             <label for="payment-status-filter">Payment status</label>
             <select class="input" id="payment-status-filter" name="status">
-              <option value="">All statuses</option>
+              <option value="">All</option>
               <option value="UNPAID">UNPAID</option>
-              <option value="PARTIALLY_PAID">PARTIALLY_PAID</option>
               <option value="PAID">PAID</option>
               <option value="VERIFIED">VERIFIED</option>
               <option value="REJECTED">REJECTED</option>
+              <option value="REFUNDED">REFUNDED</option>
             </select>
           </div>
         </div>
@@ -80,18 +80,17 @@
             <tr>
               <th>PAYMENT</th>
               <th>ORDER</th>
+              <th>CUSTOMER</th>
               <th>AMOUNT</th>
               <th>METHOD</th>
-              <th>REFERENCE</th>
               <th>STATUS</th>
-              <th>PROCESSED AT</th>
-              <th>ORDER STATUS</th>
-              <th></th>
+              <th>DATE</th>
+              <th>ACTION</th>
             </tr>
           </thead>
           <tbody id="manager-payment-table">
             <tr>
-              <td colspan="9">Loading payment records...</td>
+              <td colspan="8">Loading payment records...</td>
             </tr>
           </tbody>
         </table>

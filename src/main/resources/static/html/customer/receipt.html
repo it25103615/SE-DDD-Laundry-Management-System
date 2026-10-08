@@ -6,6 +6,30 @@
     <title>Receipt | LaundryLink</title>
     <link rel="stylesheet" href="../../css/global.css" />
     <link rel="stylesheet" href="../../css/dashboard.css" />
+    <style>
+      .receipt-actions {
+        display: flex;
+        align-items: stretch;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 18px;
+      }
+
+      .receipt-actions .custom_button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 1 1 0;
+        min-width: 0;
+        min-height: 62px;
+        margin: 0;
+        padding: 12px 18px;
+        box-sizing: border-box;
+        text-align: center;
+        line-height: 1.2;
+        white-space: normal;
+      }
+    </style>
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
     <script src="../../js/customer/payment-flow.js" defer></script>
@@ -44,11 +68,18 @@
           <strong id="receipt-final-amount">Loading...</strong>
         </div>
         <p class="muted" id="receipt-status">Payment status</p>
+        <p class="muted" id="receipt-status-message"></p>
+        <p class="muted" id="receipt-refund-amount" hidden>Refund amount</p>
+        <p class="muted" id="receipt-refund-time" hidden>Refund time</p>
         <p class="muted" id="receipt-method">Payment method</p>
         <p class="muted" id="receipt-time">Payment time</p>
-        <a class="custom_button custom_button_bg" id="receipt-payments-link" href="payments.html"
-          >Back to payments</a
-        >
+        <div class="receipt-actions">
+          <button class="custom_button custom_button_border" id="receipt-refund-request" type="button" hidden>Request Refund</button>
+          <a class="custom_button custom_button_border" id="receipt-pdf-link" href="#" hidden>Download Receipt (PDF)</a>
+          <a class="custom_button custom_button_bg" id="receipt-payments-link" href="payments.html"
+            >Back to payments</a
+          >
+        </div>
       </section>
     </main>
   </body>

@@ -118,6 +118,22 @@ class PromotionServiceTest {
     }
 
     @Test
+    void rejectsDuplicatePromotionCodeBeforeSaving() {
+        TestPromotionRepository promotionRepository = new TestPromotionRepository(validPercentagePromotion());
+        PromotionService service = newService(promotionRepository, BigDecimal.valueOf(1000.0));
+        PromotionRequest request = validRequest();
+        request.setPromotionCode("save10");
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.createPromotion(request)
+        );
+
+        assertEquals("Promotion code already exists.", exception.getMessage());
+        assertEquals(1, promotionRepository.findAll().size());
+    }
+
+    @Test
     void rejectsExpiredPromotion() {
         Promotion expired = validPercentagePromotion();
         expired.setValidTo(LocalDate.of(2026, 1, 31));
