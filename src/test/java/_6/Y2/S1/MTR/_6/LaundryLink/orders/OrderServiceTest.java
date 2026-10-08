@@ -362,6 +362,59 @@ class OrderServiceTest {
     }
 
     @Test
+    void rejectsCreateWithMoreThanOneServiceBeforeSaving() {
+        prepareCustomerAndStatus();
+
+        // Item 1 with service 1 and item 2 with service 2: two services on one order.
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> orderService.createOrder(request(1, line(1, 1, 1), line(2, 2, 1))));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals("An order can only contain one service. Place a separate order for each service.",
+                exception.getReason());
+        verify(orderRepository, never()).save(any(Order.class));
+        verify(orderRepository, never()).createDelivery(any(), any(), any(), any());
+    }
+
+    @Test
+    void createsOrderWithSeveralLinesOfTheSameService() {
+        prepareSuccessfulOrder();
+        when(orderRepository.findDefaultAddressID(1)).thenReturn(Optional.of(7));
+        when(orderRepository.countAddressesOwnedByCustomer(7, 1)).thenReturn(1);
+        when(itemRepository.existsById(2)).thenReturn(true);
+        when(servicePricingRepository.findByItemIDAndServiceID(2, 1))
+                .thenReturn(Optional.of(pricingWithDetails(2, 1, 220.0)));
+
+        // Two different items, both with service 1: still one service, so it is accepted.
+        orderService.createOrder(request(1, line(1, 1, 1), line(2, 1, 2)));
+
+        assertEquals(2, savedOrder().getOrderLines().size());
+    }
+
+    @Test
+    void rejectsModificationsThatMixServices() {
+        Order order = orderWithLine(10, 1, 1, 1, 2, 360.0);
+        when(orderRepository.countCustomersByUserID(1)).thenReturn(1);
+        when(orderRepository.findByOrderIDAndUserID(10, 1)).thenReturn(Optional.of(order));
+        when(orderRepository.countSubmittedOrSuccessfulPayments(10)).thenReturn(0);
+        when(orderRepository.countAddressesOwnedByCustomer(7, 1)).thenReturn(1);
+        when(orderRepository.findById(10)).thenReturn(Optional.of(order));
+
+        // The customer's edit and the manager's edit both go through the same rule.
+        assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                () -> orderService.modifyCustomerOrder(1, 10, modifyRequest(line(1, 1, 1), line(2, 2, 1))))
+                .getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                () -> orderService.modifyManagementOrder(10, modifyRequest(line(1, 1, 1), line(2, 2, 1))))
+                .getStatusCode());
+
+        // Nothing was changed: the order still has its one original line.
+        assertEquals(1, order.getOrderLines().size());
+        verify(orderRepository, never()).save(any(Order.class));
+        verify(orderRepository, never()).updatePickupSchedule(any(), any(), any(), any());
+    }
+
+    @Test
     void returnsCustomerOrderSummariesWithDatabaseStatusAndCalculatedTotals() {
         Order order = orderWithLine(10, 1, 1, 1, 2, 360.0);
         when(orderRepository.countCustomersByUserID(1)).thenReturn(1);

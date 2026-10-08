@@ -4,6 +4,7 @@ import _6.Y2.S1.MTR._6.LaundryLink.orderlines.OrderLine;
 import _6.Y2.S1.MTR._6.LaundryLink.orderlines.OrderLineService;
 import _6.Y2.S1.MTR._6.LaundryLink.log.Log;
 import _6.Y2.S1.MTR._6.LaundryLink.log.LogService;
+import _6.Y2.S1.MTR._6.LaundryLink.orders.dto.CreateOrderLineRequest;
 import _6.Y2.S1.MTR._6.LaundryLink.orders.dto.CreateOrderRequest;
 import _6.Y2.S1.MTR._6.LaundryLink.orders.dto.CreateOrderResponse;
 import _6.Y2.S1.MTR._6.LaundryLink.orders.dto.CreatedOrderLineResponse;
@@ -52,6 +53,8 @@ public class OrderService {
     @Transactional
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
         validateCustomer(request.getUserID());
+        // Checked before anything is saved: an order covers one service only.
+        requireSingleService(request.getOrderLines());
         validatePickupSchedule(request.getPickupScheduled());
         // Checked before anything is saved, so a bad address never leaves a half-made order.
         Integer pickupAddressID = validatedPickupAddress(request.getAddressID(), request.getUserID());
@@ -218,9 +221,30 @@ public class OrderService {
                 || request.getOrderLines().stream().anyMatch(java.util.Objects::isNull)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select at least one valid order line.");
         }
+        requireSingleService(request.getOrderLines());
         return request.getOrderLines().stream()
                 .map(orderLineService::createOrderLine)
                 .toList();
+    }
+
+    // An order covers exactly one service, because laundry processing picks the order's route
+    // (wash, dry-clean, shoe cleaning or ironing) from that service. The order pages only offer
+    // one service, and this check refuses a mix sent any other way with 400. A line with no
+    // service is left to OrderLineService, which reports it as its own error.
+    private void requireSingleService(List<CreateOrderLineRequest> lines) {
+        if (lines == null) {
+            return;
+        }
+        long services = lines.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(CreateOrderLineRequest::getServiceID)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .count();
+        if (services > 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "An order can only contain one service. Place a separate order for each service.");
+        }
     }
 
     private OrderDetailResponse replaceOrderLines(Order order, List<OrderLine> updatedLines) {

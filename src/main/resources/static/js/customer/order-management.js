@@ -124,6 +124,18 @@
     };
   }
 
+  // The badge shown above each service name on the Choose a service page. A service that is not
+  // listed here (one added later from the admin catalogue) gets the plain "SERVICE" badge.
+  const SERVICE_BADGES = {
+    "wash and fold": { label: "EVERYDAY CARE", attributes: 'class="status status_info"' },
+    "dry cleaning": { label: "SPECIALIST CARE", attributes: 'class="status" style="color: var(--purple)"' },
+    "ironing": { label: "FINISHING", attributes: 'class="status status_success"' },
+    "shoe cleaning": { label: "FOOTWEAR", attributes: 'class="status status_warning"' }
+  };
+  const DEFAULT_SERVICE_BADGE = { label: "SERVICE", attributes: 'class="status status_info"' };
+
+  // Step 1 of a new order: the customer picks ONE service. An order covers a single service
+  // (the server refuses a mix), so the cards use radio buttons, not checkboxes.
   async function initServices() {
     resetCompletedDraft();
     const section = document.querySelector("main > section.grid");
@@ -132,26 +144,48 @@
     try {
       const { items, services, pricing } = await catalog();
       const draft = getDraft();
-      const selected = new Set(draft.services || []);
-      section.innerHTML = services.map((service) => {
-        const prices = pricing.filter((entry) => entry.serviceID === service.serviceID);
-        const rows = prices.map((entry) => {
-          const item = items.find((candidate) => candidate.itemID === entry.itemID);
-          return `<tr><td>${escapeHtml(item?.itemName || `Item #${entry.itemID}`)}</td><td><strong>${money(entry.price)}</strong></td></tr>`;
-        }).join("") || "<tr><td colspan=\"2\">No current prices available.</td></tr>";
-        return `<article class="card"><div class="top_bar"><div><span class="status status_info">SERVICE</span><h2>${escapeHtml(service.serviceName)}</h2></div><label><input type="checkbox" class="catalog-service" value="${service.serviceID}" ${selected.has(service.serviceID) ? "checked" : ""}> Select</label></div><table><tbody>${rows}</tbody></table></article>`;
-      }).join("");
+      // The draft keeps the choice as a one-element list, which the later steps read.
+      const selectedID = (draft.services || [])[0];
+      // Only services a customer can actually order are listed: switched on in the admin
+      // catalogue, and with at least one priced item.
+      const available = services.filter((service) => service.active !== false
+        && pricing.some((entry) => entry.serviceID === service.serviceID));
+      if (available.length === 0) {
+        section.innerHTML = "<p class=\"muted\">No services are available at the moment.</p>";
+      } else {
+        section.innerHTML = available.map((service) => {
+          const rows = pricing.filter((entry) => entry.serviceID === service.serviceID).map((entry) => {
+            const item = items.find((candidate) => candidate.itemID === entry.itemID);
+            return `<tr><td>${escapeHtml(item?.itemName || `Item #${entry.itemID}`)}</td><td><strong>${money(entry.price)}</strong></td></tr>`;
+          }).join("");
+          const badge = SERVICE_BADGES[String(service.serviceName || "").trim().toLowerCase()] || DEFAULT_SERVICE_BADGE;
+          return `<article class="card" style="cursor:pointer"><div class="top_bar"><div><span ${badge.attributes}>${badge.label}</span><h2>${escapeHtml(service.serviceName)}</h2></div><label><input type="radio" name="catalog-service" class="catalog-service" value="${service.serviceID}" ${service.serviceID === selectedID ? "checked" : ""}> Select</label></div><table><tbody>${rows}</tbody></table></article>`;
+        }).join("");
+      }
+      // Clicking anywhere on a service card selects that service. A click on the radio button
+      // or its "Select" label is left alone, because the browser already handles it.
+      section.addEventListener("click", (event) => {
+        if (event.target.closest("label")) return;
+        const radio = event.target.closest("article")?.querySelector(".catalog-service");
+        if (radio) radio.checked = true;
+      });
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        const serviceIDs = Array.from(document.querySelectorAll(".catalog-service:checked"), (input) => Number(input.value));
-        if (serviceIDs.length === 0 || !form.reportValidity()) {
-          toast("Choose at least one service", "Select a service to continue.");
+        const chosen = document.querySelector(".catalog-service:checked");
+        if (!chosen) {
+          toast("Choose a service", "Select the service you need to continue.");
           return;
         }
+        // The browser shows its own message when the "I have reviewed" box is not ticked.
+        if (!form.reportValidity()) return;
+        const serviceID = Number(chosen.value);
         try {
           // The order is placed for whoever is signed in; there is no ID field to fill in.
           const userID = await currentUserID();
-          saveDraft({ ...getDraft(), userID, services: serviceIDs });
+          const current = getDraft();
+          // Items already added for a different service do not carry over to the new one.
+          const lines = (current.lines || []).filter((line) => line.serviceID === serviceID);
+          saveDraft({ ...current, userID, services: [serviceID], lines });
           window.location.href = "new_order_items.html";
         } catch (error) {
           toast("Unable to continue", error.message);
@@ -162,6 +196,8 @@
     }
   }
 
+  // One editable order line (item, service, quantity) on the Modify order page.
+  // selectedServices are the service IDs the line may use.
   function lineRow(line, data, selectedServices) {
     const availableItems = data.items.filter((item) => data.pricing.some((price) =>
       price.itemID === item.itemID && selectedServices.includes(price.serviceID)));
@@ -200,67 +236,6 @@
     };
     Array.from(container.children).forEach(bind);
     return { bind, priceFor };
-  }
-
-  async function initItems() {
-    const list = document.getElementById("item-list");
-    const form = list?.closest("form");
-    if (!list || !form) return;
-    try {
-      const data = await catalog();
-      const draft = getDraft();
-      const selectedServices = draft.services?.length ? draft.services : data.services.map((service) => service.serviceID);
-      const initialLines = (draft.lines || []).filter((line) => selectedServices.includes(line.serviceID));
-      for (const serviceID of selectedServices) {
-        if (initialLines.some((line) => line.serviceID === serviceID)) continue;
-        const price = data.pricing.find((entry) => entry.serviceID === serviceID
-          && data.items.some((item) => item.itemID === entry.itemID));
-        if (!price) {
-          const service = data.services.find((entry) => entry.serviceID === serviceID);
-          throw new Error(`${service?.serviceName || "A selected service"} has no currently priced items. Return to Services & Prices to update your selection.`);
-        }
-        initialLines.push({ itemID: price.itemID, serviceID, quantity: 1 });
-      }
-      list.innerHTML = initialLines.map((line) => lineRow(line, data, selectedServices)).join("");
-      const updateTotal = () => {
-        const total = Array.from(list.querySelectorAll(".item-row")).reduce((sum, row) => {
-          const price = data.pricing.find((entry) => entry.itemID === Number(row.querySelector(".item-name").value) && entry.serviceID === Number(row.querySelector(".item-service").value));
-          return sum + (price ? price.price * Number(row.querySelector(".item-qty").value || 0) : 0);
-        }, 0);
-        document.getElementById("estimated-total").textContent = money(total);
-      };
-      const bindings = bindLineRows(list, data, selectedServices, updateTotal);
-      const originalAddButton = document.getElementById("add-item");
-      const addButton = originalAddButton.cloneNode(true);
-      originalAddButton.replaceWith(addButton);
-      addButton.addEventListener("click", () => {
-        list.insertAdjacentHTML("beforeend", lineRow({}, data, selectedServices));
-        bindings.bind(list.lastElementChild);
-        updateTotal();
-      });
-      form.addEventListener("submit", (event) => {
-        event.preventDefault();
-        if (!form.reportValidity()) return;
-        const lines = Array.from(list.querySelectorAll(".item-row")).map((row) => ({
-          itemID: Number(row.querySelector(".item-name").value),
-          serviceID: Number(row.querySelector(".item-service").value),
-          quantity: Number(row.querySelector(".item-qty").value)
-        }));
-        if (lines.some((line) => !bindings.priceFor(line.itemID, line.serviceID) || line.quantity <= 0)) {
-          toast("Invalid item selection", "Choose a currently priced item/service combination.");
-          return;
-        }
-        if (selectedServices.some((serviceID) => !lines.some((line) => line.serviceID === serviceID))) {
-          toast("Add items for every selected service", "Each selected service needs at least one item. To remove a service, return to Services & Prices.");
-          return;
-        }
-        saveDraft({ ...getDraft(), lines });
-        window.location.href = "new_order_schedule.html";
-      });
-      updateTotal();
-    } catch (error) {
-      list.innerHTML = `<div class="alert" style="background:#fff0f0;color:#9a2727;border-left-color:#e05252">Unable to load order items: ${escapeHtml(error.message)}</div>`;
-    }
   }
 
   function initSchedule() {
@@ -539,16 +514,19 @@
     if (!ELIGIBLE_STATUSES.has(order.statusLabel) || order.customerCanModify !== true) { main.innerHTML = `<section class="card"><h1>Order cannot be modified</h1><p class="muted">${LOCKED_MESSAGE} Current status: ${escapeHtml(order.statusLabel)}.</p><a class="custom_button custom_button_bg" href="order_details.html?userID=${order.userID}&orderID=${order.orderID}">View order</a></section>`; return; }
     try {
       const [data, addresses] = await Promise.all([catalog(), api("/account/addresses")]);
-      const allServices = data.services.map((service) => service.serviceID);
+      // An order covers one service, so the lines can only use the service already on the
+      // order. (An older order that mixes services keeps the ones it has; the server asks for
+      // it to be brought down to one when it is saved.)
+      const orderServices = [...new Set(order.orderLines.map((line) => line.serviceID))];
       main.innerHTML = `<header class="page_header"><div class="subtitle">MODIFY ORDER</div><h1>Edit order #${order.orderID}</h1></header><form id="modify-order-form" style="margin-top:22px"><section class="card"><h2>Items and services</h2><div id="item-list"></div><button id="add-item" class="custom_button custom_button_nobg" type="button">+ Add another item</button></section><aside class="card" style="margin-top:20px"><div class="top_bar"><div><h2>Updated order total</h2></div><h2 id="estimated-total"></h2></div></aside><div class="actions"><a class="custom_button custom_button_nobg" href="order_details.html?userID=${order.userID}&orderID=${order.orderID}">Discard changes</a><button class="custom_button custom_button_bg" type="submit">Save order changes</button></div></form>`;
       const form = document.getElementById("modify-order-form");
       form.querySelector(".actions").insertAdjacentHTML("beforebegin", modificationDetailsMarkup(order, addresses));
       const validateSchedule = bindModificationSchedule(form);
       const list = document.getElementById("item-list");
-      list.innerHTML = order.orderLines.map((line) => lineRow(line, data, allServices)).join("");
+      list.innerHTML = order.orderLines.map((line) => lineRow(line, data, orderServices)).join("");
       const updateTotal = () => { const total = Array.from(list.querySelectorAll(".item-row")).reduce((sum, row) => { const price = data.pricing.find((entry) => entry.itemID === Number(row.querySelector(".item-name").value) && entry.serviceID === Number(row.querySelector(".item-service").value)); return sum + (price ? price.price * Number(row.querySelector(".item-qty").value || 0) : 0); }, 0); document.getElementById("estimated-total").textContent = money(total); };
-      const bindings = bindLineRows(list, data, allServices, updateTotal);
-      document.getElementById("add-item").addEventListener("click", () => { list.insertAdjacentHTML("beforeend", lineRow({}, data, allServices)); bindings.bind(list.lastElementChild); updateTotal(); });
+      const bindings = bindLineRows(list, data, orderServices, updateTotal);
+      document.getElementById("add-item").addEventListener("click", () => { list.insertAdjacentHTML("beforeend", lineRow({}, data, orderServices)); bindings.bind(list.lastElementChild); updateTotal(); });
       let saving = false;
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -577,7 +555,7 @@
   document.addEventListener("DOMContentLoaded", () => {
     const page = window.location.pathname.split("/").pop();
     if (page === "new_order_services.html") initServices();
-    else if (page === "new_order_items.html") initItems();
+    // new_order_items.html has its own script and does not load this file.
     else if (page === "new_order_schedule.html") initSchedule();
     else if (page === "new_order_instructions.html") initInstructions();
     else if (page === "new_order_review.html") initReview();

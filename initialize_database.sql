@@ -54,6 +54,10 @@ IF OBJECT_ID('dbo.feedback', 'U') IS NOT NULL
     DROP TABLE dbo.feedback;
 IF OBJECT_ID('dbo.orderPromotions', 'U') IS NOT NULL
     DROP TABLE dbo.orderPromotions;
+-- refunds (created by migration 011) references payments and users, so it is dropped first.
+-- Without this the initializer cannot be re-run on a database that already has migration 011.
+IF OBJECT_ID('dbo.refunds', 'U') IS NOT NULL
+    DROP TABLE dbo.refunds;
 IF OBJECT_ID('dbo.payments', 'U') IS NOT NULL
     DROP TABLE dbo.payments;
 IF OBJECT_ID('dbo.logs', 'U') IS NOT NULL
