@@ -70,6 +70,9 @@
 .queue-heading p { margin:0; }
 .queue-count { flex:none; padding:7px 12px; border-radius:999px; color:#126284; background:#eaf7fc; font-size:.82rem; font-weight:700; }
 .support-page .support-queue .toolbar { margin:16px 26px 20px; padding:16px; border:1px solid #dce8ef; border-radius:15px; background:#f8fbfd; }
+/* The row lines its items up along the bottom. A field's 18px bottom margin (global.css)
+   counts as part of the field, so without this the buttons sit 18px lower than the inputs. */
+.support-page .support-queue .toolbar .field { margin:0; }
 .support-page .support-queue .toolbar .field:first-child { flex:1.6; }
 .filter-reset { color:#506675; background:#edf2f5; }
 .case-table-wrap { border-top:1px solid #e2ebf0; }
