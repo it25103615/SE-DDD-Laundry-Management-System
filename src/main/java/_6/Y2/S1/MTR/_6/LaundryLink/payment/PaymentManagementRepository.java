@@ -12,7 +12,11 @@ public interface PaymentManagementRepository {
 
     List<PaymentManagementOrderSummary> findBillableOrderSummaries();
 
-    void updateOrderStatus(Integer orderID, Integer statusID);
+    /**
+     * Moves the order to the given status and returns the number of rows updated. A cancelled
+     * order is never updated, so 0 means the order is cancelled (or does not exist).
+     */
+    int updateOrderStatus(Integer orderID, Integer statusID);
 
     /**
      * True when the order's status log shows it reached "Payment Verified". An approved order is

@@ -8,6 +8,7 @@
  */
 (() => {
   const { $, escape, dateTime, param, badge, api, notice, run } = Processing;
+  let canReport = false;
 
   async function loadIssues() {
     const issues = await api("/issues");
@@ -42,6 +43,7 @@
 
   $("new-report").addEventListener("submit", (event) => {
     event.preventDefault();
+    if (!canReport) return notice("Only laundry staff can file issue reports.", "error");
     if (!$("new-report").reportValidity()) return;
     const orderID = Number($("order").value.trim().replace(/^#/, ""));
     if (!Number.isInteger(orderID) || orderID < 1) return notice("Enter a valid order number.", "error");
@@ -68,5 +70,12 @@
   }
   if (param("issue")) $("issue").value = param("issue");
 
-  run(loadIssues);
+  run(async () => {
+    const permissions = await api('/issues/permissions');
+    canReport = permissions.canReport === true;
+    $('new-report').hidden = !canReport;
+    $('submit-report-link').hidden = !canReport;
+    if (canReport) $('issue-description').textContent = 'Record damaged, missing or mismatched items. Each report is also sent to customer service as a complaint case.';
+    await loadIssues();
+  });
 })();

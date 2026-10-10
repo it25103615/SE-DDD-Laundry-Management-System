@@ -9,6 +9,7 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -88,12 +89,6 @@ public class ProcessingRepository {
                 email).stream().findFirst();
     }
 
-    /** The ID of a service by its name (used to find "Dry Cleaning", whose ID differs between databases). */
-    public Optional<Integer> findServiceIdByName(String serviceName) {
-        return db.queryForList("SELECT serviceID FROM services WHERE serviceName = ?", Integer.class, serviceName)
-                .stream().findFirst();
-    }
-
     /** statusID -> label for every status, so the page can show readable stage names. */
     public Map<Integer, String> findStatusLabels() {
         Map<Integer, String> labels = new HashMap<>();
@@ -103,18 +98,18 @@ public class ProcessingRepository {
     }
 
     /**
-     * Orders currently in processing (statuses 7-11 and 19), optionally narrowed to one status.
+     * Orders currently in processing (statuses 7-11, 19 and 21), optionally narrowed to one status.
      * Also works out each order's route, item count, open issues and when its status last changed.
      */
-    public List<ProcessingOrderSummary> findOrdersInProcessing(Integer statusFilter, Integer dryCleaningServiceId) {
+    public List<ProcessingOrderSummary> findOrdersInProcessing(Integer statusFilter) {
+        // The route is picked in Java by ProcessingTransitions.routeFor, the same rule the order
+        // page uses, so the rule is written in one place only. It needs each order's service names.
+        Map<Integer, List<String>> services = findServiceNamesOfOrdersInProcessing();
         return db.query("""
                 SELECT o.orderID,
                        CONCAT(u.firstName, ' ', u.lastName) AS customerName,
                        o.statusID,
                        s.statusLabel,
-                       -- Any Dry Cleaning line puts the order on the dry clean route.
-                       CASE WHEN EXISTS (SELECT 1 FROM orderLines l WHERE l.orderID = o.orderID AND l.serviceID = ?)
-                            THEN 'DRY_CLEAN' ELSE 'WASH' END AS route,
                        (SELECT COUNT(*) FROM orderLines l WHERE l.orderID = o.orderID) AS lineCount,
                        (SELECT COALESCE(SUM(l.quantity), 0) FROM orderLines l WHERE l.orderID = o.orderID) AS itemCount,
                        -- Issue cases (support cases with an issue type) not yet Resolved or Closed.
@@ -129,7 +124,7 @@ public class ProcessingRepository {
                 FROM orders o
                 JOIN users u ON u.userID = o.userID
                 JOIN status s ON s.statusID = o.statusID
-                WHERE o.statusID IN (7, 8, 9, 10, 11, 19)
+                WHERE o.statusID IN (7, 8, 9, 10, 11, 19, 21)
                   AND (? IS NULL OR o.statusID = ?)
                 ORDER BY o.orderID
                 """.formatted(ProcessingIssueRepository.ISSUE_TYPES_SQL),  // %s: the issue case types
@@ -138,13 +133,29 @@ public class ProcessingRepository {
                         rs.getString("customerName"),
                         rs.getInt("statusID"),
                         rs.getString("statusLabel"),
-                        rs.getString("route"),
+                        // An order with no lines has no entry; routeFor then gives the default route.
+                        ProcessingTransitions.routeFor(services.getOrDefault(rs.getInt("orderID"), List.of())).name(),
                         rs.getInt("lineCount"),
                         rs.getInt("itemCount"),
                         rs.getInt("openIssues"),
                         toDateTime(rs.getTimestamp("lastUpdated"))),
-                // -1 never matches a real service, so every order counts as wash when Dry Cleaning is missing.
-                dryCleaningServiceId == null ? -1 : dryCleaningServiceId, statusFilter, statusFilter);
+                statusFilter, statusFilter);
+    }
+
+    /** orderID -> the service names on its lines, for every order currently in processing. */
+    private Map<Integer, List<String>> findServiceNamesOfOrdersInProcessing() {
+        Map<Integer, List<String>> services = new HashMap<>();
+        db.query("""
+                SELECT ol.orderID, sv.serviceName
+                FROM orderLines ol
+                JOIN services sv ON sv.serviceID = ol.serviceID
+                JOIN orders o ON o.orderID = ol.orderID
+                WHERE o.statusID IN (7, 8, 9, 10, 11, 19, 21)
+                """,
+                (ResultSet rs) -> {
+                    services.computeIfAbsent(rs.getInt("orderID"), id -> new ArrayList<>()).add(rs.getString("serviceName"));
+                });
+        return services;
     }
 
     /**

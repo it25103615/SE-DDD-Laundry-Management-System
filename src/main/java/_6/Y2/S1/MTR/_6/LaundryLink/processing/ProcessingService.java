@@ -5,7 +5,6 @@ import _6.Y2.S1.MTR._6.LaundryLink.orders.OrderPreference;
 import _6.Y2.S1.MTR._6.LaundryLink.processing.ProcessingRepository.CheckRow;
 import _6.Y2.S1.MTR._6.LaundryLink.processing.ProcessingRepository.LineRow;
 import _6.Y2.S1.MTR._6.LaundryLink.processing.ProcessingRepository.OrderHeader;
-import _6.Y2.S1.MTR._6.LaundryLink.processing.ProcessingTransitions.Route;
 import _6.Y2.S1.MTR._6.LaundryLink.processing.dto.ProcessingOrderDetail;
 import _6.Y2.S1.MTR._6.LaundryLink.processing.dto.ProcessingOrderDetail.QualityCheck;
 import _6.Y2.S1.MTR._6.LaundryLink.processing.dto.ProcessingOrderDetail.StatusOption;
@@ -28,22 +27,18 @@ import static _6.Y2.S1.MTR._6.LaundryLink.processing.ProcessingTransitions.*;
  * The laundry processing workflow: receiving items, moving an order through the cleaning stages,
  * the quality check, packing and marking the order ready for delivery.
  *
- * <p>The rules about which stage may follow which live in {@link ProcessingTransitions}; this
- * class checks the order's current state, applies those rules, saves the data and changes status
- * through {@link ProcessingRepository#updateStatus}, which also writes the status log. Every write
+ * <p>The rules about which stage may follow which are a Strategy pattern: each order has a
+ * {@link ProcessingRoute} (wash, dry-clean, shoe cleaning or ironing), picked from its service by
+ * {@link ProcessingTransitions#routeFor}. This class is the context: it checks the order's current
+ * state, asks the route what is allowed, saves the data and changes status through
+ * {@link ProcessingRepository#updateStatus}, which also writes the status log. Every write
  * method is one transaction, so a failure leaves nothing half-saved.
  */
 @Service
 public class ProcessingService {
 
-    /** Services named this send an order down the dry-clean route (looked up by name, not ID). */
-    static final String DRY_CLEANING_SERVICE = "Dry Cleaning";
-
     /** Roles allowed to do processing work (also enforced by URL in SecurityConfig). */
     private static final Set<String> PROCESSING_ROLES = Set.of("STAFF", "MANAGER", "OWNER", "ADMIN");
-
-    /** Rework options are offered in workflow order rather than numeric order. */
-    private static final List<Integer> STAGE_ORDER = List.of(WASHING, DRY_CLEAN, DRYING, IRONING);
 
     private final ProcessingRepository repository;
     private final ProcessingIssueRepository issueRepository;
@@ -75,7 +70,7 @@ public class ProcessingService {
         if (statusFilter != null && !PROCESSING_STATUSES.contains(statusFilter)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Status " + statusFilter + " is not a processing stage.");
         }
-        return repository.findOrdersInProcessing(statusFilter, dryCleaningServiceId());
+        return repository.findOrdersInProcessing(statusFilter);
     }
 
     /** Everything the Order Processing page needs for one order. */
@@ -83,16 +78,16 @@ public class ProcessingService {
     public ProcessingOrderDetail getOrder(int orderID) {
         OrderHeader order = requireOrder(orderID);
         List<LineRow> lines = repository.findLines(orderID);
-        Route route = routeOf(lines);
+        ProcessingRoute route = routeOf(lines);
         CheckRow check = repository.findLatestQualityCheck(orderID).orElse(null);
         Map<Integer, String> labels = repository.findStatusLabels();
 
-        // What the page may offer next, worked out from the workflow rules.
-        Integer next = nextStage(order.statusID(), route);
+        // What the page may offer next, worked out by the order's route (the strategy).
+        Integer next = route.nextStage(order.statusID());
         StatusOption nextStatus = next == null ? null : new StatusOption(next, labels.get(next));
-        List<StatusOption> reworkOptions = order.statusID() == IRONING
-                ? STAGE_ORDER.stream().filter(reworkTargets(route)::contains)
-                        .map(id -> new StatusOption(id, labels.get(id))).toList()
+        // Rework stages matter only during the quality check, which happens at Quality Inspection.
+        List<StatusOption> reworkOptions = order.statusID() == QUALITY_INSPECTION
+                ? route.reworkTargets().stream().map(id -> new StatusOption(id, labels.get(id))).toList()
                 : List.of();
 
         return new ProcessingOrderDetail(
@@ -175,16 +170,16 @@ public class ProcessingService {
     }
 
     /**
-     * Moves an order to the next cleaning stage. Only the single next stage on the
-     * order's route is allowed; anything else - skipping ahead, a stage from the other
-     * route, or a step that needs receiving or a quality check - is rejected with 409 and the
-     * procedure is never called, so no log row is written.
+     * Moves an order to the next stage of its route (the last cleaning stage leads to Quality
+     * Inspection). Only the single next stage on the order's route is allowed; anything else -
+     * skipping ahead, a stage from another route, or a step that needs receiving or a quality
+     * check - is rejected with 409 and the procedure is never called, so no log row is written.
      */
     @Transactional
     public ProcessingOrderDetail changeStatus(int orderID, int targetStatusID) {
         OrderHeader order = requireOrder(orderID);
-        Route route = routeOf(repository.findLines(orderID));
-        if (!canAdvance(order.statusID(), targetStatusID, route)) {
+        ProcessingRoute route = routeOf(repository.findLines(orderID));
+        if (!route.canAdvance(order.statusID(), targetStatusID)) {
             throw new ApiException(HttpStatus.CONFLICT, invalidTransitionMessage(order, targetStatusID, route));
         }
         repository.updateStatus(orderID, targetStatusID);
@@ -192,23 +187,23 @@ public class ProcessingService {
     }
 
     /**
-     * Records the quality check done after Ironing. A Failed check must name a rework
-     * stage on the order's route, and the order moves back there (redoing Ironing just records the
-     * check, since the order is already at Ironing). A Passed check may be packed straight away.
+     * Records the quality check, done while the order is at Quality Inspection. A Failed check
+     * must name a rework stage on the order's route, and the order moves back there. A Passed
+     * check may be packed straight away.
      */
     @Transactional
     public ProcessingOrderDetail recordQualityCheck(int orderID, QualityCheckRequest request, StaffMember staff) {
         OrderHeader order = requireOrder(orderID);
-        if (order.statusID() != IRONING) {
+        if (order.statusID() != QUALITY_INSPECTION) {
             throw new ApiException(HttpStatus.CONFLICT, "Order #" + orderID + " is " + order.statusLabel()
-                    + ". The quality check happens after Ironing.");
+                    + ". The quality check happens at Quality Inspection.");
         }
-        Route route = routeOf(repository.findLines(orderID));
+        ProcessingRoute route = routeOf(repository.findLines(orderID));
         boolean failed = "Failed".equals(request.result());
         Integer rework = request.reworkStatusID();
-        if (failed && (rework == null || !reworkTargets(route).contains(rework))) {
+        if (failed && (rework == null || !route.reworkTargets().contains(rework))) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Choose a rework stage on this order's route: "
-                    + describeStages(reworkTargets(route)) + ".");
+                    + describeStages(route.reworkTargets()) + ".");
         }
         if (!failed && rework != null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "A passed quality check has no rework stage.");
@@ -217,8 +212,8 @@ public class ProcessingService {
         boolean packed = !failed && Boolean.TRUE.equals(request.packed());
         String notes = request.notes() == null || request.notes().isBlank() ? null : request.notes().trim();
         repository.insertQualityCheck(orderID, request.result(), rework, packed, notes, staff.userID());
-        if (failed && rework != IRONING) {
-            repository.updateStatus(orderID, rework);   // logs e.g. 11 -> 9 as the rework record
+        if (failed) {
+            repository.updateStatus(orderID, rework);   // logs e.g. 21 -> 9 as the rework record
         }
         return getOrder(orderID);
     }
@@ -228,7 +223,7 @@ public class ProcessingService {
     public ProcessingOrderDetail pack(int orderID) {
         OrderHeader order = requireOrder(orderID);
         CheckRow check = repository.findLatestQualityCheck(orderID).orElse(null);
-        if (order.statusID() != IRONING || check == null || !"Passed".equals(check.result())) {
+        if (order.statusID() != QUALITY_INSPECTION || check == null || !"Passed".equals(check.result())) {
             throw new ApiException(HttpStatus.CONFLICT, "Pack order #" + orderID + " only after it has passed the quality check.");
         }
         if (!check.packed()) {
@@ -238,7 +233,7 @@ public class ProcessingService {
     }
 
     /**
-     * Releases a passed, packed order for delivery: Ironing -> Awaiting Delivery. The
+     * Releases a passed, packed order for delivery: Quality Inspection -> Awaiting Delivery. The
      * order-notification trigger in the database tells the customer about the new status.
      */
     @Transactional
@@ -260,38 +255,34 @@ public class ProcessingService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order #" + orderID + " was not found."));
     }
 
-    /** An order is ready to release when it is at Ironing and its newest check passed and is packed. */
+    /** An order is ready to release when it is at Quality Inspection and its newest check passed and is packed. */
     private static boolean isReady(OrderHeader order, CheckRow check) {
-        return order.statusID() == IRONING && check != null && "Passed".equals(check.result()) && check.packed();
+        return order.statusID() == QUALITY_INSPECTION && check != null && "Passed".equals(check.result()) && check.packed();
     }
 
-    /** The route comes from the order's services: any Dry Cleaning line means the dry-clean route. */
-    private Route routeOf(List<LineRow> lines) {
-        return routeFor(lines.stream().map(LineRow::serviceID).toList(), dryCleaningServiceId());
-    }
-
-    private Integer dryCleaningServiceId() {
-        return repository.findServiceIdByName(DRY_CLEANING_SERVICE).orElse(null);
+    /** Picks the order's route (its strategy) from the service on its lines. */
+    private static ProcessingRoute routeOf(List<LineRow> lines) {
+        return routeFor(lines.stream().map(LineRow::serviceName).toList());
     }
 
     /** Explains why a status change was refused and what the correct next step is. */
-    private String invalidTransitionMessage(OrderHeader order, int target, Route route) {
+    private String invalidTransitionMessage(OrderHeader order, int target, ProcessingRoute route) {
         Map<Integer, String> labels = repository.findStatusLabels();
         String targetLabel = labels.getOrDefault(target, "status " + target);
         String prefix = "Order #" + order.orderID() + " cannot move from " + order.statusLabel() + " to " + targetLabel + ". ";
-        Integer next = nextStage(order.statusID(), route);
+        Integer next = route.nextStage(order.statusID());
         if (next != null) {
             return prefix + "The next stage is " + labels.get(next) + ".";
         }
         return switch (order.statusID()) {
             case IN_SHOP -> prefix + "Receive and count the items first.";
-            case IRONING -> prefix + "Record the quality check, then pack and mark the order as ready.";
+            case QUALITY_INSPECTION -> prefix + "Record the quality check, then pack and mark the order as ready.";
             default -> prefix + "It is not at a processing stage.";
         };
     }
 
-    private String describeStages(Set<Integer> statusIDs) {
+    private String describeStages(List<Integer> statusIDs) {
         Map<Integer, String> labels = repository.findStatusLabels();
-        return String.join(", ", STAGE_ORDER.stream().filter(statusIDs::contains).map(labels::get).toList());
+        return String.join(", ", statusIDs.stream().map(labels::get).toList());
     }
 }

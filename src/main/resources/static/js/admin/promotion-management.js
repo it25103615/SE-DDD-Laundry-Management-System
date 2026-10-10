@@ -103,6 +103,11 @@
 
   function validatePayload(payload) {
     if (!payload.promotionCode) return "Promotion code is required.";
+    // Same rule as the server (PromotionService): a code is letters, numbers, dashes and
+    // underscores only, so HTML or other markup can never be saved as a promotion code.
+    if (!/^[A-Za-z0-9_-]{1,30}$/.test(payload.promotionCode)) {
+      return "Promotion code can only contain letters, numbers, dashes and underscores (up to 30 characters).";
+    }
     if (!payload.promotionName) return "Promotion name is required.";
     if (payload.discountType !== "PERCENTAGE" && payload.discountType !== "FIXED_AMOUNT") {
       return "Choose a valid discount type.";

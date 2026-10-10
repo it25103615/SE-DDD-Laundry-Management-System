@@ -16,8 +16,20 @@ BEGIN TRY
     IF COL_LENGTH('dbo.payments', 'paymentStatus') IS NULL
         ALTER TABLE dbo.payments ADD paymentStatus VARCHAR(20) NOT NULL CONSTRAINT df_payments_status DEFAULT 'PENDING';
 
-    IF EXISTS (SELECT 1 FROM sys.default_constraints WHERE name = 'df_payments_status')
-        ALTER TABLE dbo.payments DROP CONSTRAINT df_payments_status;
+    -- Drop the default bound to paymentStatus whatever it is called. A database built from an
+    -- earlier initialize_database.sql has a system-named default (DF__payments__paymen__...),
+    -- which a check for the name df_payments_status misses; the ADD below then fails with
+    -- "Column already has a DEFAULT bound to it".
+    DECLARE @DefaultName sysname = (
+        SELECT dc.name
+        FROM sys.default_constraints dc
+        JOIN sys.columns c ON c.object_id = dc.parent_object_id AND c.column_id = dc.parent_column_id
+        WHERE dc.parent_object_id = OBJECT_ID('dbo.payments') AND c.name = 'paymentStatus');
+    IF @DefaultName IS NOT NULL
+    BEGIN
+        DECLARE @DropDefault NVARCHAR(300) = N'ALTER TABLE dbo.payments DROP CONSTRAINT ' + QUOTENAME(@DefaultName);
+        EXEC(@DropDefault);
+    END
 
     ALTER TABLE dbo.payments ADD CONSTRAINT df_payments_status DEFAULT 'PENDING' FOR paymentStatus;
 

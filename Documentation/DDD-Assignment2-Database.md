@@ -194,7 +194,7 @@ Migration `003_ddd_assignment2_refinement.sql` checks for unknown roles, orphane
 - `001_support_admin.sql` and `002_account_password_hash.sql` are retained as historical schema-evolution records. Their final support-table, feedback-column, and password-column results are already incorporated directly into the master initializer.
 - `003_ddd_assignment2_refinement.sql` remains the schema-refinement upgrade path for an existing database. Then run `004_ddd_assignment2_module_routines.sql` to replace the old single Part E procedure with the six module-specific routines.
 
-The project does not use Flyway or Liquibase. Migration execution is manual or through `scripts/Initialize-SupportDatabase.ps1`. Therefore the operator must retain evidence of which scripts were executed.
+The project does not use Flyway or Liquibase. Migration execution is manual or through `scripts/Initialize-SupportDatabase.ps1`, which runs every file in `database/migrations` in name order (from 003 on an existing database, from 005 on a fresh one) and re-runs them on each run, so every migration must be safe to re-run. Therefore the operator must retain evidence of which scripts were executed.
 
 ## 6. Sample data
 

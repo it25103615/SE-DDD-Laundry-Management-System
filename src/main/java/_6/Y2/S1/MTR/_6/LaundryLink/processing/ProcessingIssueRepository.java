@@ -74,15 +74,18 @@ public class ProcessingIssueRepository {
 
     /**
      * Opens a High-priority case for the issue, filed under the order's customer.
-     * Returns the new feedbackID. feedback has no triggers, so OUTPUT is allowed here.
+     * Returns the new feedbackID through a table variable, compatible with feedback triggers.
      */
     public int insertIssueCase(int orderID, String issueType, String subject, String description) {
         String trimmedSubject = subject.length() > MAX_SUBJECT_LENGTH ? subject.substring(0, MAX_SUBJECT_LENGTH) : subject;
         return db.queryForObject("""
-                INSERT INTO feedback (feedback, userID, orderID, caseType, subject, priority)
-                OUTPUT INSERTED.feedbackID
-                SELECT ?, o.userID, o.orderID, ?, ?, 'High'
-                FROM orders o WHERE o.orderID = ?
+                SET NOCOUNT ON;
+                DECLARE @created TABLE (id INT);
+                INSERT INTO feedback (feedback, userID, orderID, caseType, subject, priority, topic)
+                OUTPUT INSERTED.feedbackID INTO @created
+                SELECT ?, o.userID, o.orderID, ?, ?, 'High', 'Laundry & items'
+                FROM orders o WHERE o.orderID = ?;
+                SELECT id FROM @created;
                 """, Integer.class, description, issueType, trimmedSubject, orderID);
     }
 

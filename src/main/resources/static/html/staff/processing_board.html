@@ -20,9 +20,7 @@
         <h1>Processing Board</h1>
         <p>Orders currently moving through the laundry facility. Open an order to move it to its next stage.</p>
       </header>
-      <!-- View switch sits above the board it controls; processing-board.js wires it up.
-           It deliberately has no type="button": global-post.js adds a placeholder toast to every
-           button[type="button"], and outside a <form> a plain button does nothing by default. -->
+      <!-- processing-board.js controls the view switch. -->
       <div class="top_bar board_toolbar">
         <span id="board-count"></span>
         <button

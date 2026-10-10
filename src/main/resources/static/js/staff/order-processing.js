@@ -2,13 +2,14 @@
  * Order Processing (html/staff/order_processing.html?orderId=N) - TC-LP05, LP07 to LP10.
  *
  * Loads one order from GET /api/processing/orders/{id} and draws:
- *  - the timeline for the order's route (wash: Washing -> Drying -> Ironing, or
- *    dry clean: Dry Clean -> Ironing), with completed / current / locked stages;
+ *  - the timeline for the order's route (wash, dry clean, shoe cleaning or ironing only; every
+ *    route ends at Quality Inspection), with completed / current / locked stages;
  *  - the items, the customer's instructions (the order's note and preferences, and the
  *    address's delivery instruction), the status history and issues;
  *  - the actions the server says are allowed next: move to the next stage, a manual status
- *    change (invalid moves are refused by the server, TC-LP08), the quality check with a
- *    rework stage when it fails (TC-LP09), packing, and "Mark as Ready" (TC-LP10).
+ *    change (invalid moves are refused by the server, TC-LP08), and - once the order is at
+ *    Quality Inspection - the quality check with a rework stage when it fails (TC-LP09),
+ *    packing, and "Mark as Ready" (TC-LP10).
  * After every action the page reloads the order so it always shows the saved state.
  * Buttons are created here (not in the HTML) so global-post.js does not attach demo toasts.
  */
@@ -17,31 +18,55 @@
   const orderId = param("orderId");
   let order = null;
 
-  /** Timeline stages for each route; `status` is the order status that stage corresponds to. */
+  /** The status where the quality check, packing and "Mark as Ready" happen, on every route. */
+  const QUALITY_INSPECTION = 21;
+
+  // Timeline steps shared by every route: the two before the cleaning stages and the two after.
+  const START = [
+    { status: 7, title: "Order received", text: "Items counted against the order at the shop." },
+    { status: 8, title: "Verifying items", text: "Items checked, tagged and condition recorded." },
+  ];
+  const END = [
+    { status: QUALITY_INSPECTION, title: "Quality inspection", text: "Check item count, finish and customer instructions." },
+    { packed: true, title: "Packed and ready", text: "Seal the order and release it for delivery." },
+  ];
+
+  /**
+   * Timeline stages for each route; `status` is the order status that stage corresponds to.
+   * The keys are the route codes sent by the server (ProcessingRoute.name()), and the cleaning
+   * stages in the middle are what differs between routes.
+   */
   const STAGES = {
-    WASH: [
-      { status: 7, title: "Order received", text: "Items counted against the order at the shop." },
-      { status: 8, title: "Verifying items", text: "Items checked, tagged and condition recorded." },
+    WASH: [...START,
       { status: 9, title: "Washing", text: "Wash every item with its selected service." },
       { status: 10, title: "Drying", text: "Dry items according to their care requirements." },
       { status: 11, title: "Ironing and finishing", text: "Press, fold or hang items as requested." },
-      { qc: true, title: "Quality check", text: "Check item count, finish and customer instructions." },
-      { packed: true, title: "Packed and ready", text: "Seal the order and release it for delivery." },
-    ],
-    DRY_CLEAN: [
-      { status: 7, title: "Order received", text: "Items counted against the order at the shop." },
-      { status: 8, title: "Verifying items", text: "Items checked, tagged and condition recorded." },
+      ...END],
+    DRY_CLEAN: [...START,
       { status: 19, title: "Dry cleaning", text: "Dry clean every item (no drying stage)." },
       { status: 11, title: "Ironing and finishing", text: "Press and hang items as requested." },
-      { qc: true, title: "Quality check", text: "Check item count, finish and customer instructions." },
-      { packed: true, title: "Packed and ready", text: "Seal the order and release it for delivery." },
-    ],
+      ...END],
+    SHOE_CLEAN: [...START,
+      { status: 9, title: "Washing", text: "Clean every pair as its material requires." },
+      { status: 10, title: "Drying", text: "Dry the shoes fully (no ironing stage)." },
+      ...END],
+    IRONING: [...START,
+      { status: 11, title: "Ironing and finishing", text: "Press, fold or hang items as requested." },
+      ...END],
+  };
+
+  /** One line under the timeline describing the order's route. */
+  const ROUTE_NOTES = {
+    WASH: "Wash route: Washing, then Drying, then Ironing.",
+    DRY_CLEAN: "Dry clean route: Dry Clean goes straight to Ironing.",
+    SHOE_CLEAN: "Shoe cleaning route: Washing, then Drying (no ironing).",
+    IRONING: "Ironing route: straight to Ironing (no washing or drying).",
   };
 
   /** Statuses offered in the manual status change (the server decides what is allowed). */
   const STATUS_CHOICES = [
     [8, "Verifying Items"], [9, "Washing"], [19, "Dry Clean"], [10, "Drying"],
-    [11, "Ironing"], [12, "Awaiting Delivery"],
+    [11, "Ironing"], [21, "Quality Inspection"], [12, "Awaiting Delivery"],
   ];
 
   /** How many timeline stages are finished, from the status and the latest quality check. */
@@ -50,8 +75,8 @@
     const index = stages.findIndex((stage) => stage.status === order.statusID);
     if (index < 0) return 0;
     const check = order.latestQualityCheck;
-    if (order.statusID === 11 && check && check.result === "Passed") {
-      return check.packed ? index + 3 : index + 2;                 // ironing + QC (+ packing) done
+    if (order.statusID === QUALITY_INSPECTION && check && check.result === "Passed") {
+      return check.packed ? index + 2 : index + 1;                 // inspection (+ packing) done
     }
     return index;                                                  // everything before the current stage
   }
@@ -70,9 +95,7 @@
     const percent = Math.round((done / stages.length) * 100);
     $("progress-percent").textContent = percent + "%";
     $("progress-bar").style.width = percent + "%";
-    $("route-note").textContent = order.route === "DRY_CLEAN"
-      ? "Dry clean route: Dry Clean goes straight to Ironing."
-      : "Wash route: Washing, then Drying, then Ironing.";
+    $("route-note").textContent = ROUTE_NOTES[order.route] || ROUTE_NOTES.WASH;
   }
 
   function renderDetails() {
@@ -134,8 +157,8 @@
       parts.push(`<div class="alert alert_success"><strong>Released for delivery.</strong><br>The order is waiting for a delivery rider.</div>`);
     }
 
-    // TC-LP09: quality check after Ironing (failed -> choose a rework stage).
-    if (order.statusID === 11) {
+    // TC-LP09: quality check at Quality Inspection (failed -> choose a rework stage).
+    if (order.statusID === QUALITY_INSPECTION) {
       if (check) {
         parts.push(`<p class="small" style="margin-top:14px">Latest check: ${badge(check.result)}${check.packed ? " " + badge("Packed") : ""}
           ${check.reworkStatusLabel ? "<br>Rework: " + escape(check.reworkStatusLabel) : ""}
@@ -158,7 +181,7 @@
     if (order.statusID !== 12) {
       parts.push(`<div class="alert ${order.readyForDispatch ? "alert_success" : "alert_error"}" style="margin-top:18px">
           ${order.readyForDispatch ? "<strong>Ready to release</strong><br>Quality check passed and packed."
-            : "<strong>Not ready yet</strong><br>Finish ironing, pass the quality check and pack the order."}</div>
+            : "<strong>Not ready yet</strong><br>Finish the cleaning stages, pass the quality check and pack the order."}</div>
         <button class="custom_button custom_button_bg" type="button" data-action="ready"
           style="width:100%;margin-top:12px${order.readyForDispatch ? "" : ";opacity:.45;cursor:not-allowed"}"
           ${order.readyForDispatch ? "" : "disabled"}>Mark as Ready →</button>`);

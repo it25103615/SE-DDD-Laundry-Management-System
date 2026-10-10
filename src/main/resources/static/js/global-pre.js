@@ -145,9 +145,8 @@ if (location.protocol === "file:") {
 
   //Links that more than one role shares, written once so the label and the
   //  address stay the same everywhere
-  const supportCases = { label: "Support cases", href: SUPPORT + "/complaints.html" };
+  const supportCases = { label: "Support cases", href: "/html/support/cases.html" };
   const orderLookup = { label: "Order lookup", href: SUPPORT + "/orders.html" };
-  const assignedComplaints = { label: "Assigned Complaints", href: SUPPORT + "/complaints.html" };
   const staffAccounts = { label: "Staff accounts", href: "/html/admin/manager/staff_accounts.html" };
 
   //The link list of each role, in the order the links are shown.
@@ -178,6 +177,7 @@ if (location.protocol === "file:") {
         ],
       },
       { label: "Support", href: "/html/customer/feedback.html" },
+      { label: "Feedback", href: "/html/customer/reviews.html" },
     ],
     STAFF: [
       { label: "Dashboard", href: DASHBOARDS.STAFF },
@@ -188,12 +188,10 @@ if (location.protocol === "file:") {
       },
       { label: "Receive Items", href: "/html/staff/receive_items.html" },
       { label: "Issue Reports", href: "/html/staff/issue_reports.html" },
-      assignedComplaints,
     ],
     RIDER: [
       { label: "Dashboard", href: DASHBOARDS.RIDER },
       { label: "Task List", href: "/html/rider/task_list.html" },
-      assignedComplaints,
     ],
     MANAGER: [
       { label: "Dashboard", href: DASHBOARDS.MANAGER },
@@ -242,6 +240,7 @@ if (location.protocol === "file:") {
     ],
   };
   //Two role names mean the same thing in the database, so they share one list
+  LINKS.CSM.push({label:"Feedback",href:"/html/support/feedback.html"});
   LINKS.CUSTOMER_SERVICE_MANAGER = LINKS.CSM;
   LINKS.ADMIN = LINKS.OWNER;
 

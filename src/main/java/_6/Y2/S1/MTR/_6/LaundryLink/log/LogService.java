@@ -23,6 +23,11 @@ public class LogService {
         return logRepository.findByOrderID(orderID);
     }
 
+    // Only the logs of the orders placed by this customer.
+    public List<Log> getLogsOfCustomer(Integer userID) {
+        return logRepository.findByCustomer(userID);
+    }
+
     public Log logChange(Log log) {
         return logRepository.save(log);
     }

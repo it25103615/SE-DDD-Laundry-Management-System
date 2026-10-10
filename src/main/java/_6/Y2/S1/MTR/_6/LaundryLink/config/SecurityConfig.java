@@ -58,6 +58,7 @@ public class SecurityConfig {
                         .requestMatchers("/html/admin/owner/**").hasAnyRole("OWNER", "ADMIN")
                         .requestMatchers("/html/admin/manager/**").hasAnyRole("MANAGER", "OWNER", "ADMIN")
                         .requestMatchers("/html/admin/customer-service-manager/**").hasAnyRole("CSM", "CUSTOMER_SERVICE_MANAGER", "MANAGER", "OWNER", "ADMIN")
+                        .requestMatchers("/html/support/**").hasAnyRole("CSM", "CUSTOMER_SERVICE_MANAGER", "MANAGER", "OWNER", "ADMIN", "STAFF", "RIDER")
                         .requestMatchers("/api/support/**").authenticated()
                         .requestMatchers("/api/notifications/**").authenticated()
                         .requestMatchers("/api/customer/dashboard").hasRole("CUSTOMER")
@@ -81,6 +82,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/orders/customer/{userID}/**").access((authentication, context) ->
                                 new AuthorizationDecision(orderAccess.isOwnAccount(authentication.get(), customerID(context))))
                         .requestMatchers("/api/orders/**").authenticated()
+                        // Order status logs: customers, staff, managers, owners/admins and customer
+                        // service managers only, so riders and visitors who are not signed in are
+                        // refused. LogController then limits a customer to their own orders' logs.
+                        .requestMatchers("/api/logs/**").hasAnyRole(
+                                "CUSTOMER", "STAFF", "MANAGER", "OWNER", "ADMIN", "CSM", "CUSTOMER_SERVICE_MANAGER")
                         // Billing and invoice data is protected in BillingController:
                         // finance management can inspect all orders, customers only their own.
                         .requestMatchers("/api/billing/**").authenticated()

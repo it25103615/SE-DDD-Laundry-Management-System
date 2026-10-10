@@ -20,7 +20,8 @@ BEGIN TRY
         (7,'In Shop'),(8,'Verifying Items'),(9,'Washing'),(10,'Drying'),
         (11,'Ironing'),(12,'Awaiting Delivery'),(13,'En Route To Delivery'),
         (14,'Delivered'),(15,'Completed'),(16,'Payment Failed'),
-        (17,'Pickup Failed'),(18,'Delivery Failed'),(19,'Dry Clean')
+        (17,'Pickup Failed'),(18,'Delivery Failed'),(19,'Dry Clean'),
+        (20,'Cancelled'),(21,'Quality Inspection')
     ) AS source(statusID,statusLabel) ON target.statusID=source.statusID
     WHEN NOT MATCHED THEN INSERT(statusID,statusLabel) VALUES(source.statusID,source.statusLabel);
 

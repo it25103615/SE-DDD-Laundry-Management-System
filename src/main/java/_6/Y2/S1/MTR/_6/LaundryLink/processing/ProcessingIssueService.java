@@ -47,6 +47,9 @@ public class ProcessingIssueService {
     /** Saves an issue report and opens its support case (see the class comment). */
     @Transactional
     public IssueResponse reportIssue(IssueRequest request, StaffMember staff) {
+        if (!"STAFF".equals(staff.role())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only laundry staff can file processing issue reports. Managers can review reports.");
+        }
         if (!repository.orderExists(request.orderID())) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Order #" + request.orderID() + " was not found.");
         }

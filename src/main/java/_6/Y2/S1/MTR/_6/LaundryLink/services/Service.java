@@ -20,4 +20,8 @@ public class Service {
     private Integer serviceID;
 
     private String serviceName;
+
+    // Switched off from the admin service catalogue when a service is no longer offered. Sent
+    // with /api/services so the customer's Choose a service page can leave such services out.
+    private Boolean active;
 }

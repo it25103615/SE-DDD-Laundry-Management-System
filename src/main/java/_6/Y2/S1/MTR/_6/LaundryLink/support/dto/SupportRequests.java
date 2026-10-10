@@ -11,7 +11,12 @@ public final class SupportRequests {
         @NotBlank @Size(max = 500) String message,
         @Positive Integer orderId,
         @Min(1) @Max(5) Integer rating,
-        @PositiveOrZero Integer version) {}
+        @PositiveOrZero Integer version,
+        @Pattern(regexp="General|Payments & billing|Laundry & items|Pickup & delivery|Account & booking") String topic) {
+        public CaseInput(String type,String subject,String message,Integer orderId,Integer rating,Integer version) {
+            this(type,subject,message,orderId,rating,version,"General");
+        }
+    }
     public record CaseUpdate(
         @NotBlank @Pattern(regexp = "New|Assigned|In Review|Resolved|Closed|Reopened") String status,
         @NotBlank @Pattern(regexp = "Low|Normal|High") String priority,

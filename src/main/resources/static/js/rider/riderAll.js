@@ -267,7 +267,7 @@
 
         if (task.type === "pickup" && task.statusID === 6) {
             return [
-                ["pickup-delivered", "Delivered"]
+                ["pickup-delivered", "Delivered to Shop"]
             ];
         }
 

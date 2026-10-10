@@ -57,17 +57,17 @@ public class ReportService {
             GROUP BY o.userID,u.firstName,u.lastName ORDER BY recordedPayments DESC,o.userID
             """,args));
         result.put("support",repo.query("""
-            SELECT COUNT(*) AS totalCases,
-              COALESCE(SUM(CASE WHEN caseStatus NOT IN('Resolved','Closed') THEN 1 ELSE 0 END),0) AS openCases,
+            SELECT COALESCE(SUM(CASE WHEN caseType<>'Feedback' THEN 1 ELSE 0 END),0) AS totalCases,
+              COALESCE(SUM(CASE WHEN caseType<>'Feedback' AND caseStatus NOT IN('Resolved','Closed') THEN 1 ELSE 0 END),0) AS openCases,
               AVG(CAST(rating AS DECIMAL(5,2))) AS averageRating,COUNT(rating) AS ratingCount
             FROM feedback WHERE deleted=0
             """).getFirst());
         result.put("alerts",repo.query("""
             SELECT 'High-priority support cases' AS label,COUNT(*) AS total
-            FROM feedback WHERE deleted=0 AND priority='High' AND caseStatus NOT IN('Resolved','Closed')
+            FROM feedback WHERE deleted=0 AND caseType<>'Feedback' AND priority='High' AND caseStatus NOT IN('Resolved','Closed')
             UNION ALL
             SELECT 'Unassigned support cases',COUNT(*)
-            FROM feedback WHERE deleted=0 AND assigneeID IS NULL AND caseStatus NOT IN('Resolved','Closed')
+            FROM feedback WHERE deleted=0 AND caseType<>'Feedback' AND assigneeID IS NULL AND caseStatus NOT IN('Resolved','Closed')
             UNION ALL
             SELECT 'Overdue pickups',COUNT(*)
             FROM delivery WHERE pickup_scheduled<SYSDATETIME() AND pickup_actual IS NULL

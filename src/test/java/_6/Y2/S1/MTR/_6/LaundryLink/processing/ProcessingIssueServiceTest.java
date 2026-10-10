@@ -29,6 +29,15 @@ class ProcessingIssueServiceTest {
         service = new ProcessingIssueService(repository, notifications);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"MANAGER","OWNER","ADMIN","CSM","RIDER","CUSTOMER"})
+    void nonLaundryStaffCannotFileIssueReports(String role) {
+        var error=assertThrows(ApiException.class,()->service.reportIssue(
+                new IssueRequest(6,null,"Damaged item","Torn sleeve"),new StaffMember(12,"Reviewer",role)));
+        assertNotNull(error);
+        verifyNoInteractions(repository,notifications);
+    }
+
     @Test
     void reportCreatesSupportCaseAuditAndNotification() {               // TC-LP06
         when(repository.orderExists(6)).thenReturn(true);

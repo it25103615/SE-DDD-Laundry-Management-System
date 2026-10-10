@@ -18,7 +18,7 @@ public class SupportRepository {
     }
     public static final String CASE_SELECT = """
         SELECT f.feedbackID AS id, f.userID AS customerId, f.orderID AS orderId,
-               f.feedback AS message, f.caseType AS type, f.subject, f.rating,
+               f.feedback AS message, f.caseType AS type, f.subject, f.rating, f.topic,
                f.caseStatus AS status, f.priority, f.assigneeID AS assigneeId,
                f.createdAt, f.updatedAt, f.version,
                CONCAT(u.firstName, ' ', u.lastName) AS customer,
