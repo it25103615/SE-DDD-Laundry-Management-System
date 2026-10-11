@@ -70,7 +70,12 @@ public final class AccountSessionGuard extends OncePerRequestFilter {
                 reject(request, response);
                 return;
             }
-            // Includes controller work and transaction commit: deletion cannot race a prior request.
+            String currentRole = db.queryForObject("SELECT MAX(UPPER(type)) FROM users WHERE userID=? AND active=1", String.class, account.userId());
+            if (currentRole == null || !account.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_" + currentRole))) {
+                reject(request, response);
+                return;
+            }
+            // Keep same-account requests serialized through controller work and transaction commit.
             chain.doFilter(request, response);
         } finally {
             lock.unlock();

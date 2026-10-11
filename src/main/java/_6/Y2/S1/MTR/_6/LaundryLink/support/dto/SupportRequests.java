@@ -33,6 +33,10 @@ public final class SupportRequests {
     public record PriceInput(
         @NotNull @Positive Integer itemId,
         @NotNull @DecimalMin("0.00") @Digits(integer = 8, fraction = 2) BigDecimal price) {}
+    public record StaffRoleInput(
+        @NotBlank @Pattern(regexp = "RIDER|STAFF|CSM|MANAGER") String role,
+        @NotNull @PositiveOrZero Integer version) {}
+    public record StaffDeletionInput(@NotNull @PositiveOrZero Integer version) {}
     public record StaffInput(
         @NotBlank @Size(max = 50) String firstName,
         @NotBlank @Size(max = 50) String lastName,
