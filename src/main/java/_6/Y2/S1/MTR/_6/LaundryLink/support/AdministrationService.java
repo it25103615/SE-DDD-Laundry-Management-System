@@ -101,7 +101,7 @@ public class AdministrationService {
     @Transactional
     public int createStaff(Actor actor, StaffInput input) {
         access.manager(actor);
-        validateRole(input.role());
+        validateRole(actor, input.role());
         if (input.password() == null || input.password().isBlank())
             throw new ResponseStatusException(BAD_REQUEST, "A temporary password is required for a new account.");
         try {
@@ -143,9 +143,7 @@ public class AdministrationService {
     @Transactional
     public void changeStaffRole(Actor actor, int id, String role, Integer version) {
         managedEmployee(actor, id, version);
-        validateRole(role);
-        if (!actor.owner() && "MANAGER".equals(role))
-            throw new ResponseStatusException(FORBIDDEN, "Only the Owner can assign the Manager role.");
+        validateRole(actor, role);
         SupportService.changed(repo.update("UPDATE users SET type=?,updatedAt=SYSDATETIME(),version=version+1 WHERE userID=? AND version=?", role, id, version));
         repo.audit(null, actor.id(), "Employee role changed", "Account #" + id + " · " + role);
     }
@@ -196,7 +194,9 @@ public class AdministrationService {
         if (count > 0) throw new ResponseStatusException(CONFLICT, "A service with that name already exists.");
     }
 
-    private void validateRole(String role) {
+    private void validateRole(Actor actor, String role) {
         if (!OPERATIONAL_ROLES.contains(role)) throw new ResponseStatusException(BAD_REQUEST, "Unsupported operational role.");
+        if (!"OWNER".equals(actor.role()) && "MANAGER".equals(role))
+            throw new ResponseStatusException(FORBIDDEN, "Only the Owner can assign the Manager role.");
     }
 }
