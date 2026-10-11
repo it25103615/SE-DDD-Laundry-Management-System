@@ -81,15 +81,42 @@ window.Support = (() => {
   }
 
   async function staff(context) {
-    let rows=[],editing;
-    const clear=()=>{editing=null;$('staff-form').reset();$('staff-active').checked=true;$('staff-form-title').textContent='Add account';$('staff-password').required=true;};
-    const render=()=>{$('staff-rows').innerHTML=rows.length?rows.map(r=>`<tr><td><strong>${e(r.name)}</strong></td><td>${e(r.role)}</td><td>${e(r.email)}<br><small>${e(r.phone)}</small></td><td><span class="status">${r.active?'ACTIVE':'INACTIVE'}</span></td><td>${e(date(r.updatedAt))}</td><td><button class="custom_button" data-edit-staff="${r.id}">Edit</button></td></tr>`).join(''):'<tr><td colspan="6">No operational accounts match this search.</td></tr>';};
+    let rows=[],selected;
+    const owner=['OWNER','ADMIN'].includes(context.actor.role);
+    const canManage=row=>row.id!==context.actor.id&&(owner||row.role!=='MANAGER');
+    const clear=()=>{$('staff-form').reset();$('staff-active').checked=true;$('staff-form-title').textContent='Add account';$('staff-password').required=true;};
+    const render=()=>{$('staff-rows').innerHTML=rows.length?rows.map(r=>`<tr><td><strong>${e(r.name)}</strong></td><td>${e(r.role)}</td><td>${e(r.email)}<br><small>${e(r.phone)}</small></td><td><span class="status">${r.active?'ACTIVE':'INACTIVE'}</span></td><td>${e(date(r.updatedAt))}</td><td><div class="actions"><button class="custom_button" data-role-staff="${r.id}" ${canManage(r)?'':'disabled'}>Change Role</button><button class="custom_button" data-delete-staff="${r.id}" ${canManage(r)?'':'disabled'}>Delete Account</button></div></td></tr>`).join(''):'<tr><td colspan="6">No operational accounts match this search.</td></tr>';};
     const load=async()=>{const query=new URLSearchParams({search:$('search-staff').value.trim()});rows=await api('/administration/staff?'+query);render();};
     const activity=async()=>{const items=await api('/administration/activity');$('admin-activity').innerHTML=items.length?items.slice(0,12).map(a=>`<div class="history-entry"><strong>${e(a.action)}</strong><div>${e(a.details)}</div><small class="muted">${e(a.actor)} · ${e(date(a.createdAt))}</small></div>`).join(''):'<p class="muted">No administrative changes recorded yet.</p>';};
     $('staff-search').onsubmit=event=>{event.preventDefault();run(load,event.submitter);};
-    $('staff-rows').onclick=event=>{const button=event.target.closest('[data-edit-staff]');if(!button)return;const row=rows.find(r=>String(r.id)===button.dataset.editStaff);editing=row;$('first-name').value=row.firstName;$('last-name').value=row.lastName;$('staff-email').value=row.email;$('staff-phone').value=row.phone;$('staff-role').value=row.role;$('staff-active').checked=row.active;$('staff-password').value='';$('staff-password').required=false;$('staff-form-title').textContent='Edit account #'+row.id;$('first-name').focus();};
+    $('employee-role').querySelector('[value="MANAGER"]').disabled=!owner;
+    $('cancel-role').onclick=()=>{$('role-dialog').close();selected=null;};
+    $('staff-rows').onclick=event=>{
+      const button=event.target.closest('[data-role-staff],[data-delete-staff]');
+      if(!button||button.disabled)return;
+      const row=rows.find(r=>String(r.id)===(button.dataset.roleStaff||button.dataset.deleteStaff));
+      if(!row||!canManage(row))return;
+      if(button.dataset.roleStaff){
+        selected=row;$('role-employee').textContent=row.name+' ('+row.email+')';
+        $('employee-role').value=row.role;$('role-dialog').showModal();return;
+      }
+      if(!window.confirm('Delete account for '+row.name+' ('+row.email+')? They will lose access. Historical records will be preserved.'))return;
+      run(async()=>{
+        await api('/administration/staff/'+row.id,'DELETE',{version:row.version});
+        await Promise.all([load(),activity()]);notice('Employee account deleted.','success');
+      },button);
+    };
+    $('role-form').onsubmit=event=>{
+      event.preventDefault();if(!selected)return;
+      const row=selected,role=$('employee-role').value;
+      $('role-dialog').close();selected=null;
+      run(async()=>{
+        await api('/administration/staff/'+row.id+'/role','PATCH',{role,version:row.version});
+        await Promise.all([load(),activity()]);notice('Employee role saved. The employee must sign in again.','success');
+      },event.submitter);
+    };
     $('cancel-staff').onclick=clear;
-    $('staff-form').onsubmit=event=>{event.preventDefault();run(async()=>{const input={firstName:$('first-name').value.trim(),lastName:$('last-name').value.trim(),email:$('staff-email').value.trim(),phone:$('staff-phone').value.trim(),role:$('staff-role').value,password:$('staff-password').value||null,active:$('staff-active').checked,version:editing?.version??null};await api(editing?'/administration/staff/'+editing.id:'/administration/staff',editing?'PUT':'POST',input);clear();await Promise.all([load(),activity()]);notice('Operational account saved.','success');},event.submitter);};
+    $('staff-form').onsubmit=event=>{event.preventDefault();run(async()=>{const input={firstName:$('first-name').value.trim(),lastName:$('last-name').value.trim(),email:$('staff-email').value.trim(),phone:$('staff-phone').value.trim(),role:$('staff-role').value,password:$('staff-password').value||null,active:$('staff-active').checked,version:null};await api('/administration/staff','POST',input);clear();await Promise.all([load(),activity()]);notice('Operational account saved.','success');},event.submitter);};
     clear();await Promise.all([load(),activity()]);
   }
 

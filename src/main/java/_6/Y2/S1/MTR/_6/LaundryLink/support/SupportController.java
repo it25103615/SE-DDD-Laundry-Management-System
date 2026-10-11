@@ -63,6 +63,16 @@ public class SupportController {
     @PutMapping("/administration/staff/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void updateStaff(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@PathVariable int id,@Valid @RequestBody StaffInput input) { administration.updateStaff(access.actor(p,demo),id,input); }
+    @PatchMapping("/administration/staff/{id}/role")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changeStaffRole(Principal p, @PathVariable int id, @Valid @RequestBody StaffRoleInput input) {
+        administration.changeStaffRole(access.actor(p, null), id, input.role(), input.version());
+    }
+    @DeleteMapping("/administration/staff/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteStaff(Principal p, @PathVariable int id, @Valid @RequestBody StaffDeletionInput input) {
+        administration.deleteStaff(access.actor(p, null), id, input.version());
+    }
     @GetMapping("/administration/roles")
     public Object roles(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo) { return administration.roles(access.actor(p,demo)); }
     @GetMapping("/administration/activity")
