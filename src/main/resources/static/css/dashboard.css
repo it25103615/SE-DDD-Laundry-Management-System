@@ -388,3 +388,24 @@ tbody tr:hover {
   text-align: center;
   white-space: nowrap;
 }
+
+/* Payment detail page (admin/owner/payment_detail.html).
+   .custom_button and .top_bar set their own display, which beats the browser's built-in
+   [hidden] rule, so the buttons, rows and panels the script hides would still be shown
+   without this. */
+body[data-payment-admin-page="detail"] [hidden] {
+  display: none !important;
+}
+/* Buttons are disabled while their request is on its way, so a disabled button has to
+   look disabled: greyed out, with no hover lift. */
+body[data-payment-admin-page="detail"] .custom_button:disabled {
+  filter: grayscale(1);
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+/* The shine that sweeps across a button on hover. */
+body[data-payment-admin-page="detail"] .custom_button:disabled::after {
+  display: none;
+}
