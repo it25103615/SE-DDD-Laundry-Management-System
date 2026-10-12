@@ -188,10 +188,12 @@ if (location.protocol === "file:") {
       },
       { label: "Receive Items", href: "/html/staff/receive_items.html" },
       { label: "Issue Reports", href: "/html/staff/issue_reports.html" },
+      { label: "My support cases", href: supportCases.href },
     ],
     RIDER: [
       { label: "Dashboard", href: DASHBOARDS.RIDER },
       { label: "Task List", href: "/html/rider/task_list.html" },
+      { label: "My support cases", href: supportCases.href },
     ],
     MANAGER: [
       { label: "Dashboard", href: DASHBOARDS.MANAGER },
