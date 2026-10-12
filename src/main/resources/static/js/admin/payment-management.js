@@ -179,11 +179,17 @@
       table.innerHTML = records
         .map((record) => {
           const canOpenPayment = record.paymentID != null;
+          const href = canOpenPayment
+            ? `payment_detail.html?paymentID=${encodeURIComponent(record.paymentID)}`
+            : "";
           const action = canOpenPayment
-            ? `<a class="link" href="payment_detail.html?paymentID=${encodeURIComponent(record.paymentID)}">View</a>`
+            ? `<a class="link" href="${href}">View</a>`
             : '<span class="muted">No payment yet</span>';
+          // data-href lets a click anywhere on the row open the payment (see the click handler
+          // where the list page is set up). Orders with no payment yet have nothing to open.
+          const rowAttributes = canOpenPayment ? ` class="order_row" data-href="${href}"` : "";
           return `
-            <tr>
+            <tr${rowAttributes}>
               <td>${paymentIdLabel(record.paymentID)}</td>
               <td>#${record.orderID}</td>
               <td>${escapeHtml(customerLabel(record))}</td>
@@ -399,6 +405,15 @@
   if (page === "list") {
     const filters = document.getElementById("payment-filters");
     const clearFilters = document.getElementById("clear-payment-filters");
+    const table = document.getElementById("manager-payment-table");
+    // Clicking anywhere on a payment row opens that payment. A click on the View link itself is
+    // left to the link, so ctrl/middle-click still open it in a new tab.
+    if (table) {
+      table.addEventListener("click", (event) => {
+        const row = event.target.closest("tr[data-href]");
+        if (row && !event.target.closest("a")) window.location.href = row.dataset.href;
+      });
+    }
     if (filters) {
       filters.addEventListener("submit", (event) => {
         event.preventDefault();
