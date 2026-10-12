@@ -198,8 +198,8 @@ if (location.protocol === "file:") {
       orderLookup,
       {
         //A manager reaches the staff pages through here, so all of them count
-        //  as part of "Operations"
-        label: "Operations",
+        //  as part of "Processing Board"
+        label: "Processing Board",
         href: "/html/staff/processing_board.html",
         pages: [
           "/html/staff/dashboard.html",
@@ -349,9 +349,9 @@ if (location.protocol === "file:") {
             </section>
           </div>
           <div class="nav_links" id="nav-links"></div>
+          <button class="nav_menu_button" type="button" aria-expanded="false" aria-controls="nav-links">Menu</button>
           <a class="profile_badge" id="profile-badge" href="${PROFILE_PAGE}" aria-label="My profile" hidden></a>
           <button class="logout_button" type="button" hidden>Log out</button>
-          <button class="nav_menu_button" type="button" aria-expanded="false" aria-controls="nav-links">Menu</button>
         </li>
       </ul>`;
     const navigation = nav.querySelector(".navigation");
@@ -376,10 +376,29 @@ if (location.protocol === "file:") {
     //  Otherwise make sure a menu left open from a narrower window is closed
     //Measuring instead of using a fixed screen width also covers the long manager
     //  and owner lists on a laptop. (The half pixel allows for rounding.)
+    //
+    //The highlighted link of the open page is bold, and bold text is wider. Which
+    //  link is bold (or none, on the profile page) changes from page to page, so
+    //  measuring the bar as it is drawn gave a different answer on different
+    //  pages: collapsed on the dashboard, not collapsed on the profile page.
+    //To get the same answer on every page:
+    //  Measure the bar with no link bold ("nav_measuring" turns the highlight off)
+    //  Find how much the bar grows when the link that grows the most is bold
+    //  Add the two: that is the widest the bar can be on any page of this role
     const width = (element) => element.getBoundingClientRect().width;
     const fit = () => {
       navigation.classList.remove("nav_collapsed");
-      if (width(logoLink.parentElement) + width(navRight) > width(navigation) + 0.5)
+      navigation.classList.add("nav_measuring");
+      const plain = width(logoLink.parentElement) + width(navRight);
+      let boldExtra = 0;
+      links.querySelectorAll("a:not(.custom_button)").forEach((anchor) => {
+        const normal = width(anchor);
+        anchor.style.fontWeight = "700";
+        boldExtra = Math.max(boldExtra, width(anchor) - normal);
+        anchor.style.fontWeight = "";
+      });
+      navigation.classList.remove("nav_measuring");
+      if (plain + boldExtra > width(navigation) + 0.5)
         navigation.classList.add("nav_collapsed");
       else setMenu(false);
     };
