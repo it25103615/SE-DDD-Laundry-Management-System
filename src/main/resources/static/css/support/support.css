@@ -107,7 +107,8 @@
 .case-row.needs-attention { background:linear-gradient(90deg,rgba(255,245,224,.72),transparent 32%); }
 .case-row.needs-attention:hover { background:#fff9ed; box-shadow:inset 3px 0 #d98800; }
 .case-row.is-complete { color:#60727f; background:rgba(247,250,249,.72); }
-.case-row td:first-child small,.case-row td:nth-child(2) small { display:block; margin-top:4px; color:#778994; font-size:.76rem; }
+/* The small sub-label under the main text of the Case, Subject / customer and Type cells. */
+.case-row td:first-child small,.case-row td:nth-child(2) small,.case-row td:nth-child(3) small { display:block; margin-top:4px; color:#778994; font-size:.76rem; }
 .case-row td:nth-child(2) strong { display:block; max-width:320px; overflow:hidden; color:#19364a; text-overflow:ellipsis; white-space:nowrap; }
 .case-number { color:#087ba3; font-weight:800; white-space:nowrap; }
 .type-label { color:#506775; font-size:.88rem; font-weight:650; }

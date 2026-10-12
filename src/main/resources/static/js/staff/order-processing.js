@@ -15,7 +15,7 @@
  * Buttons are created here (not in the HTML) so global-post.js does not attach demo toasts.
  */
 (() => {
-  const { $, escape, dateTime, param, badge, api, notice, run } = Processing;
+  const { $, escape, dateTime, param, badge, issueItem, api, notice, run } = Processing;
   const orderId = param("orderId");
   let order = null;
 
@@ -132,7 +132,7 @@
       : '<tr><td colspan="3" class="muted">No status changes yet.</td></tr>';
 
     $("issue-list").innerHTML = order.issues.length
-      ? order.issues.map((issue) => `<p class="small"><strong>${escape(issue.issueType)}</strong> · ${escape(issue.subject)}
+      ? order.issues.map((issue) => `<p class="small"><strong>${escape(issue.issueType)}</strong> · ${escape(issueItem(issue))}
           ${badge(issue.caseStatus || "New")}<br>${escape(issue.description)}<br>
           <span class="muted">${escape(issue.reportedBy)} · ${escape(dateTime(issue.createdAt))}</span></p>`).join("")
       : '<p class="muted small">No issues reported.</p>';

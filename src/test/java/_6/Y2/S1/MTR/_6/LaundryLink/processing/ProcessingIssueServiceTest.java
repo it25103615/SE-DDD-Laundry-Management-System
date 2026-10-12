@@ -42,15 +42,15 @@ class ProcessingIssueServiceTest {
     void reportCreatesSupportCaseAuditAndNotification() {               // TC-LP06
         when(repository.orderExists(6)).thenReturn(true);
         when(repository.findLineItemName(101, 6)).thenReturn(Optional.of("Shirt/Blouse"));
-        when(repository.insertIssueCase(6, "Damaged item", "Shirt/Blouse (order #6)", "Torn sleeve")).thenReturn(40);
-        when(repository.findIssue(40)).thenReturn(Optional.of(new IssueResponse(40, 6, "Shirt/Blouse (order #6)",
+        when(repository.insertIssueCase(6, "Damaged item", "Damaged item: Shirt/Blouse", "Torn sleeve")).thenReturn(40);
+        when(repository.findIssue(40)).thenReturn(Optional.of(new IssueResponse(40, 6, "Damaged item: Shirt/Blouse",
                 "Damaged item", "Torn sleeve", "Sam Staff", LocalDateTime.now(), "New")));
 
         IssueResponse issue = service.reportIssue(new IssueRequest(6, 101, "Damaged item", "  Torn sleeve "), staff);
 
         assertEquals(40, issue.caseID());
-        // The issue type becomes the case type, the item the subject; the description is trimmed.
-        verify(repository).insertIssueCase(6, "Damaged item", "Shirt/Blouse (order #6)", "Torn sleeve");
+        // The issue type becomes the case type, "type: item" the subject; the description is trimmed.
+        verify(repository).insertIssueCase(6, "Damaged item", "Damaged item: Shirt/Blouse", "Torn sleeve");
         // The staff member who reported it is recorded in the case history.
         verify(repository).audit(eq(40), eq(11), eq(ProcessingIssueRepository.REPORTED_ACTION), contains("Torn sleeve"));
         verify(notifications).notifyRoles(eq(Set.of("CSM", "CUSTOMER_SERVICE_MANAGER", "OWNER", "ADMIN")),
@@ -62,12 +62,12 @@ class ProcessingIssueServiceTest {
     void issueWithoutAnItemIsAboutTheWholeOrder() {
         when(repository.orderExists(6)).thenReturn(true);
         when(repository.insertIssueCase(anyInt(), any(), any(), any())).thenReturn(41);
-        when(repository.findIssue(41)).thenReturn(Optional.of(new IssueResponse(41, 6, "Whole order (order #6)",
+        when(repository.findIssue(41)).thenReturn(Optional.of(new IssueResponse(41, 6, "Missing item: Whole order",
                 "Missing item", "Bag missing", "Sam Staff", LocalDateTime.now(), "New")));
 
         service.reportIssue(new IssueRequest(6, null, "Missing item", "Bag missing"), staff);
 
-        verify(repository).insertIssueCase(6, "Missing item", "Whole order (order #6)", "Bag missing");
+        verify(repository).insertIssueCase(6, "Missing item", "Missing item: Whole order", "Bag missing");
     }
 
     @Test

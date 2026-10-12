@@ -81,7 +81,7 @@ class ProcessingIntegrationTest {
         assertEquals(receivedLogs + 1, logRows(order, 7, 8));
 
         // TC-LP06: a damaged item opens a High-priority support case in the CSM queue, filed under
-        // the order's customer, with the issue type as the case type and the item as the subject.
+        // the order's customer, with the issue type as the case type and "type: item" as the subject.
         int issuesBefore = detail.issues().size();
         int line = detail.lines().getFirst().orderLineID();
         var issue = issues.reportIssue(new IssueRequest(order, line, "Damaged item", "Torn sleeve"), staff);
@@ -91,7 +91,7 @@ class ProcessingIntegrationTest {
                 FROM feedback f JOIN orders o ON o.orderID = f.orderID WHERE f.feedbackID = ?
                 """, issue.caseID());
         assertEquals("Damaged item", saved.get("caseType"));
-        assertEquals(detail.lines().getFirst().itemName() + " (order #" + order + ")", saved.get("subject"));
+        assertEquals("Damaged item: " + detail.lines().getFirst().itemName(), saved.get("subject"));
         assertEquals("High", saved.get("priority"));
         assertEquals(saved.get("customerID"), saved.get("userID"));
         assertEquals(staff.name(), issue.reportedBy());

@@ -16,7 +16,8 @@ import org.springframework.stereotype.Repository;
  * feedback), so customer service work it in their queue like any other case:
  * <ul>
  *   <li>{@code caseType} holds the issue type (Damaged item, Existing stain, ...);</li>
- *   <li>{@code subject} names the item it is about, or "Whole order";</li>
+ *   <li>{@code subject} is the issue type and the item it is about (or "Whole order"),
+ *       e.g. "Damaged item: Shirt/Blouse";</li>
  *   <li>{@code feedback} holds the staff member's description;</li>
  *   <li>{@code userID} is the order's customer, so they can see and reply to the case;</li>
  *   <li>the staff member who reported it is the actor of the case's
