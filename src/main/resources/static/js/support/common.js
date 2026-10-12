@@ -85,10 +85,16 @@ window.Support = (() => {
     const owner=['OWNER','ADMIN'].includes(context.actor.role);
     const canManage=row=>row.id!==context.actor.id&&(owner||row.role!=='MANAGER');
     const clear=()=>{$('staff-form').reset();$('staff-active').checked=true;$('staff-form-title').textContent='Add account';$('staff-password').required=true;};
-    const render=()=>{$('staff-rows').innerHTML=rows.length?rows.map(r=>`<tr><td><strong>${e(r.name)}</strong></td><td>${e(r.role)}</td><td>${e(r.email)}<br><small>${e(r.phone)}</small></td><td><span class="status">${r.active?'ACTIVE':'INACTIVE'}</span></td><td>${e(date(r.updatedAt))}</td><td><div class="actions"><button class="custom_button" data-role-staff="${r.id}" ${canManage(r)?'':'disabled'}>Change Role</button><button class="custom_button" data-delete-staff="${r.id}" ${canManage(r)?'':'disabled'}>Delete Account</button></div></td></tr>`).join(''):'<tr><td colspan="6">No operational accounts match this search.</td></tr>';};
+    // The role filter is applied here, on the rows already loaded: the list is not paginated, so no
+    // request is needed. "rows" stays complete; only the rows that are drawn ("shown") are narrowed.
+    const render=()=>{const role=$('filter-role').value,shown=role?rows.filter(r=>r.role===role):rows;$('staff-rows').innerHTML=shown.length?shown.map(r=>`<tr><td><strong>${e(r.name)}</strong></td><td>${e(r.role)}</td><td>${e(r.email)}<br><small>${e(r.phone)}</small></td><td><span class="status">${r.active?'ACTIVE':'INACTIVE'}</span></td><td>${e(date(r.updatedAt))}</td><td><div class="actions"><button class="custom_button" data-role-staff="${r.id}" ${canManage(r)?'':'disabled'}>Change Role</button><button class="custom_button" data-delete-staff="${r.id}" ${canManage(r)?'':'disabled'}>Delete Account</button></div></td></tr>`).join(''):'<tr><td colspan="6">No operational accounts match this search.</td></tr>';};
     const load=async()=>{const query=new URLSearchParams({search:$('search-staff').value.trim()});rows=await api('/administration/staff?'+query);render();};
     const activity=async()=>{const items=await api('/administration/activity');$('admin-activity').innerHTML=items.length?items.slice(0,12).map(a=>`<div class="history-entry"><strong>${e(a.action)}</strong><div>${e(a.details)}</div><small class="muted">${e(a.actor)} · ${e(date(a.createdAt))}</small></div>`).join(''):'<p class="muted">No administrative changes recorded yet.</p>';};
     $('staff-search').onsubmit=event=>{event.preventDefault();run(load,event.submitter);};
+    // Picking a role redraws the table at once. Clear empties the search box and the role filter,
+    // then reloads the full list.
+    $('filter-role').onchange=render;
+    $('clear-search').onclick=()=>{$('staff-search').reset();run(load);};
     if(context.actor.role!=='OWNER') {
       $('staff-role').querySelector('[value="MANAGER"]').remove();
       $('employee-role').querySelector('[value="MANAGER"]').remove();

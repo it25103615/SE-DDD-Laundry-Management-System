@@ -24,6 +24,15 @@ body[data-page="staff-accounts"] #staff-rows button[data-delete-staff] {
   border-color: #FCA5A5;
   border-radius: 999px;
 }
+/* The search form sits inside a card, which already has padding: drop the toolbar's own
+   top and bottom margin. */
+body[data-page="staff-accounts"] #staff-search {
+  margin: 0;
+}
+/* The search box takes twice the width of the role dropdown. */
+body[data-page="staff-accounts"] #staff-search .search-field {
+  flex: 2;
+}
 </style>
 <script src="../../../js/global-pre.js" defer></script><script src="../../../js/support/common.js" defer></script>
 </head>
@@ -45,7 +54,16 @@ body[data-page="staff-accounts"] #staff-rows button[data-delete-staff] {
 </form></section>
 <section class="card"><h2>Administrative activity</h2><div id="admin-activity"><p class="muted">Loading activity…</p></div></section>
 </div>
-<section class="card section"><div class="top_bar"><h2>Staff, rider, CSM and manager accounts</h2><form id="staff-search"><label class="sr-only" for="search-staff">Search accounts</label><input class="input" id="search-staff" maxlength="100" placeholder="Search name or email"><button class="custom_button" type="submit">Search</button></form></div><div class="table_wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Contact</th><th>Status</th><th>Updated</th><th>Action</th></tr></thead><tbody id="staff-rows"></tbody></table></div></section>
+<!-- Search and role filter, in a card of their own above the accounts table. "toolbar" (support.css)
+     lays the fields out in one row that wraps on narrow screens; "unstyled_form" switches off the
+     white box global.css draws around every form, so the card is the only box. -->
+<section class="card section"><form id="staff-search" class="toolbar unstyled_form">
+<div class="field search-field"><label for="search-staff">Name or email</label><input class="input" id="search-staff" type="search" maxlength="100" placeholder="Any account"></div>
+<!-- Applied in the browser by common.js: the list changes as soon as a role is picked. -->
+<div class="field"><label for="filter-role">Role</label><select class="input" id="filter-role"><option value="">All roles</option><option value="STAFF">Laundry Staff</option><option value="RIDER">Delivery Rider</option><option value="CSM">Customer Service Manager</option><option value="MANAGER">Shop Manager</option></select></div>
+<button class="custom_button custom_button_bg" type="submit">Search</button><button class="custom_button filter-reset" id="clear-search" type="button">Clear</button>
+</form></section>
+<section class="card section"><h2>Staff, rider, CSM and manager accounts</h2><div class="table_wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Contact</th><th>Status</th><th>Updated</th><th>Action</th></tr></thead><tbody id="staff-rows"></tbody></table></div></section>
 <dialog id="role-dialog" class="card" aria-labelledby="role-title">
 <form id="role-form">
 <h2 id="role-title">Change Role</h2><p id="role-employee"></p>
