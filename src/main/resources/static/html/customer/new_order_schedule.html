@@ -6,6 +6,8 @@
     <title>Schedule Pickup | LaundryLink</title>
     <link rel="stylesheet" href="../../css/global.css" />
     <link rel="stylesheet" href="../../css/dashboard.css" />
+    <!-- Reused from the profile page for the add-address pop-up (.address-dialog, .profile-message). -->
+    <link rel="stylesheet" href="../../css/account/profile-live.css" />
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
     <style>
@@ -25,6 +27,20 @@
       }
       #pickup-time option:disabled {
         color: #667783;
+      }
+      /* Add-address pop-up: tighter spacing than a full page form. */
+      #new-address-dialog .field {
+        margin: 16px 0;
+      }
+      #new-address-dialog .actions {
+        margin-top: 18px;
+      }
+      #add-address-button {
+        margin-top: 12px;
+      }
+      /* .custom_button sets its own display, which would otherwise override the hidden attribute. */
+      #add-address-button[hidden] {
+        display: none;
       }
     </style>
 
@@ -84,6 +100,8 @@
             <div id="pickup-addresses">
               <p class="muted" id="pickup-addresses-status">Loading your saved addresses…</p>
             </div>
+            <!-- Shown by the script only when the customer has no saved address; opens the pop-up below. -->
+            <button class="custom_button custom_button_bg" type="button" id="add-address-button" hidden>+ Add address</button>
           </section>
         </div>
         <div class="actions">
@@ -97,6 +115,27 @@
         </div>
         <p id="schedule-error" role="alert" hidden></p>
       </form>
+
+      <!--
+        Pop-up for adding a first address without leaving the order. Same fields as the address
+        form on the profile page (html/account/profile.html) and saved through the same API,
+        POST /api/account/addresses. It sits outside the order form because forms cannot be nested.
+      -->
+      <dialog id="new-address-dialog" class="address-dialog" aria-labelledby="new-address-title">
+        <form id="new-address-form">
+          <h3 id="new-address-title">Add a new address</h3>
+          <div class="field"><label for="address-nickname">Name for this address</label><input class="input" id="address-nickname" required maxlength="50" placeholder="Home, Office…"></div>
+          <div class="field"><label for="address-street">Street address</label><input class="input" id="address-street" required maxlength="100" placeholder="18 Temple Road"></div>
+          <div class="field"><label for="address-city">City</label><input class="input" id="address-city" required maxlength="30" placeholder="Colombo 05"></div>
+          <div class="field"><label for="address-state">Province</label><input class="input" id="address-state" required maxlength="30" placeholder="Western"></div>
+          <div class="field"><label for="address-instructions">Delivery instructions (optional)</label><input class="input" id="address-instructions" maxlength="250" placeholder="For example: call at the gate"></div>
+          <p id="new-address-error" class="profile-message error" role="alert" hidden></p>
+          <div class="actions">
+            <button class="custom_button custom_button_bg" type="submit" id="new-address-save">Save address</button>
+            <button class="custom_button custom_button_nobg" type="button" id="new-address-cancel">Cancel</button>
+          </div>
+        </form>
+      </dialog>
     </main>
     <script>
       (function () {
@@ -129,32 +168,38 @@
         // "18 Temple Road, Colombo 05, Western" - skips any part the customer left empty.
         const addressLine = address => [address.street, address.city, address.state]
           .map(part => (part || "").trim()).filter(Boolean).join(", ");
+        const addAddressButton = document.getElementById("add-address-button");
+        // Adds one saved address to the list as a radio row and returns its radio button.
+        function addAddressRow(address) {
+          // Built with DOM nodes (not innerHTML) so text typed by the customer is never run as HTML.
+          const row = document.createElement("label");
+          row.className = "radio_row";
+          const radio = document.createElement("input");
+          radio.type = "radio";
+          radio.name = "address";
+          radio.value = String(address.addressID);
+          // The customer's default address starts selected.
+          radio.checked = Boolean(address.isDefault);
+          const text = document.createElement("span");
+          const nickname = document.createElement("strong");
+          nickname.textContent = address.nickname || "Saved address";
+          const line = document.createElement("span");
+          line.className = "muted";
+          line.textContent = addressLine(address);
+          text.append(nickname, document.createElement("br"), line);
+          row.append(radio, text);
+          addressList.append(row);
+          return radio;
+        }
         function showAddresses(addresses) {
           if (!addresses.length) {
-            addressStatus.textContent = "You have no saved addresses yet.";
+            // Nothing to pick from: offer the pop-up so the customer can add an address right here.
+            addressStatus.textContent = "You have no saved addresses yet. Add one so we know where to collect your laundry.";
+            addAddressButton.hidden = false;
             return;
           }
           addressStatus.remove();
-          addresses.forEach(address => {
-            // Built with DOM nodes (not innerHTML) so text typed by the customer is never run as HTML.
-            const row = document.createElement("label");
-            row.className = "radio_row";
-            const radio = document.createElement("input");
-            radio.type = "radio";
-            radio.name = "address";
-            radio.value = String(address.addressID);
-            // The customer's default address starts selected.
-            radio.checked = Boolean(address.isDefault);
-            const text = document.createElement("span");
-            const nickname = document.createElement("strong");
-            nickname.textContent = address.nickname || "Saved address";
-            const line = document.createElement("span");
-            line.className = "muted";
-            line.textContent = addressLine(address);
-            text.append(nickname, document.createElement("br"), line);
-            row.append(radio, text);
-            addressList.append(row);
-          });
+          addresses.forEach(addAddressRow);
           // A choice made earlier in this order wins over the default; then keep the draft in step.
           restoreAddressChoice();
           save();
@@ -170,6 +215,63 @@
           .catch(() => {
             addressStatus.textContent = "We could not load your saved addresses. Please sign in again or try later.";
           });
+
+        // ---- Add-address pop-up (only reachable when the customer has no saved address) ----
+        const addressDialog = document.getElementById("new-address-dialog");
+        const addressForm = document.getElementById("new-address-form");
+        const addressFormError = document.getElementById("new-address-error");
+        const addressField = id => document.getElementById(id).value.trim();
+        addAddressButton.addEventListener("click", () => addressDialog.showModal());
+        document.getElementById("new-address-cancel").addEventListener("click", () => addressDialog.close());
+        // Runs however the pop-up closes (Save, Cancel or the Esc key), so it always reopens empty.
+        addressDialog.addEventListener("close", () => {
+          addressForm.reset();
+          addressFormError.hidden = true;
+        });
+        addressForm.addEventListener("submit", async event => {
+          event.preventDefault();
+          if (!addressForm.reportValidity()) return;
+          const saveButton = document.getElementById("new-address-save");
+          saveButton.disabled = true;
+          addressFormError.hidden = true;
+          try {
+            // Spring Security needs this token on every request that changes something.
+            const csrf = await fetch("/api/auth/csrf", { credentials: "same-origin" }).then(response => response.json());
+            const response = await fetch("/api/account/addresses", {
+              method: "POST",
+              headers: { Accept: "application/json", "Content-Type": "application/json", [csrf.headerName]: csrf.token },
+              credentials: "same-origin",
+              body: JSON.stringify({
+                nickname: addressField("address-nickname"),
+                street: addressField("address-street"),
+                city: addressField("address-city"),
+                state: addressField("address-state"),
+                deliveryInstructions: addressField("address-instructions") || null,
+                // It is the customer's only address, so it is also their default.
+                isDefault: true
+              })
+            });
+            // A session that has expired is redirected to the login page.
+            if (response.redirected) {
+              window.location.href = "/html/auth/login.html";
+              return;
+            }
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(result.message || "Something went wrong. Please try again.");
+            // Show the new address in the list, already selected, and let the customer carry on.
+            addressStatus.remove();
+            addAddressButton.hidden = true;
+            addAddressRow(result).checked = true;
+            addressDialog.close();
+            validate(false);
+            save();
+          } catch (problem) {
+            addressFormError.textContent = problem.message;
+            addressFormError.hidden = false;
+          } finally {
+            saveButton.disabled = false;
+          }
+        });
         function save() {
           const draft = readDraft();
           sessionStorage.setItem(key, JSON.stringify({ ...draft, schedule: {
@@ -225,9 +327,19 @@
             }
           }
           const invalid = fields.find(field => !field.validity.valid && (showMissing || field.value));
-          error.textContent = invalid ? invalid.validationMessage : "";
-          error.hidden = !invalid;
-          return !fields.some(field => !field.validity.valid);
+          // A pickup address is required too. Like the other missing fields, it is only reported
+          // once the customer tries to continue. No radio rows at all means nothing is saved yet
+          // (or the list failed to load), so the message asks for an address to be added instead.
+          const addressChosen = Boolean(form.querySelector("input[name=address]:checked"));
+          let message = invalid ? invalid.validationMessage : "";
+          if (!message && showMissing && !addressChosen) {
+            message = form.querySelector("input[name=address]")
+              ? "Please select a pickup address."
+              : "Please add a pickup address before continuing.";
+          }
+          error.textContent = message;
+          error.hidden = !message;
+          return addressChosen && !fields.some(field => !field.validity.valid);
         }
         form.noValidate = true;
         // Validate before saving so a time window cleared by the slot limits is not kept in the draft.
