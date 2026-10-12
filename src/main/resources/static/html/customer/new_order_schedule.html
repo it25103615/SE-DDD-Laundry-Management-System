@@ -14,19 +14,63 @@
       .schedule-time-card:hover {
         transform: none;
       }
-      /* Keep native time-window popups opaque and stable when focused. */
-      #pickup-time {
-        color-scheme: light;
-        color: var(--color-text, #102a3b);
-        background-color: #fff;
-        transform: none;
+      /* Time windows: one button per window, two per row. Each button is a label wrapped around
+         a radio input, so only one can be picked and the keyboard arrow keys still work. */
+      .time-window-options {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
       }
-      #pickup-time option {
-        color: var(--color-text, #102a3b);
-        background-color: #fff;
+      .time-window-options .time-window-option {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        margin: 0;
+        padding: 8px 10px;
+        border: 1px solid var(--black-20);
+        border-radius: var(--radius-lg);
+        background: #fff;
+        color: var(--color-text);
+        font-weight: 400;
+        text-align: center;
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease;
       }
-      #pickup-time option:disabled {
+      /* The radio itself is invisible but still covers the button, so it stays clickable and focusable. */
+      .time-window-option input {
+        position: absolute;
+        inset: 0;
+        margin: 0;
+        opacity: 0;
+        cursor: inherit;
+      }
+      .time-window-options .time-window-option:hover {
+        border-color: var(--primary-color);
+      }
+      .time-window-options .time-window-option:has(input:checked) {
+        border-color: var(--primary-color);
+        background: var(--color-accent-100);
+        color: var(--color-accent-700);
+        font-weight: 700;
+      }
+      .time-window-option:has(input:focus-visible) {
+        outline: 2px solid var(--primary-color);
+        outline-offset: 3px;
+      }
+      /* A window that has already started today (see limitSlots in the script below). */
+      .time-window-options .time-window-option:has(input:disabled) {
+        border-color: var(--black-10);
+        background: var(--secondary-color);
         color: #667783;
+        text-decoration: line-through;
+        cursor: not-allowed;
+      }
+      @media (max-width: 420px) {
+        .time-window-options {
+          grid-template-columns: 1fr;
+        }
       }
       /* Add-address pop-up: tighter spacing than a full page form. */
       #new-address-dialog .field {
@@ -75,20 +119,18 @@
                 required
               />
             </div>
-            <div class="field">
-              <label for="pickup-time">Time window</label
-              ><select
-                class="input"
-                id="pickup-time"
-                name="pickup_time"
-                required
-              >
-                <option value="">Choose a time</option>
-                <option>8:00 AM – 11:00 AM</option>
-                <option>11:00 AM – 2:00 PM</option>
-                <option>2:00 PM – 5:00 PM</option>
-                <option>5:00 PM – 8:00 PM</option>
-              </select>
+            <!--
+              One button per time window. Each radio's value is the window's text, which is what
+              gets saved in the order draft and shown again on the review page.
+            -->
+            <div class="field" role="radiogroup" aria-labelledby="pickup-time-label">
+              <label id="pickup-time-label">Time window</label>
+              <div class="time-window-options">
+                <label class="time-window-option"><input type="radio" name="pickup_time" value="8:00 AM – 11:00 AM" />8:00 AM – 11:00 AM</label>
+                <label class="time-window-option"><input type="radio" name="pickup_time" value="11:00 AM – 2:00 PM" />11:00 AM – 2:00 PM</label>
+                <label class="time-window-option"><input type="radio" name="pickup_time" value="2:00 PM – 5:00 PM" />2:00 PM – 5:00 PM</label>
+                <label class="time-window-option"><input type="radio" name="pickup_time" value="5:00 PM – 8:00 PM" />5:00 PM – 8:00 PM</label>
+              </div>
             </div>
           </section>
           <section class="card">
@@ -143,14 +185,18 @@
         const form = document.querySelector("main form");
         const error = document.getElementById("schedule-error");
         // Validate and restore only the customer pickup scheduling fields.
-        const fields = ["pickup-date", "pickup-time"].map(id => document.getElementById(id));
-        const [pickupDate, pickupTime] = fields;
+        const pickupDate = document.getElementById("pickup-date");
+        // The time window buttons: one radio input per window.
+        const timeOptions = Array.from(form.querySelectorAll("input[name=pickup_time]"));
+        // Text of the picked time window, or "" while none is picked.
+        const pickedTime = () => timeOptions.find(option => option.checked)?.value || "";
         const readDraft = () => {
           try { return JSON.parse(sessionStorage.getItem(key)) || {}; }
           catch (_) { return {}; }
         };
         const schedule = readDraft().schedule || {};
-        fields.forEach((field, index) => { field.value = schedule[["date", "time"][index]] || ""; });
+        pickupDate.value = schedule.date || "";
+        timeOptions.forEach(option => { option.checked = option.value === schedule.time; });
         // Tick the remembered address once the customer's saved addresses have been loaded.
         function restoreAddressChoice() {
           const remembered = readDraft().schedule?.address;
@@ -275,30 +321,30 @@
         function save() {
           const draft = readDraft();
           sessionStorage.setItem(key, JSON.stringify({ ...draft, schedule: {
-            date: pickupDate.value, time: pickupTime.value,
+            date: pickupDate.value, time: pickedTime(),
             address: form.querySelector("input[name=address]:checked")?.value
           } }));
         }
         const isoDate = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
         // Minutes after midnight at which a time window option starts, e.g. "2:00 PM – 5:00 PM" -> 840.
         function slotStart(option) {
-          const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)/i.exec(option.textContent.trim());
+          const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)/i.exec(option.value.trim());
           if (!match) return null;
           return (Number(match[1]) % 12 + (match[3].toUpperCase() === "PM" ? 12 : 0)) * 60 + Number(match[2]);
         }
         // A scheduling slot can only be booked if it has not started yet. For today's date, grey out
         // (disable) every window whose start time has already passed, and clear the selection if it
         // was one of them. Other dates keep all windows. Returns true if any window is still open today.
-        function limitSlots(dateField, timeField, today, nowMinutes) {
+        function limitSlots(dateField, options, today, nowMinutes) {
           let anyOpenToday = false;
-          Array.from(timeField.options).forEach(option => {
+          options.forEach(option => {
             const start = slotStart(option);
-            if (start === null) return; // the "Choose a time" placeholder
+            if (start === null) return;
             const passed = start <= nowMinutes;
             if (!passed) anyOpenToday = true;
             option.disabled = dateField.value === today && passed;
+            if (option.disabled) option.checked = false;
           });
-          if (timeField.selectedOptions[0]?.disabled) timeField.value = "";
           return anyOpenToday;
         }
         function validate(showMissing) {
@@ -311,12 +357,8 @@
           const nowMinutes = now.getHours() * 60 + now.getMinutes();
           pickupDate.min = today;
           pickupDate.max = isoDate(nextMonth);
-          limitSlots(pickupDate, pickupTime, today, nowMinutes);
-          fields.forEach(field => field.setCustomValidity(""));
-          const labels = ["pickup date", "pickup time window"];
-          fields.forEach((field, index) => {
-            if (!field.value) field.setCustomValidity(`Please select a ${labels[index]}.`);
-          });
+          limitSlots(pickupDate, timeOptions, today, nowMinutes);
+          pickupDate.setCustomValidity(pickupDate.value ? "" : "Please select a pickup date.");
           if (pickupDate.value) {
             const outsideRange = pickupDate.value < pickupDate.min || pickupDate.value > pickupDate.max;
             const differentYear = Number(pickupDate.value.split("-")[0]) !== now.getFullYear();
@@ -326,12 +368,16 @@
               pickupDate.setCustomValidity("Please choose today or a future date.");
             }
           }
-          const invalid = fields.find(field => !field.validity.valid && (showMissing || field.value));
+          // A wrong date is reported straight away; a missing one only once the customer tries to continue.
+          const dateInvalid = !pickupDate.validity.valid && (showMissing || pickupDate.value);
+          const timeChosen = Boolean(pickedTime());
           // A pickup address is required too. Like the other missing fields, it is only reported
           // once the customer tries to continue. No radio rows at all means nothing is saved yet
           // (or the list failed to load), so the message asks for an address to be added instead.
           const addressChosen = Boolean(form.querySelector("input[name=address]:checked"));
-          let message = invalid ? invalid.validationMessage : "";
+          let message = dateInvalid ? pickupDate.validationMessage : "";
+          // The time window buttons have no pop-up of their own, so this message is shown under the form.
+          if (!message && showMissing && !timeChosen) message = "Please select a pickup time window.";
           if (!message && showMissing && !addressChosen) {
             message = form.querySelector("input[name=address]")
               ? "Please select a pickup address."
@@ -339,7 +385,7 @@
           }
           error.textContent = message;
           error.hidden = !message;
-          return addressChosen && !fields.some(field => !field.validity.valid);
+          return addressChosen && timeChosen && pickupDate.validity.valid;
         }
         form.noValidate = true;
         // Validate before saving so a time window cleared by the slot limits is not kept in the draft.
