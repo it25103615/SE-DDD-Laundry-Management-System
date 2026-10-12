@@ -2,8 +2,9 @@
  const {$,escape:e,api,notice,run,date}=Support;
  let context,current,editing=null,page=0,summaryStatus='',lastFocus=null,lastMessageType=null;
  const staff=()=>context.actor.role!=='CUSTOMER';
- const coordinator=()=>['ADMIN','OWNER','CSM','CUSTOMER_SERVICE_MANAGER'].includes(context.actor.role);
+ const coordinator=()=>['CSM','CUSTOMER_SERVICE_MANAGER'].includes(context.actor.role);
  const canSeeHistory=()=>['CSM','CUSTOMER_SERVICE_MANAGER'].includes(context.actor.role);
+ const feedbackOnly=document.body.dataset.feedbackOnly==='true';
  // Laundry processing issues are raised by staff for the customer; customers can reply but not edit or delete them.
  const staffRaised=item=>['Damaged item','Existing stain','Missing item','Item count mismatch'].includes(item.type);
  const slug=value=>String(value||'').toLowerCase().replace(/\s+/g,'-');
@@ -21,7 +22,7 @@
  function updateNoteHint() {
    const resolution=['Resolved','Closed'].includes($('status').value);
    $('note').required=resolution;
-   $('note-hint').textContent=resolution?'Required: explain the resolution before closing this case.':'Optional: add context for the assignee. They can investigate and reply in the conversation.';
+   $('note-hint').textContent=resolution?'Required: explain the resolution before closing this case.':coordinator()?'Optional: add context for the assignee. They can investigate and reply in the conversation.':'Optional: record progress on your assigned case.';
  }
  function rating() {
    const enabled=$('type').value==='Feedback'; $('rating-field').hidden=!enabled; $('rating').required=enabled; if(!enabled) $('rating').value='';
@@ -41,6 +42,7 @@
    });
  }
  async function loadSummary() {
+   if(feedbackOnly)return;
    const data=await api('/cases/summary');
    $('summary-total').textContent=data.total??0;
    $('summary-pending').textContent=data.pending??0;
@@ -55,12 +57,12 @@
    const wrap=document.querySelector('.case-table-wrap');
    wrap.setAttribute('aria-busy','true');loadingRows();$('visible-count').textContent='Loading…';
    const status=summaryStatus||$('filter-status').value;
-   const query=new URLSearchParams({search:$('search').value,status,type:$('filter-type').value,topic:$('filter-topic').value,priority:$('filter-priority').value,assigneeId:$('filter-assignee').value,page});
+   const query=new URLSearchParams({search:$('search').value,status:feedbackOnly?'':status,type:feedbackOnly?'Feedback':$('filter-type').value,topic:feedbackOnly?'':$('filter-topic').value,priority:feedbackOnly?'':$('filter-priority').value,assigneeId:feedbackOnly?'':$('filter-assignee').value,page});
    try {
      const rows=await api('/cases?'+query);
      $('cases').innerHTML=rows.length?rows.map(r=>`<tr class="case-row ${['Resolved','Closed'].includes(r.status)?'is-complete':''} ${r.priority==='High'&&!['Resolved','Closed'].includes(r.status)?'needs-attention':''}" data-case-id="${r.id}"><td><span class="case-number">#${r.id}</span><small>${e(date(r.updatedAt))}</small></td><td><strong>${e(r.subject)}</strong><small>${e(r.customer)}${r.assignee?' · '+e(r.assignee):' · Unassigned'}</small></td><td><span class="type-label">${e(r.type)}</span><small>${e(r.topic||'General')}</small></td><td>${statusBadge(r.status)}</td><td>${priorityBadge(r.priority)}</td><td><button class="case-open-button" data-open="${r.id}" aria-label="Open case ${r.id}: ${e(r.subject)}">View <span aria-hidden="true">→</span></button></td></tr>`).join(''):'<tr><td colspan="6"><div class="case-empty"><span aria-hidden="true">⌕</span><strong>No matching cases</strong><p>Try clearing a filter or searching with another customer or subject.</p><button class="custom_button" type="button" data-clear-empty>Clear filters</button></div></td></tr>';
      $('previous').disabled=page===0;$('next').disabled=rows.length<25;$('page-label').textContent='Page '+(page+1);
-     $('visible-count').textContent=rows.length+(rows.length===1?' case shown':' cases shown');
+   $('visible-count').textContent=rows.length+(feedbackOnly?' feedback entries':rows.length===1?' case shown':' cases shown');
      if(!staff()) {
        $('cases').innerHTML=rows.length?`<tr><td colspan="6"><div class="customer-request-list">${rows.map(r=>`<article class="customer-request" data-case-id="${r.id}"><div><small>Request #${e(r.id)} · ${e(r.type)}</small><h3>${e(r.subject)}</h3><p>${e(r.topic||'General')} · Updated ${e(date(r.updatedAt))}</p>${statusBadge(r.status)}</div><button class="case-open-button" data-open="${r.id}" aria-label="Open request ${r.id}: ${e(r.subject)}">View updates &amp; reply →</button></article>`).join('')}</div></td></tr>`:'<tr><td colspan="6"><p class="muted">You haven’t submitted any support requests yet. Use the form above to get in touch.</p></td></tr>';
      }
@@ -111,9 +113,13 @@
  }
  function renderDetail(loaded,sameCase=true,focus=false) {
    current=loaded;
+   if(current.type==='Feedback'&&!feedbackOnly){location.href=(staff()?'/html/support/feedback.html':'/html/customer/reviews.html')+'?caseId='+current.id;return;}
    current.history=current.history||[];
    $('tab-history').hidden=!canSeeHistory();
-   $('tab-details').textContent=staff()?'Details & assignment':'Request details';
+   $('tab-details').textContent=coordinator()?'Details & assignment':staff()?'Details & resolution':'Request details';
+   $('assignee').closest('.field').hidden=!coordinator();
+   $('priority').closest('.field').hidden=!coordinator();
+   document.querySelector('label[for="note"]').textContent=coordinator()?'Assignment context or resolution note':'Progress or resolution note';
    selectCaseTab(sameCase?activeCaseTab:'chats');
    $('case-detail').hidden=false;$('detail-backdrop').hidden=false;document.body.classList.add('case-panel-open');
    $('detail-title').textContent='#'+current.id+' — '+current.subject;
@@ -130,6 +136,12 @@
    renderMessages(current);
    $('history').innerHTML=current.history.length?`<div class="case-timeline">${current.history.map(item=>`<article class="timeline-item history-${slug(item.action)}"><div class="timeline-marker" aria-hidden="true">${historyIcon(item.action)}</div><div class="timeline-card"><div class="timeline-heading"><strong>${e(historyTitle(item.action))}</strong><time>${e(date(item.createdAt))}</time></div><div class="timeline-actor"><span>${e(item.actor)}</span><span class="history-action">${e(item.action)}</span></div><div class="timeline-details">${e(historyDetails(item))}</div></div></article>`).join('')}</div>`:'<div class="conversation-empty"><strong>No history yet</strong><span>Assignments, status changes and resolution notes will appear here.</span></div>';
    $('reply-form').hidden=current.status==='Closed';$('reply').value='';$('chat-notice').textContent='';
+   if(feedbackOnly){
+     $('handle-form').hidden=true;$('customer-actions').hidden=true;
+     $('tab-details').hidden=true;$('tab-history').hidden=true;selectCaseTab('chats');
+     $('detail-meta').innerHTML=`<span>Feedback</span>${current.rating?`<span>★ ${e(current.rating)}/5</span>`:''}<span>Submitted ${e(date(current.createdAt))}</span>`;
+     $('reply-form').hidden=false;
+   }
    requestAnimationFrame(()=>{const thread=$('messages').querySelector('.conversation-thread');if(thread)thread.scrollTop=thread.scrollHeight;});
    if(focus) $('case-detail').focus();
  }
@@ -139,7 +151,11 @@
  $('type').onchange=rating;$('status').onchange=updateNoteHint;$('cancel-edit').onclick=resetEditor;
  document.querySelectorAll('[data-message-type]').forEach(button=>button.onclick=()=>{$('type').value=button.dataset.messageType;rating();});
  document.querySelectorAll('[data-queue-type]').forEach(button=>button.onclick=()=>{$('filter-type').value=button.dataset.queueType;page=0;document.querySelectorAll('[data-queue-type]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));run(load);});
- $('handle-myself').onclick=()=>{$('assignee').value=String(context.actor.id);if(['New','Assigned','Reopened'].includes(current.status))$('status').value='In Review';updateNoteHint();$('note').focus();};
+ $('handle-myself').onclick=()=>run(async()=>{
+   const saved=await api('/cases/'+current.id,'PATCH',{status:['New','Assigned','Reopened'].includes(current.status)?'In Review':current.status,priority:current.priority,assigneeId:context.actor.id,note:'Customer service is handling this case.',version:current.version});
+   activeCaseTab='chats';renderDetail(saved);notice(current.type==='Feedback'?'You are handling this feedback. Send your reply to resolve it.':'You are handling this case. Reply in the conversation.','success');
+   await Promise.all([load(),loadSummary()]);
+ },$('handle-myself'));
  $('filters').onsubmit=event=>{event.preventDefault();page=0;setSummarySelection('');run(load,event.submitter);};
  $('clear-filters').onclick=clearFilters;
  $('case-summary').onclick=event=>{const card=event.target.closest('[data-summary-status]');if(!card)return;$('filter-status').value='';page=0;setSummarySelection(card.dataset.summaryStatus);run(load,card);};
@@ -165,7 +181,7 @@
    try {
      const message=$('reply').value.trim();if(!message)throw new Error('Enter a reply.');
      const saved=await api('/cases/'+current.id+'/messages','POST',{message});
-     activeCaseTab='chats';renderDetail(saved);$('chat-notice').textContent='Reply sent. Everyone on this case can see it.';
+     activeCaseTab='chats';renderDetail(saved);$('chat-notice').textContent=feedbackOnly?'Feedback reply sent.':'Reply sent. Everyone on this case can see it.';
      Promise.all([load(),loadSummary()]).catch(()=>{$('chat-notice').textContent='Reply saved. The case list could not refresh.';});
    } catch(error) { $('chat-notice').textContent='Reply not sent: '+error.message; }
    finally {button.disabled=false;button.innerHTML=label;}
@@ -173,8 +189,20 @@
  run(async()=>{
    context=await Support.init();$('case-editor').hidden=staff();
    document.body.dataset.audience=staff()?'staff':'customer';
+   document.querySelectorAll('[data-message-type="Feedback"],[data-queue-type="Feedback"]').forEach(button=>button.hidden=!feedbackOnly);
+   for(const id of ['type','filter-type'])[...$(id).options].filter(option=>option.value==='Feedback').forEach(option=>{if(!feedbackOnly)option.remove();});
+   if(feedbackOnly){
+     document.querySelector('.page_header h1').textContent='Customer feedback';
+     document.querySelector('.page_header .muted')?.replaceChildren(document.createTextNode('Share your experience and hear back from customer service.'));
+     $('type').value='Feedback';$('type').closest('.field').hidden=true;
+     document.querySelector('.case-type-choices').hidden=true;
+     document.querySelector('.case-type-tabs').hidden=true;$('filters').hidden=true;$('case-summary').hidden=true;
+     document.body.classList.add('feedback-view');
+     $('case-form').addEventListener('reset',()=>setTimeout(()=>{$('type').value='Feedback';rating();},0));
+   }
    $('queue-title').textContent=context.actor.role==='CUSTOMER'?'My support requests':coordinator()?'All support cases':'Cases assigned to you';
    $('queue-description').textContent=coordinator()?'Review priority, assignment and customer conversations from one workspace.':'Open a request to see its current status and talk to the person helping you.';
+   if(feedbackOnly){$('queue-title').textContent=staff()?'Customer feedback':'My feedback';$('queue-description').textContent='Open feedback to read the conversation and reply.';document.querySelector('.queue-heading .subtitle').textContent='FEEDBACK';}
    $('order').innerHTML='<option value="">General enquiry</option>'+context.orders.map(order=>`<option value="${order.id}">Order #${order.id}</option>`).join('');
    $('assignee').innerHTML='<option value="">Unassigned — CSM queue</option>'+context.staff.map(person=>`<option value="${person.id}">${e(person.name)} — ${e(person.role)}</option>`).join('');
    $('filter-assignee').innerHTML='<option value="">Anyone</option>'+context.staff.map(person=>`<option value="${person.id}">${e(person.name)}</option>`).join('');

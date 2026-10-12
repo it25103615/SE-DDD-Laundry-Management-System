@@ -89,6 +89,6 @@ Commands: `node scripts/Audit-Frontend.cjs`; installed Maven `mvn test`. Java is
 - Final clean full Maven run: 292 tests, zero failures, zero errors, zero skipped. This includes real SQL Server password reset/expiry/reuse checks, processing receiving and issues, QC/rework/packing, order-status history, rider assignment and support assignment/chat/resolution for all seven staff role variants.
 - Frontend audit: 53 HTML pages, 28 JavaScript files, zero missing literal local links, JavaScript syntax errors or shared-controller DOM contract errors.
 - Browser check: Manager demo login reached the dashboard, loaded 5 actual orders and LKR 4,530 recorded payments, and manual refresh updated its timestamp.
-- Applied missing processing table definitions from migration 005 without its sample-data section, migration 008 for status history, and migration 012 for password recovery. Existing records/history were preserved.
+- Applied missing processing table definitions from migration 005 without its sample-data section, migration 008 for status history, and migration 013 for password recovery. Existing records/history were preserved.
 - Fixed feedback inserts to use OUTPUT INTO, allowing support-case creation when SQL Server feedback triggers are enabled.
 - Full visual/CRUD browser rehearsal and SMTP mailbox delivery are still acceptance gates. Automated passing tests alone do not certify every Excellent-column requirement or guarantee a mark.

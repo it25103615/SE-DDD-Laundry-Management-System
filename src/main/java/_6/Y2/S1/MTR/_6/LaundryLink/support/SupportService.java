@@ -30,8 +30,10 @@ public class SupportService {
         return cases(actor,search,status,type,priority,assigneeId,page,null);
     }
     public List<Map<String, Object>> cases(Actor actor, String search, String status, String type, String priority, Integer assigneeId, int page, String topic) {
+        if ("Feedback".equals(type) && actor.staff() && !actor.coordinator()) throw new ResponseStatusException(FORBIDDEN, "Only customer service manages feedback.");
         if (page < 0) throw new ResponseStatusException(BAD_REQUEST, "Invalid page.");
         String sql = SupportRepository.CASE_SELECT;
+        if (!"Feedback".equals(type)) sql += " AND f.caseType<>'Feedback'";
         List<Object> args = new ArrayList<>();
         if ("CUSTOMER".equals(actor.role())) { sql += " AND f.userID=?"; args.add(actor.id()); }
         else if (!actor.seesAllCases()) { sql += " AND f.assigneeID=?"; args.add(actor.id()); }
@@ -54,10 +56,10 @@ public class SupportService {
         return repo.query(sql, args.toArray());
     }
     public Map<String, Object> summary(Actor actor) {
-        String scope = "";
+        String scope = " AND caseType<>'Feedback'";
         List<Object> args = new ArrayList<>();
-        if ("CUSTOMER".equals(actor.role())) { scope = " AND userID=?"; args.add(actor.id()); }
-        else if (!actor.seesAllCases()) { scope = " AND assigneeID=?"; args.add(actor.id()); }
+        if ("CUSTOMER".equals(actor.role())) { scope += " AND userID=?"; args.add(actor.id()); }
+        else if (!actor.seesAllCases()) { scope += " AND assigneeID=?"; args.add(actor.id()); }
         return repo.query("""
             SELECT COUNT(*) AS total,
               COALESCE(SUM(CASE WHEN caseStatus IN ('New','Assigned','Reopened') THEN 1 ELSE 0 END),0) AS pending,
@@ -106,8 +108,8 @@ public class SupportService {
             SELECT id FROM @created;
             """, input.message().trim(), actor.id(), input.orderId(), input.type(), input.subject().trim(), input.rating(), input.topic()==null?"General":input.topic());
         repo.audit(id, actor.id(), "Created", input.type() + " submitted");
-        notifications.notifyRoles(Set.of("CSM","CUSTOMER_SERVICE_MANAGER","OWNER","ADMIN"), "SUPPORT", "New support case",
-                input.type() + " #" + id + ": " + input.subject().trim(), "/html/support/cases.html?caseId=" + id, "SUPPORT", id, actor.id());
+        notifications.notifyRoles(Set.of("CSM","CUSTOMER_SERVICE_MANAGER"), "SUPPORT", "Feedback".equals(input.type()) ? "New customer feedback" : "New support case",
+                input.type() + " #" + id + ": " + input.subject().trim(), "/html/support/" + ("Feedback".equals(input.type()) ? "feedback" : "cases") + ".html?caseId=" + id, "SUPPORT", id, actor.id());
         return detail(actor, id);
     }
     @Transactional
@@ -138,6 +140,7 @@ public class SupportService {
     public Map<String, Object> handle(Actor actor, int id, CaseUpdate input) {
         if (!actor.staff()) throw new ResponseStatusException(FORBIDDEN, "Staff access required.");
         var item = one(actor, id);
+        if ("Feedback".equals(item.get("type"))) throw new ResponseStatusException(BAD_REQUEST, "Feedback only needs a reply; it cannot be assigned or resolved as a support case.");
         if (!actor.coordinator() && !Objects.equals(item.get("assigneeId"), input.assigneeId()))
             throw new ResponseStatusException(FORBIDDEN, "Only a support coordinator can reassign a case.");
         String note = input.note() == null ? "" : input.note().trim();
@@ -168,9 +171,10 @@ public class SupportService {
     @Transactional
     public Map<String, Object> message(Actor actor, int id, MessageInput input) {
         var item = one(actor, id);
-        if ("Closed".equals(item.get("status"))) throw new ResponseStatusException(CONFLICT, "Reopen the case before adding a message.");
+        if ("Feedback".equals(item.get("type")) && actor.staff() && !actor.coordinator()) throw new ResponseStatusException(FORBIDDEN, "Only customer service replies to feedback.");
+        if ("Closed".equals(item.get("status")) && !"Feedback".equals(item.get("type"))) throw new ResponseStatusException(CONFLICT, "Reopen the case before adding a message.");
         // Updating the case first serializes messages against closure/deletion.
-        changed(repo.update("UPDATE feedback SET updatedAt=SYSDATETIME(), version=version+1 WHERE feedbackID=? AND deleted=0 AND version=? AND caseStatus<>'Closed'", id, item.get("version")));
+        changed(repo.update("UPDATE feedback SET updatedAt=SYSDATETIME(), version=version+1 WHERE feedbackID=? AND deleted=0 AND version=? AND (caseStatus<>'Closed' OR caseType='Feedback')", id, item.get("version")));
         repo.update("INSERT INTO chat(message,userID,feedbackID) VALUES (?,?,?)", input.message().trim(), actor.id(), id);
         repo.audit(id, actor.id(), "Message added", "Communication recorded");
         if ("CUSTOMER".equals(actor.role())) {

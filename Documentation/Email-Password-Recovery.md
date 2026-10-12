@@ -1,6 +1,6 @@
 # Email password recovery setup
 
-The recovery feature is implemented in `account/PasswordRecoveryController.java`, `PasswordRecoveryService.java` and `static/js/auth/password-recovery.js`. Migration `database/migrations/012_password_recovery.sql` adds reset-token storage and is included in `scripts/Initialize-SupportDatabase.ps1`. Migration 012 has been applied to the current local database.
+The recovery feature is implemented in `account/PasswordRecoveryController.java`, `PasswordRecoveryService.java` and `static/js/auth/password-recovery.js`. Migration `database/migrations/013_password_recovery.sql` adds reset-token storage and is included in `scripts/Initialize-SupportDatabase.ps1`. Migration 013 has been applied to the current local database.
 
 Configure the following environment variables for the Spring Boot process, or their corresponding properties in the ignored `application-local.properties` file. Keep credentials out of Git and screenshots.
 

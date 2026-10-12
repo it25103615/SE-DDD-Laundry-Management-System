@@ -17,8 +17,8 @@ public class SupportAccess {
     }
     public record Actor(int id, String name, String role, boolean demo) {
         public boolean staff() { return Set.of("ADMIN", "MANAGER", "OWNER", "CSM", "CUSTOMER_SERVICE_MANAGER", "STAFF", "RIDER").contains(role); }
-        public boolean coordinator() { return Set.of("ADMIN", "OWNER", "CSM", "CUSTOMER_SERVICE_MANAGER").contains(role); }
-        public boolean seesAllCases() { return coordinator(); }
+        public boolean coordinator() { return Set.of("CSM", "CUSTOMER_SERVICE_MANAGER").contains(role); }
+        public boolean seesAllCases() { return coordinator() || Set.of("ADMIN", "OWNER").contains(role); }
         public boolean manager() { return Set.of("ADMIN", "MANAGER", "OWNER").contains(role); }
         public boolean owner() { return Set.of("ADMIN", "OWNER").contains(role); }
     }

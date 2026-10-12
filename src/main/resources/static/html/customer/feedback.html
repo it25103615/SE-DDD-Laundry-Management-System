@@ -26,7 +26,7 @@
 <header class="page_header">
 <div class="subtitle">CUSTOMER CARE</div>
 <h1>Support centre</h1>
-<p class="muted">Choose feedback, a question or a complaint. Customer service reviews it first and connects you with the right team.</p>
+<p class="muted">Send a general enquiry or a complaint. Customer service reviews it first and connects you with the right team.</p>
 <p id="identity">Connecting…</p>
 </header>
 <div id="notice" class="notice" role="status" aria-live="polite" hidden>
@@ -38,7 +38,7 @@
 <!-- Request type picker. cases.js keeps these buttons and the "Message type" select below in step. -->
 <div class="case-type-choices" aria-label="Choose a support request type">
 <button type="button" data-message-type="Feedback" aria-pressed="false"><strong>Feedback</strong><span>Tell us about your experience</span></button>
-<button type="button" data-message-type="Question" aria-pressed="false"><strong>Question</strong><span>Ask for information or help</span></button>
+<button type="button" data-message-type="Question" aria-pressed="false"><strong>General enquiry</strong><span>Ask for information or help</span></button>
 <button type="button" data-message-type="Complaint" aria-pressed="true"><strong>Complaint</strong><span>Report something that went wrong</span></button>
 </div><p id="type-help" class="muted small">Customer service reviews every request first.</p>
 <div class="grid grid_two">
@@ -50,7 +50,7 @@
 <option>Question</option>
 </select>
 </div>
-<!-- Topic of the request, saved in feedback.topic (migration 013) -->
+<!-- Topic of the request, saved in feedback.topic (migration 014) -->
 <div class="field" id="topic-field"><label for="topic">What is this about?</label><select id="topic" class="input" required><option value="">Choose a topic</option><option>Payments &amp; billing</option><option>Laundry &amp; items</option><option>Pickup &amp; delivery</option><option>Account &amp; booking</option><option value="General">Something else / general enquiry</option></select></div><div class="field">
 <label for="order">Related order (optional)</label>
 <select id="order" class="input">
@@ -94,10 +94,8 @@
 <button class="summary-card" type="button" data-summary-status="resolved" aria-pressed="false"><span class="summary-icon resolved" aria-hidden="true">✓</span><span><small>Resolved</small><strong id="summary-resolved">—</strong><em>Completed cases</em></span></button>
 </section>
 <section class="section support-queue card" aria-labelledby="queue-title">
-<!-- cases.js replaces the title and description below with wording for the signed-in role -->
 <div class="queue-heading"><div><div class="subtitle">YOUR CASES</div><h2 id="queue-title">My support requests</h2><p class="muted" id="queue-description">Search, prioritise and open a customer case.</p></div><span class="queue-count" id="visible-count" aria-live="polite">Loading…</span></div>
-<!-- Staff-only type tabs and filters (hidden for customers by support.css) -->
-<div class="case-type-tabs" aria-label="Browse support cases by type"><button type="button" data-queue-type="" aria-pressed="true">All requests</button><button type="button" data-queue-type="Feedback" aria-pressed="false">Feedback</button><button type="button" data-queue-type="Question" aria-pressed="false">Questions</button><button type="button" data-queue-type="Complaint" aria-pressed="false">Complaints</button></div><form id="filters" class="toolbar">
+<div class="case-type-tabs" aria-label="Browse support cases by type"><button type="button" data-queue-type="" aria-pressed="true">All requests</button><button type="button" data-queue-type="Feedback" aria-pressed="false">Feedback</button><button type="button" data-queue-type="Question" aria-pressed="false">General enquiries</button><button type="button" data-queue-type="Complaint" aria-pressed="false">Complaints</button></div><form id="filters" class="toolbar">
 <div class="field">
 <label for="search">Search</label>
 <input class="input" id="search" maxlength="100" placeholder="Subject or message">
