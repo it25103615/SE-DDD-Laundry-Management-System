@@ -266,8 +266,11 @@ public class OrderService {
         OrderRepository.PickupDetails pickup = orderRepository
                 .findPickupDetails(order.getOrderID(), order.getUserID()).orElse(null);
         List<OrderHistoryResponse> history = logService.getLogsByOrder(order.getOrderID()).stream()
+                // The creation row (no status before) always opens the history: on orders made
+                // before migration 016 it shares its date and time with the first status change.
                 .sorted(Comparator
-                        .comparing(Log::getLogDate, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .comparing((Log log) -> log.getStatusBefore() != null)
+                        .thenComparing(Log::getLogDate, Comparator.nullsLast(Comparator.naturalOrder()))
                         .thenComparing(Log::getLogTime, Comparator.nullsLast(Comparator.naturalOrder())))
                 .map(log -> new OrderHistoryResponse(
                         log.getLogID(),

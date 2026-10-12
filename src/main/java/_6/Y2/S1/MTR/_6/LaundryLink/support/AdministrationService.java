@@ -1,5 +1,6 @@
 package _6.Y2.S1.MTR._6.LaundryLink.support;
 
+import _6.Y2.S1.MTR._6.LaundryLink.support.dto.SupportRequests.ItemInput;
 import _6.Y2.S1.MTR._6.LaundryLink.support.dto.SupportRequests.PriceInput;
 import _6.Y2.S1.MTR._6.LaundryLink.support.dto.SupportRequests.ServiceInput;
 import _6.Y2.S1.MTR._6.LaundryLink.support.dto.SupportRequests.StaffInput;
@@ -82,6 +83,28 @@ public class AdministrationService {
             WHEN NOT MATCHED THEN INSERT(serviceID,itemID,price) VALUES(source.serviceID,source.itemID,source.price);
             """, serviceId, input.itemId(), input.price());
         repo.audit(null, actor.id(), "Service price updated", "Service #" + serviceId + ", item #" + input.itemId());
+    }
+
+    // Adds an item to a service by name. Items are shared between services, so a name that already
+    // exists (ignoring case) is reused and only priced for this service; otherwise a new item is
+    // created first. An item that is already in the service is rejected: its price is changed with
+    // setPrice. (A page that lets the manager pick an existing item instead of typing its name
+    // needs no new method here: setPrice already adds a known item to a service.)
+    @Transactional
+    public int addItem(Actor actor, int serviceId, ItemInput input) {
+        access.manager(actor);
+        if (repo.count("SELECT COUNT(*) FROM services WHERE serviceID=?", serviceId) != 1)
+            throw new ResponseStatusException(NOT_FOUND, "Service not found.");
+        String name = input.name().trim();
+        var existing = repo.query("SELECT TOP(1) itemID AS id FROM items WHERE LOWER(itemName)=LOWER(?) ORDER BY itemID", name);
+        int itemId = existing.isEmpty()
+            ? repo.insert("INSERT INTO items(itemName) OUTPUT INSERTED.itemID VALUES (?)", name)
+            : ((Number) existing.getFirst().get("id")).intValue();
+        if (repo.count("SELECT COUNT(*) FROM servicePricing WHERE serviceID=? AND itemID=?", serviceId, itemId) > 0)
+            throw new ResponseStatusException(CONFLICT, "That item is already in this service. Use Edit items to change its price.");
+        repo.update("INSERT INTO servicePricing(serviceID,itemID,price) VALUES (?,?,?)", serviceId, itemId, input.price());
+        repo.audit(null, actor.id(), "Service item added", "Service #" + serviceId + ", " + name);
+        return itemId;
     }
 
     public List<Map<String, Object>> staff(Actor actor, String search) {

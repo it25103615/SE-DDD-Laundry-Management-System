@@ -25,6 +25,13 @@
   background: var(--color-accent-100);
 }
 
+/* Space under the last content of a page, so it does not sit on the edge of the window.
+   Put on <main>. 72px matches what .support-page pages (e.g. Service Catalogue) already
+   get from support.css. */
+.page_end_gap {
+  padding-bottom: 72px;
+}
+
 /* Row above the board holding the order count (left) and the Grid/List switch (right). */
 .board_toolbar {
   align-items: center;
@@ -41,6 +48,12 @@
   grid-template-columns: repeat(4, minmax(220px, 1fr));
   gap: 16px;
   overflow-x: auto;
+  /* A box that scrolls sideways also cuts off anything outside it, and that sliced the
+     columns' soft shadows into a hard-edged rectangle behind them. The padding gives the
+     shadows room inside the box; the equal negative margin keeps the columns exactly
+     where they were. */
+  padding: 20px 30px 44px;
+  margin: -20px -30px -44px;
 }
 .board_column {
   background: color-mix(in srgb, var(--secondary-color) 55%, transparent);
@@ -144,7 +157,7 @@
 tbody tr {
   transition: background-color 0.18s ease;
 }
-/* Order rows that open the order when clicked (My Orders). */
+/* Rows that open their record when clicked (My Orders, owner Payments & Billing). */
 tr.order_row {
   cursor: pointer;
 }
@@ -267,6 +280,98 @@ tbody tr:hover {
     margin: 0;
   }
 }
+/* Manager dashboard, "Current order statuses" card: a clickable tile per workflow stage,
+   then one bar row per status of the stage that was clicked. */
+.stage_strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0 6px;
+}
+.stage_tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--black-20);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.55);
+  /* The tile is a <button>, so the browser's own button look is reset here. */
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+.stage_tile:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+/* A stage with no orders has nothing to open. */
+.stage_tile:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+/* The stage whose statuses are listed under the tiles. */
+.stage_tile_open {
+  border-color: var(--primary-color);
+  box-shadow: inset 0 0 0 1px var(--primary-color);
+}
+.stage_tile span {
+  color: var(--black-70);
+  font-size: small;
+}
+.stage_tile strong {
+  font-size: 26px;
+  line-height: 1;
+  color: var(--color-accent-700);
+}
+/* Only the "Failed" stage uses this, and only while it has orders in it. */
+.stage_tile_alert {
+  border-color: var(--color-warning);
+  background: linear-gradient(135deg, #fff7db, #ffe4ae);
+}
+.stage_tile_alert strong {
+  color: var(--color-warning);
+}
+/* Line under the tiles: the "select a stage" hint, or what the bars of the open stage mean. */
+.stage_note {
+  margin: 14px 0 4px;
+}
+.status_row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) minmax(60px, 1.4fr) 2.25rem;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+}
+.status_row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.status_row > strong {
+  text-align: right;
+}
+.status_bar {
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(3, 75, 120, 0.1);
+}
+.status_bar span {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  background: var(--primary-color);
+}
+@media (max-width: 650px) {
+  .stage_strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .operational-alert-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -282,4 +387,25 @@ tbody tr:hover {
   min-width: 2.25rem;
   text-align: center;
   white-space: nowrap;
+}
+
+/* Payment detail page (admin/owner/payment_detail.html).
+   .custom_button and .top_bar set their own display, which beats the browser's built-in
+   [hidden] rule, so the buttons, rows and panels the script hides would still be shown
+   without this. */
+body[data-payment-admin-page="detail"] [hidden] {
+  display: none !important;
+}
+/* Buttons are disabled while their request is on its way, so a disabled button has to
+   look disabled: greyed out, with no hover lift. */
+body[data-payment-admin-page="detail"] .custom_button:disabled {
+  filter: grayscale(1);
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+/* The shine that sweeps across a button on hover. */
+body[data-payment-admin-page="detail"] .custom_button:disabled::after {
+  display: none;
 }

@@ -33,6 +33,11 @@ public final class SupportRequests {
     public record PriceInput(
         @NotNull @Positive Integer itemId,
         @NotNull @DecimalMin("0.00") @Digits(integer = 8, fraction = 2) BigDecimal price) {}
+    // A new item for a service, by name. 30 is the length of items.itemName; the price rules are
+    // the same as PriceInput.
+    public record ItemInput(
+        @NotBlank @Size(max = 30) String name,
+        @NotNull @DecimalMin("0.00") @Digits(integer = 8, fraction = 2) BigDecimal price) {}
     public record StaffRoleInput(
         @NotBlank @Pattern(regexp = "RIDER|STAFF|CSM|MANAGER") String role,
         @NotNull @PositiveOrZero Integer version) {}

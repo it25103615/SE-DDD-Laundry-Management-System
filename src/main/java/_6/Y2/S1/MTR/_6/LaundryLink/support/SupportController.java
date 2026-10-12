@@ -41,7 +41,7 @@ public class SupportController {
     @GetMapping("/reports")
     public Object report(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@RequestParam(required=false) LocalDate from,@RequestParam(required=false) LocalDate to,@RequestParam(required=false) Integer serviceId) { return reports.report(access.actor(p,demo),from,to,serviceId); }
     @GetMapping("/orders")
-    public Object orders(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@RequestParam(required=false) Integer orderId,@RequestParam(defaultValue="0") int page) { return reports.orders(access.actor(p,demo),orderId,page); }
+    public Object orders(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@RequestParam(required=false) Integer orderId,@RequestParam(required=false) String customer,@RequestParam(required=false) Integer statusId,@RequestParam(required=false) LocalDate from,@RequestParam(required=false) LocalDate to,@RequestParam(defaultValue="0") int page) { return reports.orders(access.actor(p,demo),orderId,customer,statusId,from,to,page); }
     @GetMapping("/orders/{id}/history")
     public Object history(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@PathVariable int id) { return reports.orderHistory(access.actor(p,demo),id); }
     @GetMapping("/administration/catalog")
@@ -55,6 +55,9 @@ public class SupportController {
     @PutMapping("/administration/services/{id}/prices")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void setPrice(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@PathVariable int id,@Valid @RequestBody PriceInput input) { administration.setPrice(access.actor(p,demo),id,input); }
+    @PostMapping("/administration/services/{id}/items")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Object addItem(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@PathVariable int id,@Valid @RequestBody ItemInput input) { return Map.of("id",administration.addItem(access.actor(p,demo),id,input)); }
     @GetMapping("/administration/staff")
     public Object staff(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@RequestParam(required=false) String search) { return administration.staff(access.actor(p,demo),search); }
     @PostMapping("/administration/staff")

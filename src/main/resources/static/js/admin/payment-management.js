@@ -179,11 +179,17 @@
       table.innerHTML = records
         .map((record) => {
           const canOpenPayment = record.paymentID != null;
+          const href = canOpenPayment
+            ? `payment_detail.html?paymentID=${encodeURIComponent(record.paymentID)}`
+            : "";
           const action = canOpenPayment
-            ? `<a class="link" href="payment_detail.html?paymentID=${encodeURIComponent(record.paymentID)}">View</a>`
+            ? `<a class="link" href="${href}">View</a>`
             : '<span class="muted">No payment yet</span>';
+          // data-href lets a click anywhere on the row open the payment (see the click handler
+          // where the list page is set up). Orders with no payment yet have nothing to open.
+          const rowAttributes = canOpenPayment ? ` class="order_row" data-href="${href}"` : "";
           return `
-            <tr>
+            <tr${rowAttributes}>
               <td>${paymentIdLabel(record.paymentID)}</td>
               <td>#${record.orderID}</td>
               <td>${escapeHtml(customerLabel(record))}</td>
@@ -201,6 +207,34 @@
       setText("outstanding-total", "Unavailable");
       setText("failed-total", "-");
       if (table) table.innerHTML = '<tr><td colspan="8">Payment and billing records could not be loaded.</td></tr>';
+    }
+  }
+
+  // Whether a payment can still be accepted or rejected. Only a pending payment with nothing
+  // outstanding can be verified, and a payment left pending on a cancelled order can only be
+  // rejected: approving it would release the cancelled order for pickup, and the server
+  // refuses that as well.
+  function verifyActions(record) {
+    const pending = record.paymentStatus === "PENDING";
+    const canVerify = pending && Number(record.outstandingAmount || 0) === 0;
+    const orderCancelled = String(record.orderStatus || "").toLowerCase() === "cancelled";
+    return { canVerify, orderCancelled, canApprove: canVerify && !orderCancelled };
+  }
+
+  // Accept and Reject are only shown while the payment still allows them. Once an action has
+  // been taken on the payment (or it is not eligible yet) they are hidden. They are disabled
+  // as well, so a hidden button can never be triggered.
+  function applyVerifyButtons(record) {
+    const { canVerify, canApprove } = verifyActions(record);
+    const approve = document.getElementById("approve-payment");
+    const reject = document.getElementById("reject-payment");
+    if (approve) {
+      approve.hidden = !canApprove;
+      approve.disabled = !canApprove;
+    }
+    if (reject) {
+      reject.hidden = !canVerify;
+      reject.disabled = !canVerify;
     }
   }
 
@@ -240,25 +274,11 @@
 
     const verified = record.paymentStatus === "PAID" || record.paymentStatus === "VERIFIED";
     const rejected = record.paymentStatus === "REJECTED";
-    const pending = record.paymentStatus === "PENDING";
-    const canVerify = pending && Number(record.outstandingAmount || 0) === 0;
-    // A payment left pending on a cancelled order can only be rejected. Approving it would
-    // release the cancelled order for pickup, and the server refuses that as well.
-    const orderCancelled = String(record.orderStatus || "").toLowerCase() === "cancelled";
-    const canApprove = canVerify && !orderCancelled;
-    const approve = document.getElementById("approve-payment");
-    const reject = document.getElementById("reject-payment");
+    const { canVerify, orderCancelled } = verifyActions(record);
     const refundPanel = document.getElementById("refund-panel");
     const finalStatus = document.getElementById("detail-final-status");
 
-    if (approve) {
-      approve.hidden = !canApprove;
-      approve.disabled = !canApprove;
-    }
-    if (reject) {
-      reject.hidden = !canVerify;
-      reject.disabled = !canVerify;
-    }
+    applyVerifyButtons(record);
     if (refundPanel) {
       refundPanel.hidden = !refundRequested;
     }
@@ -316,10 +336,9 @@
       showMessage("detail-error", "");
       if (approve) approve.disabled = true;
       if (reject) reject.disabled = true;
+      let result;
       try {
-        const result = await api(`/api/payments/management/${currentRecord.paymentID}/${action}`, { method: "POST" });
-        showMessage("detail-success", result.message || "Payment status updated.");
-        await refresh();
+        result = await api(`/api/payments/management/${currentRecord.paymentID}/${action}`, { method: "POST" });
       } catch (error) {
         // A 409 now carries the server's reason (for example that the order was cancelled).
         showMessage("detail-error", error.status === 409 && error.body && error.body.message
@@ -327,9 +346,21 @@
           : error.status === 409
             ? "This payment cannot be updated until the full amount has been paid."
             : "Payment status could not be updated.");
-        const cancelled = String(currentRecord.orderStatus || "").toLowerCase() === "cancelled";
-        if (approve && currentRecord.paymentStatus === "PENDING" && !cancelled) approve.disabled = false;
-        if (reject && currentRecord.paymentStatus === "PENDING") reject.disabled = false;
+        // Nothing changed, so give back whichever actions the payment still allows.
+        applyVerifyButtons(currentRecord);
+        return;
+      }
+
+      // The action went through. The reload is kept apart from the request above so that a
+      // failed reload is not reported as a failed update. The buttons are hidden straight away
+      // because the payment has already been acted on, whether or not the reload works.
+      showMessage("detail-success", result.message || "Payment status updated.");
+      if (approve) approve.hidden = true;
+      if (reject) reject.hidden = true;
+      try {
+        await refresh();
+      } catch (error) {
+        showMessage("detail-error", "Payment details could not be reloaded.");
       }
     }
 
@@ -374,6 +405,15 @@
   if (page === "list") {
     const filters = document.getElementById("payment-filters");
     const clearFilters = document.getElementById("clear-payment-filters");
+    const table = document.getElementById("manager-payment-table");
+    // Clicking anywhere on a payment row opens that payment. A click on the View link itself is
+    // left to the link, so ctrl/middle-click still open it in a new tab.
+    if (table) {
+      table.addEventListener("click", (event) => {
+        const row = event.target.closest("tr[data-href]");
+        if (row && !event.target.closest("a")) window.location.href = row.dataset.href;
+      });
+    }
     if (filters) {
       filters.addEventListener("submit", (event) => {
         event.preventDefault();

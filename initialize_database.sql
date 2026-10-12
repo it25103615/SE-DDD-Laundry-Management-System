@@ -550,23 +550,26 @@ BEGIN
 END;
 GO
 
-/* Writes the order status history (migration 008). Fires after any UPDATE of dbo.orders and adds
-   one dbo.logs row for each order whose statusID actually changed, whichever module made the
-   change (payment approval, laundry processing or a rider). It is the only thing that writes
-   status log rows, so every step of an order appears in its history exactly once.
-   "inserted" holds the rows as they are now and "deleted" as they were before. New orders are
-   not logged (UPDATE only), and an UPDATE that leaves the status the same writes nothing.
+/* Writes the order status history (migrations 008 and 016). Fires after any INSERT or UPDATE of
+   dbo.orders and adds one dbo.logs row for each new order and for each order whose statusID
+   actually changed, whichever module made the change (payment approval, laundry processing or
+   a rider). It is the only thing that writes status log rows, so every step of an order appears
+   in its history exactly once.
+   "inserted" holds the rows as they are now and "deleted" as they were before. A new order has
+   no row in "deleted", so the LEFT JOIN leaves d empty for it: the WHERE keeps it and its row
+   gets a NULL status_before. That "creation row" records when the order was made (the Order
+   lookup page filters on its date). An UPDATE that leaves the status the same writes nothing.
    SET NOCOUNT ON keeps the row count the application sees equal to the orders it updated. */
 CREATE OR ALTER TRIGGER dbo.trg_order_status_log
-ON dbo.orders AFTER UPDATE AS
+ON dbo.orders AFTER INSERT, UPDATE AS
 BEGIN
     SET NOCOUNT ON;
     -- Read the clock once so the date and the time belong to the same moment.
     DECLARE @Now DATETIME2 = SYSDATETIME();
     INSERT dbo.logs(status_before,status_after,logDate,logTime,orderID)
     SELECT d.statusID, i.statusID, CONVERT(date,@Now), CONVERT(time,@Now), i.orderID
-    FROM inserted i JOIN deleted d ON d.orderID=i.orderID
-    WHERE COALESCE(i.statusID,-1)<>COALESCE(d.statusID,-1);
+    FROM inserted i LEFT JOIN deleted d ON d.orderID=i.orderID
+    WHERE d.orderID IS NULL OR COALESCE(i.statusID,-1)<>COALESCE(d.statusID,-1);
 END;
 GO
 
