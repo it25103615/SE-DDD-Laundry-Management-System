@@ -177,6 +177,14 @@ body.case-panel-open .dashboard_nav { visibility:hidden; }
 .support-page .notice { position:fixed; z-index:1200; top:84px; right:24px; max-width:min(420px,calc(100vw - 32px)); margin:0; box-shadow:0 14px 38px rgba(20,56,76,.2); animation:notice-in .25s ease both; }
 @keyframes notice-in { from { opacity:0; transform:translateY(-10px); } }
 .support-page #detail-notice { position:static; max-width:none; margin:16px 0; box-shadow:none; animation:none; }
+/* Pop-ups of the service catalogue page (add/edit a service, edit item prices, add an item).
+   Same look as the address pop-up of the profile page (.address-dialog in profile-live.css). */
+.catalog-dialog { width:min(480px,calc(100vw - 32px)); padding:26px 28px; border:0; border-radius:18px; box-shadow:0 24px 65px rgba(3,42,72,.3); }
+.catalog-dialog::backdrop { background:rgba(16,42,59,.45); }
+.catalog-dialog h2 { margin:0 0 10px; }
+/* A failed save is reported inside the pop-up, in the normal flow of the form, instead of as the
+   floating notice at the top right of the page. */
+.support-page .dialog-notice { position:static; max-width:none; margin:16px 0 0; box-shadow:none; animation:none; }
 .feedback-view .case-table-wrap th:nth-child(4), .feedback-view .case-table-wrap th:nth-child(5),
 .feedback-view .case-row td:nth-child(4), .feedback-view .case-row td:nth-child(5),
 .feedback-view .customer-request .case-badge { display:none; }

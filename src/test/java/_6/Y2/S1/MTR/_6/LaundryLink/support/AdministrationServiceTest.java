@@ -1,6 +1,8 @@
 package _6.Y2.S1.MTR._6.LaundryLink.support;
 
+import _6.Y2.S1.MTR._6.LaundryLink.support.dto.SupportRequests.ItemInput;
 import _6.Y2.S1.MTR._6.LaundryLink.support.dto.SupportRequests.ServiceInput;
+import java.math.BigDecimal;
 import _6.Y2.S1.MTR._6.LaundryLink.support.dto.SupportRequests.StaffInput;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -101,5 +103,34 @@ class AdministrationServiceTest {
         var input = new ServiceInput("Wash", "Standard washing", 48, true, null);
         assertThrows(ResponseStatusException.class, () -> service.createService(manager, input));
         verify(repo, never()).insert(anyString(), any(Object[].class));
+    }
+
+    // In the three tests below service #3 exists: count(sql, 3) is the "does the service exist" check
+    // and count(sql, 3, 7) the "is item #7 already in service #3" check.
+    @Test void newItemNameCreatesItemAndPricesItForTheService() {
+        when(repo.count(anyString(), eq(3))).thenReturn(1);
+        when(repo.query(anyString(), eq("Curtain"))).thenReturn(List.of());
+        when(repo.insert(anyString(), eq("Curtain"))).thenReturn(7);
+        assertEquals(7, service.addItem(manager, 3, new ItemInput(" Curtain ", new BigDecimal("450.00"))));
+        verify(repo).update(anyString(), eq(3), eq(7), eq(new BigDecimal("450.00")));
+        verify(repo).audit(null, 4, "Service item added", "Service #3, Curtain");
+    }
+
+    @Test void existingItemNameIsReusedInsteadOfDuplicated() {
+        when(repo.count(anyString(), eq(3))).thenReturn(1);
+        when(repo.query(anyString(), eq("shirt"))).thenReturn(List.of(Map.of("id", 7)));
+        assertEquals(7, service.addItem(manager, 3, new ItemInput("shirt", new BigDecimal("120.00"))));
+        verify(repo, never()).insert(anyString(), any(Object[].class));
+        verify(repo).update(anyString(), eq(3), eq(7), eq(new BigDecimal("120.00")));
+    }
+
+    @Test void itemAlreadyInServiceIsRejected() {
+        when(repo.count(anyString(), eq(3))).thenReturn(1);
+        when(repo.query(anyString(), eq("Shirt"))).thenReturn(List.of(Map.of("id", 7)));
+        when(repo.count(anyString(), eq(3), eq(7))).thenReturn(1);
+        var error = assertThrows(ResponseStatusException.class, () -> service.addItem(manager, 3, new ItemInput("Shirt", new BigDecimal("120.00"))));
+        assertEquals(409, error.getStatusCode().value());
+        verify(repo, never()).update(anyString(), any(Object[].class));
+        verify(repo, never()).audit(any(), anyInt(), anyString(), anyString());
     }
 }

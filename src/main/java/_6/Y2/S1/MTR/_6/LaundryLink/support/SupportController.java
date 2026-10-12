@@ -55,6 +55,9 @@ public class SupportController {
     @PutMapping("/administration/services/{id}/prices")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void setPrice(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@PathVariable int id,@Valid @RequestBody PriceInput input) { administration.setPrice(access.actor(p,demo),id,input); }
+    @PostMapping("/administration/services/{id}/items")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Object addItem(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@PathVariable int id,@Valid @RequestBody ItemInput input) { return Map.of("id",administration.addItem(access.actor(p,demo),id,input)); }
     @GetMapping("/administration/staff")
     public Object staff(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@RequestParam(required=false) String search) { return administration.staff(access.actor(p,demo),search); }
     @PostMapping("/administration/staff")
