@@ -93,11 +93,15 @@
    };
  });
  function renderMessages(item) {
-   const chatMessages=[{author:item.customer||'Customer',authorRole:'CUSTOMER',message:item.message,sentAt:item.createdAt},...(item.messages||[])];
+   // The first bubble is the case's original message. A staff-raised issue report is filed under the order's
+   // customer, but staff wrote it, so it is shown as coming from laundry staff rather than under the customer's name.
+   const opening=staffRaised(item)?{author:'Laundry staff',authorRole:'STAFF'}:{author:item.customer||'Customer',authorRole:'CUSTOMER'};
+   const chatMessages=[{...opening,message:item.message,sentAt:item.createdAt},...(item.messages||[])];
    $('messages').innerHTML=chatMessages.length?`<div class="conversation-thread">${chatMessages.map(message=>{const customer=message.authorRole==='CUSTOMER';return `<article class="message-row ${customer?'from-customer':'from-support'}"><span class="message-avatar" aria-hidden="true">${e(initials(message.author))}</span><div class="message-bubble"><div class="message-heading"><strong>${e(message.author)}</strong><span>${customer?'Customer':'Support team'}</span></div><p>${e(message.message)}</p><time>${e(date(message.sentAt))}</time></div></article>`;}).join('')}</div>`:'<div class="conversation-empty"><span aria-hidden="true">✉</span><strong>No replies yet</strong><span>Messages between the customer and support team will appear here.</span></div>';
  }
  function closeDetail() {
    $('case-detail').hidden=true;$('detail-backdrop').hidden=true;document.body.classList.remove('case-panel-open');current=null;
+   notice('');   // an error from this case (e.g. a missing resolution note) must not show on the next one opened
    if(lastFocus?.isConnected) lastFocus.focus();
  }
  function hasDraft() {
@@ -115,6 +119,8 @@
    current=loaded;
    if(current.type==='Feedback'&&!feedbackOnly){location.href=(staff()?'/html/support/feedback.html':'/html/customer/reviews.html')+'?caseId='+current.id;return;}
    current.history=current.history||[];
+   // Switching straight to another case (e.g. from a notification link) also clears the previous case's message.
+   if(!sameCase)notice('');
    $('tab-history').hidden=!canSeeHistory();
    $('tab-details').textContent=coordinator()?'Details & assignment':staff()?'Details & resolution':'Request details';
    $('assignee').closest('.field').hidden=!coordinator();
@@ -185,6 +191,12 @@
      Promise.all([load(),loadSummary()]).catch(()=>{$('chat-notice').textContent='Reply saved. The case list could not refresh.';});
    } catch(error) { $('chat-notice').textContent='Reply not sent: '+error.message; }
    finally {button.disabled=false;button.innerHTML=label;}
+ };
+ // "Press Enter to send": while the box is ticked, Enter submits the reply form and Shift+Enter adds a new line.
+ // isComposing skips the Enter that confirms an input-method (IME) suggestion.
+ $('reply').onkeydown=event=>{
+   if(event.key!=='Enter'||event.shiftKey||event.isComposing||!$('enter-sends')?.checked)return;
+   event.preventDefault();$('reply-form').requestSubmit();
  };
  run(async()=>{
    context=await Support.init();$('case-editor').hidden=staff();
