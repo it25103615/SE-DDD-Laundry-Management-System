@@ -6,10 +6,11 @@
  *    route ends at Quality Inspection), with completed / current / locked stages;
  *  - the items, the customer's instructions (the order's note and preferences, and the
  *    address's delivery instruction), the status history and issues;
- *  - the actions the server says are allowed next: move to the next stage, a manual status
- *    change (invalid moves are refused by the server, TC-LP08), and - once the order is at
+ *  - the actions the server says are allowed next: move to the next stage (the server still
+ *    refuses invalid moves, TC-LP08, but the page no longer offers them), and - once the order is at
  *    Quality Inspection - the quality check with a rework stage when it fails (TC-LP09),
- *    packing, and "Mark as Ready" (TC-LP10).
+ *    packing, and "Mark as Ready" (TC-LP10), which shows an error under the button when it is
+ *    pressed before the check has passed and the order is packed.
  * After every action the page reloads the order so it always shows the saved state.
  * Buttons are created here (not in the HTML) so global-post.js does not attach demo toasts.
  */
@@ -63,12 +64,6 @@
     IRONING: "Ironing route: straight to Ironing (no washing or drying).",
   };
 
-  /** Statuses offered in the manual status change (the server decides what is allowed). */
-  const STATUS_CHOICES = [
-    [8, "Verifying Items"], [9, "Washing"], [19, "Dry Clean"], [10, "Drying"],
-    [11, "Ironing"], [21, "Quality Inspection"], [12, "Awaiting Delivery"],
-  ];
-
   /** How many timeline stages are finished, from the status and the latest quality check. */
   function completedStages(stages) {
     if (order.statusID === 12) return stages.length;               // released: everything done
@@ -101,7 +96,9 @@
   function renderDetails() {
     const items = order.lines.reduce((total, line) => total + line.quantity, 0);
     document.title = `Process Order #${order.orderID} | LaundryLink`;
-    $("order-title").textContent = `Order #${order.orderID}`;
+    // An order has one service, so any line carries it, e.g. "Order #2 - Wash and Fold".
+    const service = order.lines[0]?.serviceName;
+    $("order-title").textContent = `Order #${order.orderID}${service ? " - " + service : ""}`;
     $("order-summary").textContent = `${order.customerName} · ${items} item${items === 1 ? "" : "s"}`;
     $("order-status").innerHTML = badge(order.statusLabel);
 
@@ -149,7 +146,8 @@
 
     if (order.statusID === 7) {
       parts.push(`<p class="muted">Count the items before processing starts.</p>
-        <a class="custom_button custom_button_bg" href="receive_items.html?orderId=${order.orderID}">Receive items →</a>`);
+        <a class="custom_button custom_button_bg" href="receive_items.html?orderId=${order.orderID}"
+          style="width:100%;text-align:center">Receive items →</a>`);
     } else if (order.nextStatus) {
       parts.push(`<button class="custom_button custom_button_bg" type="button" data-action="next"
         data-status="${order.nextStatus.statusID}" style="width:100%">Move to ${escape(order.nextStatus.label)} →</button>`);
@@ -175,24 +173,15 @@
       if (check && check.result === "Passed" && !check.packed) {
         parts.push(`<button class="custom_button custom_button_nobg" type="button" data-action="pack" style="margin-top:10px">Mark as packed</button>`);
       }
-    }
 
-    // TC-LP10: only enabled once the latest check passed and the order is packed.
-    if (order.statusID !== 12) {
-      parts.push(`<div class="alert ${order.readyForDispatch ? "alert_success" : "alert_error"}" style="margin-top:18px">
-          ${order.readyForDispatch ? "<strong>Ready to release</strong><br>Quality check passed and packed."
-            : "<strong>Not ready yet</strong><br>Finish the cleaning stages, pass the quality check and pack the order."}</div>
-        <button class="custom_button custom_button_bg" type="button" data-action="ready"
-          style="width:100%;margin-top:12px${order.readyForDispatch ? "" : ";opacity:.45;cursor:not-allowed"}"
-          ${order.readyForDispatch ? "" : "disabled"}>Mark as Ready →</button>`);
+      // TC-LP10: the button only exists at Quality Inspection and is always clickable. The error
+      // under it stays hidden until it is pressed before the check has passed and the order is
+      // packed (see the "ready" action in the click handler).
+      parts.push(`<button class="custom_button custom_button_bg" type="button" data-action="ready"
+          style="width:100%;margin-top:18px">Mark as Ready →</button>
+        <div class="alert alert_error" id="ready-error" hidden style="margin-top:12px">
+          <strong>Not ready yet</strong><br>Pass the quality check and pack the order first.</div>`);
     }
-
-    // Manual status change (TC-LP08 uses this to try an invalid skip).
-    parts.push(`<h3 style="margin-top:22px">Set status</h3>
-      <p class="muted small">Moves are checked against the order's route; skipped stages are refused.</p>
-      <div class="field"><select class="input" id="set-status" aria-label="New status">
-        ${STATUS_CHOICES.map(([id, label]) => `<option value="${id}">${label}</option>`).join("")}</select></div>
-      <button class="custom_button custom_button_nobg" type="button" data-action="set-status">Update status</button>`);
 
     $("actions").innerHTML = parts.join("");
 
@@ -232,8 +221,6 @@
     const actions = {
       next: () => act(() => api(`/orders/${id}/status`, "PUT", { statusID: Number(button.dataset.status) }),
         "Order moved to the next stage."),
-      "set-status": () => act(() => api(`/orders/${id}/status`, "PUT", { statusID: Number($("set-status").value) }),
-        "Status updated."),
       quality: () => {
         const failed = $("qc-result").value === "Failed";
         return act(() => api(`/orders/${id}/quality-check`, "POST", {
@@ -244,8 +231,15 @@
         }), failed ? "Quality check failed - order sent back for rework." : "Quality check passed.");
       },
       pack: () => act(() => api(`/orders/${id}/pack`, "POST"), "Order marked as packed."),
-      ready: () => act(() => api(`/orders/${id}/ready`, "POST"),
-        "Order is now Awaiting Delivery. The customer has been notified."),
+      ready: () => {
+        // TC-LP10: not passed and packed yet - show why under the button instead of calling the server.
+        if (!order.readyForDispatch) {
+          $("ready-error").hidden = false;
+          return;
+        }
+        return act(() => api(`/orders/${id}/ready`, "POST"),
+          "Order is now Awaiting Delivery. The customer has been notified.");
+      },
     };
     notice("");
     run(actions[button.dataset.action], button);
