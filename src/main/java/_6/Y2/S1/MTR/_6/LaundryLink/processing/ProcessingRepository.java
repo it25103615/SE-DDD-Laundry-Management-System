@@ -213,7 +213,9 @@ public class ProcessingRepository {
     /**
      * The order's status history, oldest first. Sorted by logID (the order rows were written in)
      * rather than by date/time, so the sequence stays right even if the stored times come from
-     * different clocks or time zones.
+     * different clocks or time zones. The one exception is the creation row (status_before IS
+     * NULL): migration 016 added it to older orders afterwards, so it has a high logID there and
+     * is put first explicitly.
      */
     public List<HistoryEntry> findHistory(int orderID) {
         return db.query("""
@@ -222,7 +224,7 @@ public class ProcessingRepository {
                 LEFT JOIN status b ON b.statusID = l.status_before
                 LEFT JOIN status a ON a.statusID = l.status_after
                 WHERE l.orderID = ?
-                ORDER BY l.logID
+                ORDER BY CASE WHEN l.status_before IS NULL THEN 0 ELSE 1 END, l.logID
                 """,
                 (rs, row) -> {
                     LocalDate date = rs.getObject("logDate", LocalDate.class);

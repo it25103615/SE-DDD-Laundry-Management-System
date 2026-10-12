@@ -41,7 +41,7 @@ public class SupportController {
     @GetMapping("/reports")
     public Object report(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@RequestParam(required=false) LocalDate from,@RequestParam(required=false) LocalDate to,@RequestParam(required=false) Integer serviceId) { return reports.report(access.actor(p,demo),from,to,serviceId); }
     @GetMapping("/orders")
-    public Object orders(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@RequestParam(required=false) Integer orderId,@RequestParam(defaultValue="0") int page) { return reports.orders(access.actor(p,demo),orderId,page); }
+    public Object orders(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@RequestParam(required=false) Integer orderId,@RequestParam(required=false) String customer,@RequestParam(required=false) Integer statusId,@RequestParam(required=false) LocalDate from,@RequestParam(required=false) LocalDate to,@RequestParam(defaultValue="0") int page) { return reports.orders(access.actor(p,demo),orderId,customer,statusId,from,to,page); }
     @GetMapping("/orders/{id}/history")
     public Object history(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@PathVariable int id) { return reports.orderHistory(access.actor(p,demo),id); }
     @GetMapping("/administration/catalog")

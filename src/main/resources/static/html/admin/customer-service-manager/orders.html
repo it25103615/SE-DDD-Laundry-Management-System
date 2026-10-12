@@ -24,12 +24,37 @@
 </header>
 <div id="notice" class="notice" role="status" aria-live="polite" hidden>
 </div>
-<form id="order-search" class="toolbar">
-<div class="field">
-<label for="order-id">Order ID (leave empty for all)</label>
-<input class="input" id="order-id" type="number" min="1" step="1">
+<!-- order-filters lays the form out as four columns (support.css). The two search boxes take
+     two columns each; the three filters and the buttons take one each on the row below. -->
+<form id="order-search" class="toolbar order-filters">
+<div class="field search-field">
+<label for="order-id">Order ID</label>
+<input class="input" id="order-id" type="number" min="1" step="1" placeholder="Any order">
 </div>
+<div class="field search-field">
+<label for="customer">Customer name</label>
+<input class="input" id="customer" type="search" maxlength="100" placeholder="Any customer">
+</div>
+<!-- Filters. All of them are optional and can be combined. The status options are filled in
+     by orders.js. Leaving one of the two dates empty searches "on or after" / "on or before". -->
+<div class="field">
+<label for="status">Status</label>
+<select class="input" id="status">
+<option value="">All statuses</option>
+</select>
+</div>
+<div class="field">
+<label for="from">Placed from</label>
+<input class="input" id="from" type="date">
+</div>
+<div class="field">
+<label for="to">Placed until</label>
+<input class="input" id="to" type="date">
+</div>
+<div class="filter-buttons">
 <button class="custom_button custom_button_bg" type="submit">Find orders</button>
+<button class="custom_button filter-reset" id="clear" type="button">Clear</button>
+</div>
 </form>
 <div class="table_wrap">
 <table>
@@ -38,6 +63,7 @@
 <th>Order</th>
 <th>Customer</th>
 <th>Status</th>
+<th>Order placed date</th>
 <th>Order value</th>
 <th>History</th>
 </tr>
