@@ -9,31 +9,31 @@ This replaced the earlier layer-first layout (`controller/<module>`, `service/<m
 
 ## Member destinations
 
-| Feature packages | Member | Responsibility |
-|---|---|---|
-| `account`, `address`, `user`, `auth` | Vipusha V. | User and account management |
-| `orders`, `orderlines`, `items`, `services`, `servicepricing` | Monessha S. | Order and reservation management |
-| `processing` | Perera G.A.T.L. | Laundry processing |
-| `rider` | Lathurshan S. | Pickup and delivery |
-| `payment`, `billing`, `promotion` | Shathurshigah R. | Payments, billing and promotions |
-| `support` | Agksheya B. | Reporting, administration and customer support |
-| `status`, `log`, `notification` | Shared integration code | Order statuses, status logs and the cross-module notification inbox |
-| `common`, `config` | Shared | API exception types; Spring and security configuration |
+| Feature packages                                              | Member                  | Responsibility                                                      |
+| ------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------- |
+| `account`, `address`, `user`, `auth`                          | Vipusha V.              | User and account management                                         |
+| `orders`, `orderlines`, `items`, `services`, `servicepricing` | Monessha S.             | Order and reservation management                                    |
+| `processing`                                                  | Perera G.A.T.L.         | Laundry processing                                                  |
+| `rider`                                                       | Lathurshan S.           | Pickup and delivery                                                 |
+| `payment`, `billing`, `promotion`                             | Shathurshigah R.        | Payments, billing and promotions                                    |
+| `support`                                                     | Agksheya B.             | Reporting, administration and customer support                      |
+| `status`, `log`, `notification`                               | Shared integration code | Order statuses, status logs and the cross-module notification inbox |
+| `common`, `config`                                            | Shared                  | API exception types; Spring and security configuration              |
 
 These destinations follow the responsibility map in the project briefing.
 
 ## What belongs in a feature package
 
-| Kind of class | Where it goes | Existing example |
-|---|---|---|
-| `@RestController` classes; map HTTP requests to service calls and validate request bodies | `<feature>/` | `support/SupportController.java` |
-| Business rules and transactions | `<feature>/` | `support/SupportService.java` |
-| JPA repositories or JDBC/native database access | `<feature>/` | `rider/RiderRepository.java` |
-| `@Entity` classes representing stored domain records | `<feature>/` | `log/Log.java` |
-| Request and response types, including input constraints | `<feature>/dto/` (or beside the other classes, as `payment` and `promotion` do) | `support/dto/SupportRequests.java` |
-| Identity resolution and access checks for the feature | `<feature>/` | `support/SupportAccess.java` |
-| Controller advice and API error handling for the feature | `<feature>/` | `support/SupportErrors.java` |
-| Spring configuration and bean declarations | `config/` | `config/SecurityConfig.java` |
+| Kind of class                                                                             | Where it goes                                                                   | Existing example                   |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ---------------------------------- |
+| `@RestController` classes; map HTTP requests to service calls and validate request bodies | `<feature>/`                                                                    | `support/SupportController.java`   |
+| Business rules and transactions                                                           | `<feature>/`                                                                    | `support/SupportService.java`      |
+| JPA repositories or JDBC/native database access                                           | `<feature>/`                                                                    | `rider/RiderRepository.java`       |
+| `@Entity` classes representing stored domain records                                      | `<feature>/`                                                                    | `log/Log.java`                     |
+| Request and response types, including input constraints                                   | `<feature>/dto/` (or beside the other classes, as `payment` and `promotion` do) | `support/dto/SupportRequests.java` |
+| Identity resolution and access checks for the feature                                     | `<feature>/`                                                                    | `support/SupportAccess.java`       |
+| Controller advice and API error handling for the feature                                  | `<feature>/`                                                                    | `support/SupportErrors.java`       |
+| Spring configuration and bean declarations                                                | `config/`                                                                       | `config/SecurityConfig.java`       |
 
 Cross-module notifications live in `notification/NotificationController.java` and `notification/NotificationService.java`. Feature services can publish notifications through this shared service, while database triggers cover direct order, payment and delivery writes from other modules.
 

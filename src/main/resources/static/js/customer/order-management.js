@@ -7,15 +7,32 @@
   // enforces this rule and supplies customerCanModify for links and direct page access.
   const ELIGIBLE_STATUSES = new Set(["Unconfirmed", "Payment Failed"]);
   const CANCELLABLE_STATUSES = new Set([
-    "Unconfirmed", "Payment Verified", "Awaiting Pickup", "En Route To Pickup",
-    "Picked Up", "En Route To Shop", "In Shop", "Verifying Items"
+    "Unconfirmed",
+    "Payment Verified",
+    "Awaiting Pickup",
+    "En Route To Pickup",
+    "Picked Up",
+    "En Route To Shop",
+    "In Shop",
+    "Verifying Items",
   ]);
-  const LOCKED_MESSAGE = "Only Payment Failed orders or Unconfirmed orders without a pending, paid, or verified payment can be modified.";
+  const LOCKED_MESSAGE =
+    "Only Payment Failed orders or Unconfirmed orders without a pending, paid, or verified payment can be modified.";
 
-  const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
-  })[character]);
-  const money = (value) => `LKR ${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const escapeHtml = (value) =>
+    String(value ?? "").replace(
+      /[&<>'"]/g,
+      (character) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          "'": "&#39;",
+          '"': "&quot;",
+        })[character],
+    );
+  const money = (value) =>
+    `LKR ${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const query = () => new URLSearchParams(window.location.search);
 
   function getDraft() {
@@ -49,20 +66,30 @@
       const csrf = await api("/auth/csrf");
       headers.set(csrf.headerName, csrf.token);
     }
-    const response = await fetch(`${API}${path}`, { ...options, headers, credentials: "same-origin" });
+    const response = await fetch(`${API}${path}`, {
+      ...options,
+      headers,
+      credentials: "same-origin",
+    });
     if (response.redirected) {
-      throw new Error("The order request was redirected. Refresh the page and check your sign-in before trying again.");
+      throw new Error(
+        "The order request was redirected. Refresh the page and check your sign-in before trying again.",
+      );
     }
-    const isJson = /\bapplication\/(?:[\w.-]+\+)?json\b/i.test(response.headers.get("Content-Type") || "");
+    const isJson = /\bapplication\/(?:[\w.-]+\+)?json\b/i.test(
+      response.headers.get("Content-Type") || "",
+    );
     if (response.status !== 204 && !isJson) {
-      throw new Error(`The order API returned an unexpected response (HTTP ${response.status}). Please refresh and try again.`);
+      throw new Error(
+        `The order API returned an unexpected response (HTTP ${response.status}). Please refresh and try again.`,
+      );
     }
     if (!response.ok) {
       let message = "Please review the entered order information and try again.";
       try {
         const body = await response.json();
         message = body.detail || body.message || message;
-      } catch (_) { }
+      } catch (_) {}
       throw new Error(message);
     }
     return response.status === 204 ? null : response.json();
@@ -96,7 +123,8 @@
     if (!signedInUserID) {
       const profile = await api("/account/profile");
       signedInUserID = Number(profile.id) || null;
-      if (!signedInUserID) throw new Error("Your account could not be identified. Please sign in again.");
+      if (!signedInUserID)
+        throw new Error("Your account could not be identified. Please sign in again.");
       const draft = getDraft();
       if (draft.userID !== signedInUserID) saveDraft({ ...draft, userID: signedInUserID });
     }
@@ -105,7 +133,9 @@
 
   async function catalog() {
     const [items, services, pricing] = await Promise.all([
-      api("/items"), api("/services"), api("/service-pricing")
+      api("/items"),
+      api("/services"),
+      api("/service-pricing"),
     ]);
     return { items, services, pricing };
   }
@@ -120,7 +150,7 @@
     const urlOrderID = parameters.get("orderID") || parameters.get("orderId");
     return {
       userID: Number(parameters.get("userID") || 0),
-      orderID: Number(urlOrderID || draft.lastOrderID || 0)
+      orderID: Number(urlOrderID || draft.lastOrderID || 0),
     };
   }
 
@@ -128,9 +158,12 @@
   // listed here (one added later from the admin catalogue) gets the plain "SERVICE" badge.
   const SERVICE_BADGES = {
     "wash and fold": { label: "EVERYDAY CARE", attributes: 'class="status status_info"' },
-    "dry cleaning": { label: "SPECIALIST CARE", attributes: 'class="status" style="color: var(--purple)"' },
-    "ironing": { label: "FINISHING", attributes: 'class="status status_success"' },
-    "shoe cleaning": { label: "FOOTWEAR", attributes: 'class="status status_warning"' }
+    "dry cleaning": {
+      label: "SPECIALIST CARE",
+      attributes: 'class="status" style="color: var(--purple)"',
+    },
+    ironing: { label: "FINISHING", attributes: 'class="status status_success"' },
+    "shoe cleaning": { label: "FOOTWEAR", attributes: 'class="status status_warning"' },
   };
   const DEFAULT_SERVICE_BADGE = { label: "SERVICE", attributes: 'class="status status_info"' };
 
@@ -148,19 +181,32 @@
       const selectedID = (draft.services || [])[0];
       // Only services a customer can actually order are listed: switched on in the admin
       // catalogue, and with at least one priced item.
-      const available = services.filter((service) => service.active !== false
-        && pricing.some((entry) => entry.serviceID === service.serviceID));
+      const available = services.filter(
+        (service) =>
+          service.active !== false &&
+          pricing.some((entry) => entry.serviceID === service.serviceID),
+      );
       if (available.length === 0) {
-        section.innerHTML = "<p class=\"muted\">No services are available at the moment.</p>";
+        section.innerHTML = '<p class="muted">No services are available at the moment.</p>';
       } else {
-        section.innerHTML = available.map((service) => {
-          const rows = pricing.filter((entry) => entry.serviceID === service.serviceID).map((entry) => {
-            const item = items.find((candidate) => candidate.itemID === entry.itemID);
-            return `<tr><td>${escapeHtml(item?.itemName || `Item #${entry.itemID}`)}</td><td><strong>${money(entry.price)}</strong></td></tr>`;
-          }).join("");
-          const badge = SERVICE_BADGES[String(service.serviceName || "").trim().toLowerCase()] || DEFAULT_SERVICE_BADGE;
-          return `<article class="card" style="cursor:pointer"><div class="top_bar"><div><span ${badge.attributes}>${badge.label}</span><h2>${escapeHtml(service.serviceName)}</h2></div><label><input type="radio" name="catalog-service" class="catalog-service" value="${service.serviceID}" ${service.serviceID === selectedID ? "checked" : ""}> Select</label></div><table><tbody>${rows}</tbody></table></article>`;
-        }).join("");
+        section.innerHTML = available
+          .map((service) => {
+            const rows = pricing
+              .filter((entry) => entry.serviceID === service.serviceID)
+              .map((entry) => {
+                const item = items.find((candidate) => candidate.itemID === entry.itemID);
+                return `<tr><td>${escapeHtml(item?.itemName || `Item #${entry.itemID}`)}</td><td><strong>${money(entry.price)}</strong></td></tr>`;
+              })
+              .join("");
+            const badge =
+              SERVICE_BADGES[
+                String(service.serviceName || "")
+                  .trim()
+                  .toLowerCase()
+              ] || DEFAULT_SERVICE_BADGE;
+            return `<article class="card" style="cursor:pointer"><div class="top_bar"><div><span ${badge.attributes}>${badge.label}</span><h2>${escapeHtml(service.serviceName)}</h2></div><label><input type="radio" name="catalog-service" class="catalog-service" value="${service.serviceID}" ${service.serviceID === selectedID ? "checked" : ""}> Select</label></div><table><tbody>${rows}</tbody></table></article>`;
+          })
+          .join("");
       }
       // Clicking anywhere on a service card selects that service. A click on the radio button
       // or its "Select" label is left alone, because the browser already handles it.
@@ -199,28 +245,49 @@
   // One editable order line (item, service, quantity) on the Modify order page.
   // selectedServices are the service IDs the line may use.
   function lineRow(line, data, selectedServices) {
-    const availableItems = data.items.filter((item) => data.pricing.some((price) =>
-      price.itemID === item.itemID && selectedServices.includes(price.serviceID)));
+    const availableItems = data.items.filter((item) =>
+      data.pricing.some(
+        (price) => price.itemID === item.itemID && selectedServices.includes(price.serviceID),
+      ),
+    );
     const itemID = line?.itemID || availableItems[0]?.itemID;
-    const availableServices = data.services.filter((service) => selectedServices.includes(service.serviceID)
-      && data.pricing.some((price) => price.itemID === itemID && price.serviceID === service.serviceID));
+    const availableServices = data.services.filter(
+      (service) =>
+        selectedServices.includes(service.serviceID) &&
+        data.pricing.some(
+          (price) => price.itemID === itemID && price.serviceID === service.serviceID,
+        ),
+    );
     const serviceID = availableServices.some((service) => service.serviceID === line?.serviceID)
-      ? line.serviceID : availableServices[0]?.serviceID;
+      ? line.serviceID
+      : availableServices[0]?.serviceID;
     return `<div class="card item-row"><div class="grid grid_three"><div class="field"><label>Item</label><select class="input item-name" required>${availableItems.map((item) => `<option value="${item.itemID}" ${item.itemID === itemID ? "selected" : ""}>${escapeHtml(item.itemName)}</option>`).join("")}</select></div><div class="field"><label>Service</label><select class="input item-service" required>${availableServices.map((service) => `<option value="${service.serviceID}" ${service.serviceID === serviceID ? "selected" : ""}>${escapeHtml(service.serviceName)}</option>`).join("")}</select></div><div class="field"><label>Quantity</label><input class="input item-qty" type="number" min="1" value="${Number(line?.quantity || 1)}" required></div></div><div class="top_bar"><button class="link remove-item" type="button">Remove</button><strong class="line-total"></strong></div></div>`;
   }
 
   function bindLineRows(container, data, selectedServices, onChange) {
-    const priceFor = (itemID, serviceID) => data.pricing.find((price) => price.itemID === Number(itemID) && price.serviceID === Number(serviceID));
+    const priceFor = (itemID, serviceID) =>
+      data.pricing.find(
+        (price) => price.itemID === Number(itemID) && price.serviceID === Number(serviceID),
+      );
     const refresh = (row) => {
       const itemID = row.querySelector(".item-name").value;
       const serviceSelect = row.querySelector(".item-service");
       const prior = Number(serviceSelect.value);
-      const services = data.services.filter((service) => selectedServices.includes(service.serviceID)
-        && priceFor(itemID, service.serviceID));
-      serviceSelect.innerHTML = services.map((service) => `<option value="${service.serviceID}" ${service.serviceID === prior ? "selected" : ""}>${escapeHtml(service.serviceName)}</option>`).join("");
+      const services = data.services.filter(
+        (service) =>
+          selectedServices.includes(service.serviceID) && priceFor(itemID, service.serviceID),
+      );
+      serviceSelect.innerHTML = services
+        .map(
+          (service) =>
+            `<option value="${service.serviceID}" ${service.serviceID === prior ? "selected" : ""}>${escapeHtml(service.serviceName)}</option>`,
+        )
+        .join("");
       const price = priceFor(itemID, serviceSelect.value);
       const quantity = Number(row.querySelector(".item-qty").value || 0);
-      row.querySelector(".line-total").textContent = price ? money(price.price * quantity) : "Not available";
+      row.querySelector(".line-total").textContent = price
+        ? money(price.price * quantity)
+        : "Not available";
       onChange();
     };
     const bind = (row) => {
@@ -249,7 +316,14 @@
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       if (!form.reportValidity()) return;
-      saveDraft({ ...getDraft(), schedule: { date: date?.value, time: time?.value, address: form.querySelector("input[name=address]:checked")?.value } });
+      saveDraft({
+        ...getDraft(),
+        schedule: {
+          date: date?.value,
+          time: time?.value,
+          address: form.querySelector("input[name=address]:checked")?.value,
+        },
+      });
       window.location.href = "new_order_instructions.html";
     });
   }
@@ -258,12 +332,17 @@
     const form = document.querySelector("main form");
     if (!form) return;
     const draft = getDraft();
-    form.querySelectorAll("input[name=preference]").forEach((input) => { input.checked = draft.instructions?.preferences?.includes(input.value) || false; });
+    form.querySelectorAll("input[name=preference]").forEach((input) => {
+      input.checked = draft.instructions?.preferences?.includes(input.value) || false;
+    });
     const notes = document.getElementById("instructions");
     if (notes) notes.value = draft.instructions?.notes || "";
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      const preferences = Array.from(form.querySelectorAll("input[name=preference]:checked"), (input) => input.value);
+      const preferences = Array.from(
+        form.querySelectorAll("input[name=preference]:checked"),
+        (input) => input.value,
+      );
       saveDraft({ ...getDraft(), instructions: { preferences, notes: notes?.value || "" } });
       window.location.href = "new_order_review.html";
     });
@@ -276,17 +355,44 @@
     try {
       const [data, addresses] = await Promise.all([catalog(), api("/account/addresses")]);
       const selectedAddressID = pickupAddressID(draft.schedule);
-      const selectedAddress = selectedAddressID === null
-        ? addresses.find((address) => address.isDefault)
-        : addresses.find((address) => address.addressID === selectedAddressID);
+      const selectedAddress =
+        selectedAddressID === null
+          ? addresses.find((address) => address.isDefault)
+          : addresses.find((address) => address.addressID === selectedAddressID);
       const reviewAddressID = selectedAddress?.addressID || null;
       main.dataset.reviewPickupAddress = selectedAddress
-        ? [selectedAddress.nickname, selectedAddress.street, selectedAddress.city, selectedAddress.state]
-          .map((part) => String(part || "").trim()).filter(Boolean).join(", ")
+        ? [
+            selectedAddress.nickname,
+            selectedAddress.street,
+            selectedAddress.city,
+            selectedAddress.state,
+          ]
+            .map((part) => String(part || "").trim())
+            .filter(Boolean)
+            .join(", ")
         : "Pickup address unavailable. Return to Schedule and select a saved address.";
       const lines = draft.lines || [];
-      const total = lines.reduce((sum, line) => sum + (data.pricing.find((price) => price.itemID === line.itemID && price.serviceID === line.serviceID)?.price || 0) * line.quantity, 0);
-      main.innerHTML = `<header class="page_header"><div class="subtitle">NEW ORDER · REVIEW</div><h1>Review your order</h1></header><ol class="step_list"><li class="done">1 Services</li><li class="done">2 Items</li><li class="done">3 Schedule</li><li class="done">4 Instructions</li><li class="active">5 Review</li></ol><section class="card"><h2>Items and services</h2>${lines.map((line) => { const item = data.items.find((entry) => entry.itemID === line.itemID); const service = data.services.find((entry) => entry.serviceID === line.serviceID); const price = data.pricing.find((entry) => entry.itemID === line.itemID && entry.serviceID === line.serviceID); return `<div class="activity_item"><span class="activity_dot"></span><div><strong>${line.quantity} × ${escapeHtml(item?.itemName || "Unknown item")}</strong><p class="muted small">${escapeHtml(service?.serviceName || "Unknown service")}</p></div><strong>${money((price?.price || 0) * line.quantity)}</strong></div>`; }).join("") || "<p class=\"muted\">No items have been selected.</p>"}<div class="top_bar"><h3>Order total</h3><h2>${money(total)}</h2></div></section><form id="confirm-order-form" style="margin-top:20px"><label class="check_row"><input type="checkbox" required>I confirm the item and service selections are correct.</label><div class="actions"><a class="custom_button custom_button_nobg" href="new_order_items.html">Edit items</a><button class="custom_button custom_button_bg" type="submit">Confirm order</button></div></form>`;
+      const total = lines.reduce(
+        (sum, line) =>
+          sum +
+          (data.pricing.find(
+            (price) => price.itemID === line.itemID && price.serviceID === line.serviceID,
+          )?.price || 0) *
+            line.quantity,
+        0,
+      );
+      main.innerHTML = `<header class="page_header"><div class="subtitle">NEW ORDER · REVIEW</div><h1>Review your order</h1></header><ol class="step_list"><li class="done">1 Services</li><li class="done">2 Items</li><li class="done">3 Schedule</li><li class="done">4 Instructions</li><li class="active">5 Review</li></ol><section class="card"><h2>Items and services</h2>${
+        lines
+          .map((line) => {
+            const item = data.items.find((entry) => entry.itemID === line.itemID);
+            const service = data.services.find((entry) => entry.serviceID === line.serviceID);
+            const price = data.pricing.find(
+              (entry) => entry.itemID === line.itemID && entry.serviceID === line.serviceID,
+            );
+            return `<div class="activity_item"><span class="activity_dot"></span><div><strong>${line.quantity} × ${escapeHtml(item?.itemName || "Unknown item")}</strong><p class="muted small">${escapeHtml(service?.serviceName || "Unknown service")}</p></div><strong>${money((price?.price || 0) * line.quantity)}</strong></div>`;
+          })
+          .join("") || '<p class="muted">No items have been selected.</p>'
+      }<div class="top_bar"><h3>Order total</h3><h2>${money(total)}</h2></div></section><form id="confirm-order-form" style="margin-top:20px"><label class="check_row"><input type="checkbox" required>I confirm the item and service selections are correct.</label><div class="actions"><a class="custom_button custom_button_nobg" href="new_order_items.html">Edit items</a><button class="custom_button custom_button_bg" type="submit">Confirm order</button></div></form>`;
       const form = document.getElementById("confirm-order-form");
       form.querySelector('button[type="submit"]').disabled = !reviewAddressID;
       let submitting = false;
@@ -297,9 +403,13 @@
           toast("Pickup address unavailable", "Return to Schedule and select a saved address.");
           return;
         }
-        if (lines.length === 0
-          || (draft.services || []).some((serviceID) => !lines.some((line) => line.serviceID === serviceID))
-          || !form.reportValidity()) {
+        if (
+          lines.length === 0 ||
+          (draft.services || []).some(
+            (serviceID) => !lines.some((line) => line.serviceID === serviceID),
+          ) ||
+          !form.reportValidity()
+        ) {
           toast("Order details are incomplete", "Return to services and items before confirming.");
           return;
         }
@@ -312,7 +422,18 @@
           const userID = await currentUserID();
           // The note and the ticked preferences from the instructions step are sent with the
           // order, so they are saved on it (orders.instructions and orders.preferences).
-          const created = await api("/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userID, orderLines: lines, pickupScheduled: pickupDateTime(draft.schedule), addressID: reviewAddressID, instructions: draft.instructions?.notes || "", preferences: draft.instructions?.preferences || [] }) });
+          const created = await api("/orders", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userID,
+              orderLines: lines,
+              pickupScheduled: pickupDateTime(draft.schedule),
+              addressID: reviewAddressID,
+              instructions: draft.instructions?.notes || "",
+              preferences: draft.instructions?.preferences || [],
+            }),
+          });
           saveDraft({ ...draft, userID, lastOrderID: created.orderID, lines: [], completed: true });
           toast("Order created", `Order #${created.orderID} is ${created.statusLabel}.`);
           window.location.href = `upcoming_order_details.html?userID=${created.userID}&orderID=${created.orderID}`;
@@ -322,7 +443,12 @@
           toast("Order could not be created", error.message);
         }
       });
-    } catch (error) { main.insertAdjacentHTML("beforeend", `<div class="alert">Unable to review this order: ${escapeHtml(error.message)}</div>`); }
+    } catch (error) {
+      main.insertAdjacentHTML(
+        "beforeend",
+        `<div class="alert">Unable to review this order: ${escapeHtml(error.message)}</div>`,
+      );
+    }
   }
 
   // My Orders: the customer never types an account ID. The signed-in customer is identified by
@@ -333,7 +459,9 @@
   async function initMyOrders() {
     const tbody = document.querySelector("tbody");
     if (!tbody) return;
-    const message = (text) => { tbody.innerHTML = `<tr><td colspan="4">${text}</td></tr>`; };
+    const message = (text) => {
+      tbody.innerHTML = `<tr><td colspan="4">${text}</td></tr>`;
+    };
     // Clicking anywhere on an order row opens that order. A click on the View link itself is left
     // to the link, so ctrl/middle-click still open it in a new tab.
     tbody.addEventListener("click", (event) => {
@@ -344,40 +472,66 @@
     try {
       const userID = await currentUserID();
       const orders = await api(`/orders/customer/${userID}`);
-      tbody.innerHTML = orders.length ? orders.map((order) => {
-        // Orders that can still be changed open the page that has the modify button.
-        const editable = ELIGIBLE_STATUSES.has(order.statusLabel) && order.customerCanModify === true;
-        const href = `${editable ? "upcoming_order_details" : "order_details"}.html?userID=${userID}&orderID=${order.orderID}`;
-        // data-href lets a click anywhere on the row open the order (see the click handler below);
-        // the View link stays so keyboard and screen reader users can still reach it.
-        return `<tr class="order_row" data-href="${href}"><td><strong>#${order.orderID}</strong></td><td>${money(order.orderTotal)}</td><td><span class="status">${escapeHtml(order.statusLabel)}</span></td><td><a class="link" href="${href}">View${editable ? " & modify" : ""}</a></td></tr>`;
-      }).join("") : "";
+      tbody.innerHTML = orders.length
+        ? orders
+            .map((order) => {
+              // Orders that can still be changed open the page that has the modify button.
+              const editable =
+                ELIGIBLE_STATUSES.has(order.statusLabel) && order.customerCanModify === true;
+              const href = `${editable ? "upcoming_order_details" : "order_details"}.html?userID=${userID}&orderID=${order.orderID}`;
+              // data-href lets a click anywhere on the row open the order (see the click handler below);
+              // the View link stays so keyboard and screen reader users can still reach it.
+              return `<tr class="order_row" data-href="${href}"><td><strong>#${order.orderID}</strong></td><td>${money(order.orderTotal)}</td><td><span class="status">${escapeHtml(order.statusLabel)}</span></td><td><a class="link" href="${href}">View${editable ? " & modify" : ""}</a></td></tr>`;
+            })
+            .join("")
+        : "";
       if (!orders.length) message("No orders found.");
     } catch (error) {
-      message(`Unable to load your orders: ${escapeHtml(error.message)} <a class="link" href="/html/auth/login.html">Sign in again</a>`);
+      message(
+        `Unable to load your orders: ${escapeHtml(error.message)} <a class="link" href="/html/auth/login.html">Sign in again</a>`,
+      );
     }
   }
 
   async function fetchOrderOrExplain(main) {
     const context = orderContext();
     const { orderID } = context;
-    if (!orderID) { main.innerHTML = "<section class=\"card\"><h1>Order not selected</h1><p class=\"muted\">Open an order from My Orders.</p><a class=\"custom_button custom_button_bg\" href=\"my_orders.html\">My Orders</a></section>"; return null; }
+    if (!orderID) {
+      main.innerHTML =
+        '<section class="card"><h1>Order not selected</h1><p class="muted">Open an order from My Orders.</p><a class="custom_button custom_button_bg" href="my_orders.html">My Orders</a></section>';
+      return null;
+    }
     try {
       // No userID in the link (e.g. a notification): use the signed-in customer.
-      const userID = context.userID || await currentUserID();
+      const userID = context.userID || (await currentUserID());
       return await api(`/orders/customer/${userID}/${orderID}`);
+    } catch (error) {
+      main.innerHTML = `<section class="card"><h1>Unable to load order</h1><p class="muted">${escapeHtml(error.message)}</p><a class="custom_button custom_button_bg" href="my_orders.html">My Orders</a></section>`;
+      return null;
     }
-    catch (error) { main.innerHTML = `<section class="card"><h1>Unable to load order</h1><p class="muted">${escapeHtml(error.message)}</p><a class="custom_button custom_button_bg" href="my_orders.html">My Orders</a></section>`; return null; }
   }
 
   function detailMarkup(order, includeActions) {
-    const lines = order.orderLines.map((line) => `<div class="activity_item"><span class="activity_dot"></span><div><strong>${line.quantity} × ${escapeHtml(line.itemName)}</strong><p class="muted small">${escapeHtml(line.serviceName)}</p></div><strong>${money(line.linePrice)}</strong></div>`).join("");
-    const history = order.history.length ? order.history.map((entry) => `<div class="activity_item"><span class="activity_dot"></span><div><strong>${escapeHtml(entry.statusAfterLabel || "Status updated")}</strong><p class="muted small">${escapeHtml(entry.statusBeforeLabel || "Initial status")} → ${escapeHtml(entry.statusAfterLabel || "")}</p></div><small>${escapeHtml(entry.logDate || "")} ${escapeHtml(entry.logTime || "")}</small></div>`).join("") : "<p class=\"muted\">No status-history entries have been recorded yet.</p>";
+    const lines = order.orderLines
+      .map(
+        (line) =>
+          `<div class="activity_item"><span class="activity_dot"></span><div><strong>${line.quantity} × ${escapeHtml(line.itemName)}</strong><p class="muted small">${escapeHtml(line.serviceName)}</p></div><strong>${money(line.linePrice)}</strong></div>`,
+      )
+      .join("");
+    const history = order.history.length
+      ? order.history
+          .map(
+            (entry) =>
+              `<div class="activity_item"><span class="activity_dot"></span><div><strong>${escapeHtml(entry.statusAfterLabel || "Status updated")}</strong><p class="muted small">${escapeHtml(entry.statusBeforeLabel || "Initial status")} → ${escapeHtml(entry.statusAfterLabel || "")}</p></div><small>${escapeHtml(entry.logDate || "")} ${escapeHtml(entry.logTime || "")}</small></div>`,
+          )
+          .join("")
+      : '<p class="muted">No status-history entries have been recorded yet.</p>';
     const eligible = ELIGIBLE_STATUSES.has(order.statusLabel) && order.customerCanModify === true;
     // What the customer asked for when placing the order. order.preferences holds the ticked
     // options as readable labels and order.instructions the note; both are shown escaped, and
     // "None" is shown when the order has neither.
-    const preferences = (order.preferences || []).map((label) => escapeHtml(label)).join("<br>") || "None";
+    const preferences =
+      (order.preferences || []).map((label) => escapeHtml(label)).join("<br>") || "None";
     const note = order.instructions ? escapeHtml(order.instructions) : "None";
     // A cancelled order can no longer be paid (the server refuses it too), so the "Pay Now" link
     // in the actions below is left out for it.
@@ -390,7 +544,11 @@
     const orderID = order?.orderID;
     if (!customerID || !orderID) return;
     sessionStorage.setItem("laundrylinkCustomerID", String(customerID));
-    saveDraft({ ...getDraft(), userID: Number(customerID) || customerID, lastOrderID: Number(orderID) || orderID });
+    saveDraft({
+      ...getDraft(),
+      userID: Number(customerID) || customerID,
+      lastOrderID: Number(orderID) || orderID,
+    });
   }
 
   function bindCancelConfirmation(cancelButton, order) {
@@ -428,7 +586,7 @@
       if (!cancelButton.disabled && !modal.open) modal.showModal();
     });
     keepButton.addEventListener("click", () => modal.close());
-    modal.addEventListener("cancel", event => {
+    modal.addEventListener("cancel", (event) => {
       if (cancelling) event.preventDefault();
     });
     confirmButton.addEventListener("click", async () => {
@@ -453,7 +611,10 @@
     if (!main) return;
     const order = await fetchOrderOrExplain(main);
     if (order) {
-      main.innerHTML = detailMarkup(order, upcoming || order.customerCanModify === true || CANCELLABLE_STATUSES.has(order.statusLabel));
+      main.innerHTML = detailMarkup(
+        order,
+        upcoming || order.customerCanModify === true || CANCELLABLE_STATUSES.has(order.statusLabel),
+      );
       const cancelButton = main.querySelector("#cancel-order");
       if (cancelButton) bindCancelConfirmation(cancelButton, order);
       const payNowLink = main.querySelector(".pay-now-link");
@@ -464,19 +625,28 @@
   function modificationDetailsMarkup(order, addresses) {
     const preferenceLabels = {
       "fragrance-free": "Fragrance-free detergent",
-      "hypoallergenic": "Hypoallergenic detergent",
+      hypoallergenic: "Hypoallergenic detergent",
       "hang-dry": "Hang-dry delicate items",
-      "hangers": "Return shirts on hangers"
+      hangers: "Return shirts on hangers",
     };
-    const windows = [["08:00", "8:00 AM – 11:00 AM"], ["11:00", "11:00 AM – 2:00 PM"],
-      ["14:00", "2:00 PM – 5:00 PM"], ["17:00", "5:00 PM – 8:00 PM"]];
+    const windows = [
+      ["08:00", "8:00 AM – 11:00 AM"],
+      ["11:00", "11:00 AM – 2:00 PM"],
+      ["14:00", "2:00 PM – 5:00 PM"],
+      ["17:00", "5:00 PM – 8:00 PM"],
+    ];
     return `<section class="grid grid_two" style="margin-top:22px"><article class="card"><h2>Pickup schedule</h2>
       ${order.pickupScheduled ? `<p class="muted">Current pickup: ${escapeHtml(order.pickupScheduled.replace("T", " "))}</p>` : ""}
       <div class="field"><label for="modify-pickup-date">Pickup date</label><input id="modify-pickup-date" class="input" type="date" required value="${escapeHtml((order.pickupScheduled || "").slice(0, 10))}"></div>
       <div class="field"><label for="modify-pickup-time">Pickup time window</label><select id="modify-pickup-time" class="input" required><option value="">Choose a time</option>${windows.map(([value, label]) => `<option value="${value}" ${value === (order.pickupScheduled || "").slice(11, 16) ? "selected" : ""}>${label}</option>`).join("")}</select></div>
-      <div class="field"><label for="modify-pickup-address">Pickup address</label><select id="modify-pickup-address" class="input" required><option value="">Choose a saved address</option>${addresses.map(address => `<option value="${escapeHtml(String(address.addressID))}" ${address.addressID === order.pickupAddressID ? "selected" : ""}>${escapeHtml([address.nickname, address.street, address.city, address.state].filter(Boolean).join(", "))}</option>`).join("")}</select>${addresses.length ? "" : '<p class="muted">You have no saved addresses. Save an address before modifying the order.</p>'}</div>
+      <div class="field"><label for="modify-pickup-address">Pickup address</label><select id="modify-pickup-address" class="input" required><option value="">Choose a saved address</option>${addresses.map((address) => `<option value="${escapeHtml(String(address.addressID))}" ${address.addressID === order.pickupAddressID ? "selected" : ""}>${escapeHtml([address.nickname, address.street, address.city, address.state].filter(Boolean).join(", "))}</option>`).join("")}</select>${addresses.length ? "" : '<p class="muted">You have no saved addresses. Save an address before modifying the order.</p>'}</div>
       </article><article class="card"><h2>Instructions and preferences</h2>
-      ${Object.entries(preferenceLabels).map(([code, label]) => `<label class="check_row"><input type="checkbox" name="modify-preference" value="${code}" ${(order.preferenceCodes || []).includes(code) ? "checked" : ""}>${label}</label>`).join("")}
+      ${Object.entries(preferenceLabels)
+        .map(
+          ([code, label]) =>
+            `<label class="check_row"><input type="checkbox" name="modify-preference" value="${code}" ${(order.preferenceCodes || []).includes(code) ? "checked" : ""}>${label}</label>`,
+        )
+        .join("")}
       <div class="field"><label for="modify-instructions">Notes for our team</label><textarea id="modify-instructions" class="input" maxlength="500" rows="4">${escapeHtml(order.instructions || "")}</textarea></div>
       </article></section>`;
   }
@@ -484,7 +654,8 @@
   function bindModificationSchedule(form) {
     const date = form.querySelector("#modify-pickup-date");
     const time = form.querySelector("#modify-pickup-time");
-    const isoDate = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+    const isoDate = (value) =>
+      `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
     const validate = () => {
       const now = new Date();
       const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -493,12 +664,14 @@
       date.min = isoDate(now);
       date.max = isoDate(nextMonth);
       time.setCustomValidity("");
-      Array.from(time.options).forEach(option => {
+      Array.from(time.options).forEach((option) => {
         if (!option.value) return;
         const [hours, minutes] = option.value.split(":").map(Number);
-        option.disabled = date.value === date.min && hours * 60 + minutes <= now.getHours() * 60 + now.getMinutes();
+        option.disabled =
+          date.value === date.min && hours * 60 + minutes <= now.getHours() * 60 + now.getMinutes();
       });
-      if (time.selectedOptions[0]?.disabled) time.setCustomValidity("Choose a pickup window that has not started yet.");
+      if (time.selectedOptions[0]?.disabled)
+        time.setCustomValidity("Choose a pickup window that has not started yet.");
     };
     date.addEventListener("change", validate);
     time.addEventListener("change", validate);
@@ -513,7 +686,10 @@
     if (!main) return;
     const order = await fetchOrderOrExplain(main);
     if (!order) return;
-    if (!ELIGIBLE_STATUSES.has(order.statusLabel) || order.customerCanModify !== true) { main.innerHTML = `<section class="card"><h1>Order cannot be modified</h1><p class="muted">${LOCKED_MESSAGE} Current status: ${escapeHtml(order.statusLabel)}.</p><a class="custom_button custom_button_bg" href="order_details.html?userID=${order.userID}&orderID=${order.orderID}">View order</a></section>`; return; }
+    if (!ELIGIBLE_STATUSES.has(order.statusLabel) || order.customerCanModify !== true) {
+      main.innerHTML = `<section class="card"><h1>Order cannot be modified</h1><p class="muted">${LOCKED_MESSAGE} Current status: ${escapeHtml(order.statusLabel)}.</p><a class="custom_button custom_button_bg" href="order_details.html?userID=${order.userID}&orderID=${order.orderID}">View order</a></section>`;
+      return;
+    }
     try {
       const [data, addresses] = await Promise.all([catalog(), api("/account/addresses")]);
       // An order covers one service, so the lines can only use the service already on the
@@ -522,36 +698,81 @@
       const orderServices = [...new Set(order.orderLines.map((line) => line.serviceID))];
       main.innerHTML = `<header class="page_header"><div class="subtitle">MODIFY ORDER</div><h1>Edit order #${order.orderID}</h1></header><form id="modify-order-form" style="margin-top:22px"><section class="card"><h2>Items and services</h2><div id="item-list"></div><button id="add-item" class="custom_button custom_button_nobg" type="button">+ Add another item</button></section><aside class="card" style="margin-top:20px"><div class="top_bar"><div><h2>Updated order total</h2></div><h2 id="estimated-total"></h2></div></aside><div class="actions"><a class="custom_button custom_button_nobg" href="order_details.html?userID=${order.userID}&orderID=${order.orderID}">Discard changes</a><button class="custom_button custom_button_bg" type="submit">Save order changes</button></div></form>`;
       const form = document.getElementById("modify-order-form");
-      form.querySelector(".actions").insertAdjacentHTML("beforebegin", modificationDetailsMarkup(order, addresses));
+      form
+        .querySelector(".actions")
+        .insertAdjacentHTML("beforebegin", modificationDetailsMarkup(order, addresses));
       const validateSchedule = bindModificationSchedule(form);
       const list = document.getElementById("item-list");
       list.innerHTML = order.orderLines.map((line) => lineRow(line, data, orderServices)).join("");
-      const updateTotal = () => { const total = Array.from(list.querySelectorAll(".item-row")).reduce((sum, row) => { const price = data.pricing.find((entry) => entry.itemID === Number(row.querySelector(".item-name").value) && entry.serviceID === Number(row.querySelector(".item-service").value)); return sum + (price ? price.price * Number(row.querySelector(".item-qty").value || 0) : 0); }, 0); document.getElementById("estimated-total").textContent = money(total); };
+      const updateTotal = () => {
+        const total = Array.from(list.querySelectorAll(".item-row")).reduce((sum, row) => {
+          const price = data.pricing.find(
+            (entry) =>
+              entry.itemID === Number(row.querySelector(".item-name").value) &&
+              entry.serviceID === Number(row.querySelector(".item-service").value),
+          );
+          return (
+            sum + (price ? price.price * Number(row.querySelector(".item-qty").value || 0) : 0)
+          );
+        }, 0);
+        document.getElementById("estimated-total").textContent = money(total);
+      };
       const bindings = bindLineRows(list, data, orderServices, updateTotal);
-      document.getElementById("add-item").addEventListener("click", () => { list.insertAdjacentHTML("beforeend", lineRow({}, data, orderServices)); bindings.bind(list.lastElementChild); updateTotal(); });
+      document.getElementById("add-item").addEventListener("click", () => {
+        list.insertAdjacentHTML("beforeend", lineRow({}, data, orderServices));
+        bindings.bind(list.lastElementChild);
+        updateTotal();
+      });
       let saving = false;
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         if (saving) return;
         validateSchedule();
         if (!form.reportValidity()) return;
-        const lines = Array.from(list.querySelectorAll(".item-row")).map((row) => ({ itemID: Number(row.querySelector(".item-name").value), serviceID: Number(row.querySelector(".item-service").value), quantity: Number(row.querySelector(".item-qty").value) }));
-        if (!lines.length || lines.some((line) => !bindings.priceFor(line.itemID, line.serviceID) || line.quantity <= 0)) { toast("Invalid order lines", "Choose valid items, services, and quantities."); return; }
+        const lines = Array.from(list.querySelectorAll(".item-row")).map((row) => ({
+          itemID: Number(row.querySelector(".item-name").value),
+          serviceID: Number(row.querySelector(".item-service").value),
+          quantity: Number(row.querySelector(".item-qty").value),
+        }));
+        if (
+          !lines.length ||
+          lines.some(
+            (line) => !bindings.priceFor(line.itemID, line.serviceID) || line.quantity <= 0,
+          )
+        ) {
+          toast("Invalid order lines", "Choose valid items, services, and quantities.");
+          return;
+        }
         const request = {
           orderLines: lines,
           addressID: Number(form.querySelector("#modify-pickup-address").value),
           pickupScheduled: `${form.querySelector("#modify-pickup-date").value}T${form.querySelector("#modify-pickup-time").value}:00`,
           instructions: form.querySelector("#modify-instructions").value,
-          preferences: Array.from(form.querySelectorAll('input[name="modify-preference"]:checked'), input => input.value)
+          preferences: Array.from(
+            form.querySelectorAll('input[name="modify-preference"]:checked'),
+            (input) => input.value,
+          ),
         };
         const saveButton = form.querySelector('button[type="submit"]');
         saving = true;
         saveButton.disabled = true;
-        try { await api(`/orders/customer/${order.userID}/${order.orderID}/lines`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request) }); window.location.href = `order_details.html?userID=${order.userID}&orderID=${order.orderID}`; }
-        catch (error) { saving = false; saveButton.disabled = false; toast("Order could not be updated", error.message); }
+        try {
+          await api(`/orders/customer/${order.userID}/${order.orderID}/lines`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(request),
+          });
+          window.location.href = `order_details.html?userID=${order.userID}&orderID=${order.orderID}`;
+        } catch (error) {
+          saving = false;
+          saveButton.disabled = false;
+          toast("Order could not be updated", error.message);
+        }
       });
       updateTotal();
-    } catch (error) { main.innerHTML = `<section class="card"><h1>Unable to prepare modification</h1><p class="muted">${escapeHtml(error.message)}</p></section>`; }
+    } catch (error) {
+      main.innerHTML = `<section class="card"><h1>Unable to prepare modification</h1><p class="muted">${escapeHtml(error.message)}</p></section>`;
+    }
   }
 
   document.addEventListener("DOMContentLoaded", () => {

@@ -51,3 +51,7 @@ temp.txt
 src/main/resources/*.zip
 
 /backups/database/
+
+# Local scratch files and dependency installations
+/tmp/
+node_modules/

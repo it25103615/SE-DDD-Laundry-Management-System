@@ -1,30 +1,32 @@
-# Email password recovery setup
+# Email OTP password recovery
 
-The recovery feature is implemented in `account/PasswordRecoveryController.java`, `PasswordRecoveryService.java` and `static/js/auth/password-recovery.js`. Migration `database/migrations/013_password_recovery.sql` adds reset-token storage and is included in `scripts/Initialize-SupportDatabase.ps1`. Migration 013 has been applied to the current local database.
+The recovery flow sends a six-digit code to the active account's registered email address. The application needs one sender mailbox; recipients do not supply their own mail credentials.
 
-Configure the following environment variables for the Spring Boot process, or their corresponding properties in the ignored `application-local.properties` file. Keep credentials out of Git and screenshots.
+## Gmail sender setup
 
-| Environment variable | Purpose |
-|---|---|
-| `LAUNDRYLINK_SMTP_HOST` | SMTP server supplied by your email provider |
-| `LAUNDRYLINK_SMTP_PORT` | Provider's STARTTLS SMTP port; default 587 |
-| `LAUNDRYLINK_SMTP_USERNAME` | SMTP login |
-| `LAUNDRYLINK_SMTP_PASSWORD` | SMTP password or provider app password |
-| `LAUNDRYLINK_SMTP_FROM` | Verified sender email address |
-| `LAUNDRYLINK_BASE_URL` | Application origin reachable by the recipient; default `http://localhost:8080` |
-| `LAUNDRYLINK_SMTP_AUTH` | Default true |
-| `LAUNDRYLINK_SMTP_STARTTLS` | Default true; TLS is required when enabled |
+1. Enable Google 2-Step Verification for a Gmail sender account and create an app password: https://support.google.com/accounts/answer/185833
+2. From the project folder, run:
 
-Restart Spring Boot after configuration. Use the provider's SMTP instructions; the default uses STARTTLS, not implicit SSL on port 465. If your provider requires implicit SSL, set `spring.mail.properties.mail.smtp.ssl.enable=true` and use its specified port/configuration in your local properties.
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Configure-RecoveryEmail.ps1
+```
 
-Demo acceptance steps:
+The script prompts for the sender address and hides the app password while typing. It configures smtp.gmail.com, port 587, and required STARTTLS in the ignored application-local.properties file, preserving database configuration. The app password is stored in this local file; keep the file private and out of Git. Do not use your regular Gmail password.
 
-1. Use a test account whose mailbox you control. Open Forgot password from login and submit its email.
-2. Check the received email. The UI uses the same generic response for unknown and existing accounts, preventing a direct account-existence lookup.
-3. Open the emailed link, choose a strong matching password, and confirm the success message. Log in with the new password.
-4. Reopen the old link: it must fail. Request another link and check the 15-minute expiry. Repeated requests for the same account are limited to one per minute.
-5. Check invalid email, weak password, mismatched confirmation and missing token. Fields must show meaningful errors and the database must stay unchanged.
+3. Restart LaundryLink. On Forgot password, enter an existing user's email address. Retrieve the emailed code, verify it, then choose a new password. Never send app passwords or OTPs in chat.
 
-The reset token is 32 cryptographically random bytes encoded as URL-safe text. Only its SHA-256 digest is stored. Reset links carry the token in a URL fragment so it is not sent in the page URL request; the script clears the fragment and posts the token in the API body. An active account and a nonexpired token are required. The transaction updates a BCrypt password hash and removes all reset tokens for that user. SMTP failure rolls back token issuance and produces a real error. Outbound SMTP is never contacted by the automated recovery tests.
+Existing environment-variable configuration remains supported: LAUNDRYLINK_SMTP_HOST, LAUNDRYLINK_SMTP_PORT, LAUNDRYLINK_SMTP_USERNAME, LAUNDRYLINK_SMTP_PASSWORD, and LAUNDRYLINK_SMTP_FROM. If SMTP_FROM is omitted, the sender defaults to SMTP_USERNAME.
 
-Configured SMTP delivery is an external acceptance gate. Unit tests mock the mail sender; integration tests verify hash changes, expiry, inactive-account rejection and single use against SQL Server with rollback. No claim of successful email delivery is made until a test message is received.
+## Database and behavior
+
+Migration 017_password_recovery_otp.sql adds passwordRecoveryCodes. The migration is additive and is applied to the current database. Initialize-SupportDatabase.ps1 discovers it automatically for other installations. Existing passwordResetTokens stores the final reset authorization after OTP verification.
+
+Codes expire after 10 minutes, are limited to five incorrect attempts, and can be used once. Requests have a 60-second cooldown for known and unknown email addresses alike. Only digests are stored; the code digest is bound to a cryptographically random browser challenge. The challenge and final reset authorization remain in browser memory, not localStorage. Reloading during recovery requires requesting a new code. Resending replaces the previous code and invalidates previously issued reset authorization. Password changes use BCrypt and consume the reset authorization.
+
+Unknown and inactive accounts receive the same request message but cannot verify or change a password. Missing SMTP configuration and delivery failures return an explicit error. SMTP failures roll back issuance. No code is returned by the API or logged.
+
+## Validation
+
+Automated tests use a mocked mail transport; OTP issuance, wrong-attempt limits, expiry, single use, password hashing, and unknown-account cooldown are tested against SQL Server with transaction rollback. Real inbox delivery must be checked after configuring the sender. SMTP acceptance cannot guarantee inbox placement; check spam too.
+
+Report start dates are capped at today in Asia/Colombo and checked again in ReportService. Future start dates are rejected even if a caller bypasses the browser. Existing end-date ordering and open-ended ranges remain supported.

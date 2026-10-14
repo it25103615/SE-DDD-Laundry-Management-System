@@ -54,13 +54,13 @@ SELECT TOP (5) * FROM dbo.notifications;
 10. Open `database/ddd_assignment2_queries.sql`.
 11. Execute each labelled query separately and take one screenshot containing both its SQL and output:
 
-   1. Simple SELECT
-   2. JOIN
-   3. Aggregation
-   4. GROUP BY with HAVING
-   5. Subquery
+12. Simple SELECT
+13. JOIN
+14. Aggregation
+15. GROUP BY with HAVING
+16. Subquery
 
-12. Optionally screenshot Query 6 as extra evidence of the composite pricing relationship.
+17. Optionally screenshot Query 6 as extra evidence of the composite pricing relationship.
 
 ## E. Stored procedure
 

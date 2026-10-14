@@ -1,3 +1,7 @@
+/* DatabaseUserDetailsService
+ * SERVICE: business rules and orchestration. Constructor-injected collaborators show composition and dependency injection; private fields encapsulate dependencies.
+ * ABSTRACTION / POLYMORPHISM: implements the declared contract. @Override identifies the contract methods supplied by this type.
+ */
 package _6.Y2.S1.MTR._6.LaundryLink.auth;
 
 import _6.Y2.S1.MTR._6.LaundryLink.user.User;
@@ -8,10 +12,18 @@ import org.springframework.security.core.userdetails.*;
 
 @RequiredArgsConstructor
 public class DatabaseUserDetailsService implements UserDetailsService {
-    private final UserRepository userRepository;
-    @Override public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        User user = userRepository.findByEmailIgnoreCase(email).orElseThrow(() -> new UsernameNotFoundException("Invalid email or password."));
-        if (user.getType() == null) throw new UsernameNotFoundException("Invalid email or password.");
-        return org.springframework.security.core.userdetails.User.withUsername(user.getEmail()).password(user.getPassword()).authorities(new SimpleGrantedAuthority("ROLE_" + user.getType().name())).build();
-    }
+  private final UserRepository userRepository;
+
+  @Override
+  public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+    User user =
+        userRepository
+            .findByEmailIgnoreCase(email)
+            .orElseThrow(() -> new UsernameNotFoundException("Invalid email or password."));
+    if (user.getType() == null) throw new UsernameNotFoundException("Invalid email or password.");
+    return org.springframework.security.core.userdetails.User.withUsername(user.getEmail())
+        .password(user.getPassword())
+        .authorities(new SimpleGrantedAuthority("ROLE_" + user.getType().name()))
+        .build();
+  }
 }

@@ -4,7 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Issue Reports | LaundryLink</title>
-    <style>#new-report[hidden], #submit-report-link[hidden] { display: none !important; }</style>
+    <style>
+      #new-report[hidden],
+      #submit-report-link[hidden] {
+        display: none !important;
+      }
+    </style>
     <link rel="stylesheet" href="../../css/global.css" />
     <link rel="stylesheet" href="../../css/dashboard.css" />
     <script src="../../js/global-pre.js"></script>
@@ -21,7 +26,10 @@
         <div>
           <div class="subtitle">FACILITY QUALITY</div>
           <h1>Issue Reports</h1>
-          <p id="issue-description">Review damaged, missing or mismatched items reported by laundry staff. Each report is linked to a customer-service case.</p>
+          <p id="issue-description">
+            Review damaged, missing or mismatched items reported by laundry staff. Each report is
+            linked to a customer-service case.
+          </p>
         </div>
         <a id="submit-report-link" hidden class="custom_button custom_button_bg" href="#new-report"
           >Submit report</a
@@ -42,17 +50,32 @@
             </tr>
           </thead>
           <tbody id="issue-rows">
-            <tr><td colspan="7" class="muted">Loading…</td></tr>
+            <tr>
+              <td colspan="7" class="muted">Loading…</td>
+            </tr>
           </tbody>
         </table>
       </div>
       <!-- action is set so global-post.js leaves the form alone; issue-reports.js submits it. -->
-      <form id="new-report" hidden class="card" style="margin-top: 40px" action="issue_reports.html">
+      <form
+        id="new-report"
+        hidden
+        class="card"
+        style="margin-top: 40px"
+        action="issue_reports.html"
+      >
         <h2>New issue report</h2>
         <div class="grid grid_two">
           <div class="field">
             <label for="order">Order number</label
-            ><input class="input" id="order" name="order" required inputmode="numeric" placeholder="e.g. 6" />
+            ><input
+              class="input"
+              id="order"
+              name="order"
+              required
+              inputmode="numeric"
+              placeholder="e.g. 6"
+            />
           </div>
           <div class="field">
             <label for="item">Item</label
@@ -73,17 +96,9 @@
         </div>
         <div class="field">
           <label for="details">Details</label
-          ><textarea
-            class="input"
-            id="details"
-            name="details"
-            required
-            maxlength="250"
-          ></textarea>
+          ><textarea class="input" id="details" name="details" required maxlength="250"></textarea>
         </div>
-        <button class="custom_button custom_button_bg" type="submit">
-          Submit report
-        </button>
+        <button class="custom_button custom_button_bg" type="submit">Submit report</button>
       </form>
     </main>
   </body>

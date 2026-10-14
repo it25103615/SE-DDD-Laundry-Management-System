@@ -28,10 +28,7 @@
               <h2 id="outstanding-amount">Loading...</h2>
               <p class="muted" id="payment-order-line">Checking your balance</p>
             </div>
-            <a
-              class="custom_button custom_button_bg"
-              id="pay-now-link"
-              href="payment_method.html"
+            <a class="custom_button custom_button_bg" id="pay-now-link" href="payment_method.html"
               >Pay now</a
             >
           </article>
@@ -80,15 +77,32 @@
                 <div class="card">Loading promotions...</div>
               </div>
             </div>
-            <form class="unstyled_form" id="promotion-form" style="padding: 0; box-shadow: none; border: 0; background: transparent">
+            <form
+              class="unstyled_form"
+              id="promotion-form"
+              style="padding: 0; box-shadow: none; border: 0; background: transparent"
+            >
               <h3>Have a promotion code?</h3>
               <div class="field">
                 <label for="promotion-code">Promotion code</label>
-                <input class="input" id="promotion-code" name="promotionCode" type="text" autocomplete="off" placeholder="Enter promotion code" />
+                <input
+                  class="input"
+                  id="promotion-code"
+                  name="promotionCode"
+                  type="text"
+                  autocomplete="off"
+                  placeholder="Enter promotion code"
+                />
               </div>
               <p class="alert" id="promotion-message" hidden></p>
               <div class="actions">
-                <button class="custom_button custom_button_border" id="apply-promotion-button" type="submit">Apply</button>
+                <button
+                  class="custom_button custom_button_border"
+                  id="apply-promotion-button"
+                  type="submit"
+                >
+                  Apply
+                </button>
               </div>
             </form>
           </article>

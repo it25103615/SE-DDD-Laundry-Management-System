@@ -1,5 +1,52 @@
-.account-profile{max-width:900px;margin:auto;padding-bottom:60px}.account-profile .card{margin:24px 0}.account-profile .field{margin:20px 0}.profile-message{padding:14px 18px;border-radius:12px;background:#edf9f1;color:#165333}.profile-message.error{background:#fff0f0;color:#92252d}.account-profile [hidden]{display:none!important}
-.password-control{display:flex;align-items:stretch;gap:8px}.password-control .input{min-width:0;flex:1}.password-toggle{padding:0 15px;border:1px solid #aec5d7;border-radius:10px;background:#f3f9ff;color:#174c76;font:inherit;cursor:pointer}.password-toggle:hover{background:#e0f1ff}.password-toggle:focus-visible{outline:3px solid #2785bf;outline-offset:2px}
+.account-profile {
+  max-width: 900px;
+  margin: auto;
+  padding-bottom: 60px;
+}
+.account-profile .card {
+  margin: 24px 0;
+}
+.account-profile .field {
+  margin: 20px 0;
+}
+.profile-message {
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: #edf9f1;
+  color: #165333;
+}
+.profile-message.error {
+  background: #fff0f0;
+  color: #92252d;
+}
+.account-profile [hidden] {
+  display: none !important;
+}
+.password-control {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.password-control .input {
+  min-width: 0;
+  flex: 1;
+}
+.password-toggle {
+  padding: 0 15px;
+  border: 1px solid #aec5d7;
+  border-radius: 10px;
+  background: #f3f9ff;
+  color: #174c76;
+  font: inherit;
+  cursor: pointer;
+}
+.password-toggle:hover {
+  background: #e0f1ff;
+}
+.password-toggle:focus-visible {
+  outline: 3px solid #2785bf;
+  outline-offset: 2px;
+}
 
 /* ---- Saved addresses section (filled in by js/account/profile-addresses.js) ---- */
 
@@ -95,11 +142,29 @@
 }
 
 /* Delete account section: a red outline so it reads as a dangerous area. */
-.account-profile .danger-zone{border:1px solid #d9a0a6}
-.account-profile .danger-zone h2{margin-top:0}
+.account-profile .danger-zone {
+  border: 1px solid #d9a0a6;
+}
+.account-profile .danger-zone h2 {
+  margin-top: 0;
+}
 /* The permanent-deletion warning shown above the button. */
-.delete-warning{margin:14px 0 18px;padding:14px 18px;border-radius:12px;background:#fff0f0;color:#92252d}
+.delete-warning {
+  margin: 14px 0 18px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: #fff0f0;
+  color: #92252d;
+}
 /* The message inside the password pop-up (empty password, or a refusal). */
-.delete-error{margin:6px 0 12px;color:#92252d;font-size:.95rem}
-#delete-dialog .field{margin:16px 0}
-#delete-dialog .actions{margin-top:18px}
+.delete-error {
+  margin: 6px 0 12px;
+  color: #92252d;
+  font-size: 0.95rem;
+}
+#delete-dialog .field {
+  margin: 16px 0;
+}
+#delete-dialog .actions {
+  margin-top: 18px;
+}

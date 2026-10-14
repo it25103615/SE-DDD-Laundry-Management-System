@@ -60,7 +60,7 @@ ORDER PROMOTION(
        OrderID PK ,FK → ORDER(orderID)
        promotionID NN FK → PROMOTION(promotionID),
        discountAmount NN,
-       appliedAt 
+       appliedAt
 )
 
 PROMOTION(

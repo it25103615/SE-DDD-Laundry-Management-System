@@ -43,15 +43,21 @@ if (location.protocol === "file:") {
       hide();
       try {
         const response = await fetch("/api/account/profile", {
-          headers: { Accept: "application/json" }, cache: "no-store",
+          headers: { Accept: "application/json" },
+          cache: "no-store",
           signal: AbortSignal.timeout(10000),
         });
         if (response.ok && !response.redirected) {
           const profile = await response.json();
           if (current !== generation) return;
-          const destination = Number.isInteger(profile?.id) && typeof profile.role === "string"
-            ? DASHBOARDS[profile.role.toUpperCase()] : null;
-          if (destination) { location.replace(destination); return; }
+          const destination =
+            Number.isInteger(profile?.id) && typeof profile.role === "string"
+              ? DASHBOARDS[profile.role.toUpperCase()]
+              : null;
+          if (destination) {
+            location.replace(destination);
+            return;
+          }
         }
       } catch {
         // Keep login available when the session is absent or verification is unavailable.
@@ -60,16 +66,29 @@ if (location.protocol === "file:") {
       if (visibility) root.style.setProperty("visibility", visibility, priority);
       else root.style.removeProperty("visibility");
     };
-    window.addEventListener("pagehide", () => { ++generation; hide(); });
-    window.addEventListener("pageshow", event => { if (event.persisted) verifyLoginPage(); });
+    window.addEventListener("pagehide", () => {
+      ++generation;
+      hide();
+    });
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) verifyLoginPage();
+    });
     verifyLoginPage();
   }
   const HISTORY_IDENTITY_KEY = "laundryLink.protectedIdentity";
   const clearAccountStorage = () => {
     try {
       for (const key of Object.keys(sessionStorage)) {
-        if ([IDENTITY_KEY, "laundryLink.nav", "laundryLink.orderDraft", "laundrylinkCustomerID"].includes(key)
-            || key.startsWith("laundrylinkPromotionCode:")) sessionStorage.removeItem(key);
+        if (
+          [
+            IDENTITY_KEY,
+            "laundryLink.nav",
+            "laundryLink.orderDraft",
+            "laundrylinkCustomerID",
+          ].includes(key) ||
+          key.startsWith("laundrylinkPromotionCode:")
+        )
+          sessionStorage.removeItem(key);
       }
     } catch {}
   };
@@ -80,29 +99,37 @@ if (location.protocol === "file:") {
     ["/html/admin/owner/promotions.html", ["MANAGER", "OWNER", "ADMIN"]],
     ["/html/admin/owner/", ["OWNER", "ADMIN"]],
     ["/html/admin/manager/", ["MANAGER", "OWNER", "ADMIN"]],
-    ["/html/admin/customer-service-manager/", ["CSM", "CUSTOMER_SERVICE_MANAGER", "MANAGER", "OWNER", "ADMIN"]],
+    [
+      "/html/admin/customer-service-manager/",
+      ["CSM", "CUSTOMER_SERVICE_MANAGER", "MANAGER", "OWNER", "ADMIN"],
+    ],
     ["/html/staff/", ["STAFF", "MANAGER", "OWNER", "ADMIN"]],
     ["/html/rider/", ["RIDER"]],
     ["/html/account/", Object.keys(DASHBOARDS)],
-  ].find(([path]) => path.endsWith("/") ? location.pathname.startsWith(path) : location.pathname === path);
+  ].find(([path]) =>
+    path.endsWith("/") ? location.pathname.startsWith(path) : location.pathname === path,
+  );
   if (pageRoles) {
     const root = document.documentElement;
     const visibility = root.style.getPropertyValue("visibility");
     const priority = root.style.getPropertyPriority("visibility");
     const hide = () => root.style.setProperty("visibility", "hidden", "important");
-    let pageIdentity, generation = 0;
+    let pageIdentity,
+      generation = 0;
     hide();
     const verify = async (restored = false) => {
       const current = ++generation;
       hide();
       try {
         const response = await fetch("/api/account/profile", {
-          headers: { Accept: "application/json" }, cache: "no-store",
+          headers: { Accept: "application/json" },
+          cache: "no-store",
           signal: AbortSignal.timeout(10000),
         });
         if (!response.ok || response.redirected) throw new Error("Sign in required");
         const profile = await response.json();
-        if (!Number.isInteger(profile.id) || typeof profile.role !== "string") throw new Error("Invalid account");
+        if (!Number.isInteger(profile.id) || typeof profile.role !== "string")
+          throw new Error("Invalid account");
         if (current !== generation) return;
         const role = profile.role.toUpperCase();
         const identity = JSON.stringify([profile.id, role]);
@@ -112,12 +139,23 @@ if (location.protocol === "file:") {
           throw new Error("Unsupported history state");
         const entryIdentity = entryState?.[HISTORY_IDENTITY_KEY];
         let previous;
-        try { previous = sessionStorage.getItem(IDENTITY_KEY); } catch {}
+        try {
+          previous = sessionStorage.getItem(IDENTITY_KEY);
+        } catch {}
         const entryChanged = entryIdentity !== undefined && entryIdentity !== identity;
-        const changed = entryChanged || (pageIdentity && pageIdentity !== identity) || (previous && previous !== identity);
+        const changed =
+          entryChanged ||
+          (pageIdentity && pageIdentity !== identity) ||
+          (previous && previous !== identity);
         if (changed) clearAccountStorage();
-        try { sessionStorage.setItem(IDENTITY_KEY, identity); } catch {}
-        if (entryChanged || (pageIdentity && pageIdentity !== identity) || !pageRoles[1].includes(role)) {
+        try {
+          sessionStorage.setItem(IDENTITY_KEY, identity);
+        } catch {}
+        if (
+          entryChanged ||
+          (pageIdentity && pageIdentity !== identity) ||
+          !pageRoles[1].includes(role)
+        ) {
           // The replacement dashboard must not inherit the previous account's marker.
           const nextState = { ...entryState };
           delete nextState[HISTORY_IDENTITY_KEY];
@@ -128,7 +166,10 @@ if (location.protocol === "file:") {
         // Navigation metadata only; the server profile and Spring Security decide access.
         history.replaceState({ ...entryState, [HISTORY_IDENTITY_KEY]: identity }, "");
         // Never reveal a restored DOM: its data and pending callbacks belong to the old page.
-        if (restored || changed) { location.reload(); return; }
+        if (restored || changed) {
+          location.reload();
+          return;
+        }
         pageIdentity = identity;
         if (visibility) root.style.setProperty("visibility", visibility, priority);
         else root.style.removeProperty("visibility");
@@ -138,8 +179,13 @@ if (location.protocol === "file:") {
         location.replace("/html/auth/login.html");
       }
     };
-    window.addEventListener("pagehide", () => { ++generation; hide(); });
-    window.addEventListener("pageshow", event => { if (event.persisted) verify(true); });
+    window.addEventListener("pagehide", () => {
+      ++generation;
+      hide();
+    });
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) verify(true);
+    });
     verify();
   }
 
@@ -147,7 +193,10 @@ if (location.protocol === "file:") {
   //  address stay the same everywhere
   const supportCases = { label: "Support cases", href: "/html/support/cases.html" };
   const orderLookup = { label: "Order lookup", href: SUPPORT + "/orders.html" };
-  const staffAccounts = { label: "Staff accounts", href: "/html/admin/manager/staff_accounts.html" };
+  const staffAccounts = {
+    label: "Staff accounts",
+    href: "/html/admin/manager/staff_accounts.html",
+  };
 
   //The link list of each role, in the order the links are shown.
   //  label: the text of the link
@@ -177,7 +226,6 @@ if (location.protocol === "file:") {
         ],
       },
       { label: "Support", href: "/html/customer/feedback.html" },
-      { label: "Feedback", href: "/html/customer/reviews.html" },
     ],
     STAFF: [
       { label: "Dashboard", href: DASHBOARDS.STAFF },
@@ -242,7 +290,7 @@ if (location.protocol === "file:") {
     ],
   };
   //Two role names mean the same thing in the database, so they share one list
-  LINKS.CSM.push({label:"Feedback",href:"/html/support/feedback.html"});
+  LINKS.CSM.push({ label: "Feedback", href: "/html/support/feedback.html" });
   LINKS.CUSTOMER_SERVICE_MANAGER = LINKS.CSM;
   LINKS.ADMIN = LINKS.OWNER;
 
@@ -416,7 +464,8 @@ if (location.protocol === "file:") {
       //  open page belongs to ("true"). global.css highlights both.
       if (!link.exit) {
         if (link.href === location.pathname) anchor.setAttribute("aria-current", "page");
-        else if (link.pages?.includes(location.pathname)) anchor.setAttribute("aria-current", "true");
+        else if (link.pages?.includes(location.pathname))
+          anchor.setAttribute("aria-current", "true");
       }
       return anchor;
     };
@@ -492,7 +541,9 @@ if (location.protocol === "file:") {
     logoutButton.addEventListener("click", async () => {
       logoutButton.disabled = true;
       try {
-        csrf ||= await fetch("/api/auth/csrf").then(r=>r.ok?r.json():Promise.reject(new Error("Unable to verify this action.")));
+        csrf ||= await fetch("/api/auth/csrf").then((r) =>
+          r.ok ? r.json() : Promise.reject(new Error("Unable to verify this action.")),
+        );
         const response = await fetch("/logout", {
           method: "POST",
           headers: { [csrf.headerName]: csrf.token },
@@ -515,46 +566,103 @@ if (location.protocol === "file:") {
     });
 
     // Shared authenticated notification bell used by every role page.
-    const button=shell.querySelector(".notification_button");
-    const panel=shell.querySelector(".notification_panel");
-    const list=shell.querySelector(".notification_list");
-    const badge=shell.querySelector(".notification_count");
-    const summary=shell.querySelector(".notification_summary");
-    const api=async(path,method="GET")=>{
-      const headers={Accept:"application/json"};
-      if(method!=="GET") {
-        csrf ||= await fetch("/api/auth/csrf").then(r=>r.ok?r.json():Promise.reject(new Error("Unable to verify this action.")));
-        headers[csrf.headerName]=csrf.token;
+    const button = shell.querySelector(".notification_button");
+    const panel = shell.querySelector(".notification_panel");
+    const list = shell.querySelector(".notification_list");
+    const badge = shell.querySelector(".notification_count");
+    const summary = shell.querySelector(".notification_summary");
+    const api = async (path, method = "GET") => {
+      const headers = { Accept: "application/json" };
+      if (method !== "GET") {
+        csrf ||= await fetch("/api/auth/csrf").then((r) =>
+          r.ok ? r.json() : Promise.reject(new Error("Unable to verify this action.")),
+        );
+        headers[csrf.headerName] = csrf.token;
       }
-      const response=await fetch("/api/notifications"+path,{method,headers});
-      if(!response.ok) throw new Error("Unable to load notifications.");
-      return response.status===204?null:response.json();
+      const response = await fetch("/api/notifications" + path, { method, headers });
+      if (!response.ok) throw new Error("Unable to load notifications.");
+      return response.status === 204 ? null : response.json();
     };
-    const time=value=>{
-      const parsed=new Date(value),seconds=Math.max(0,Math.floor((Date.now()-parsed.getTime())/1000));
-      if(seconds<60)return "Just now";if(seconds<3600)return Math.floor(seconds/60)+"m ago";if(seconds<86400)return Math.floor(seconds/3600)+"h ago";
-      return parsed.toLocaleDateString("en-LK",{day:"numeric",month:"short"});
+    const time = (value) => {
+      const parsed = new Date(value),
+        seconds = Math.max(0, Math.floor((Date.now() - parsed.getTime()) / 1000));
+      if (seconds < 60) return "Just now";
+      if (seconds < 3600) return Math.floor(seconds / 60) + "m ago";
+      if (seconds < 86400) return Math.floor(seconds / 3600) + "h ago";
+      return parsed.toLocaleDateString("en-LK", { day: "numeric", month: "short" });
     };
-    const render=data=>{
-      shell.hidden=false;badge.textContent=data.unread;badge.hidden=!data.unread;summary.textContent=data.unread?data.unread+" unread":"All caught up";
+    const render = (data) => {
+      shell.hidden = false;
+      badge.textContent = data.unread;
+      badge.hidden = !data.unread;
+      summary.textContent = data.unread ? data.unread + " unread" : "All caught up";
       list.replaceChildren();
-      if(!data.items.length){const empty=document.createElement("p");empty.className="notification_empty";empty.textContent="No notifications yet.";list.append(empty);return;}
-      data.items.forEach(item=>{
-        const row=document.createElement("button");row.type="button";row.className="notification_item"+(item.isRead?"":" unread");row.dataset.id=item.id;row.dataset.link=item.link;
-        const dot=document.createElement("span");dot.className="notification_dot";
-        const copy=document.createElement("span");copy.className="notification_copy";
-        const title=document.createElement("strong");title.textContent=item.title;
-        const message=document.createElement("span");message.textContent=item.message;
-        const meta=document.createElement("small");meta.textContent=item.category+" · "+time(item.createdAt);
-        copy.append(title,message,meta);row.append(dot,copy);list.append(row);
+      if (!data.items.length) {
+        const empty = document.createElement("p");
+        empty.className = "notification_empty";
+        empty.textContent = "No notifications yet.";
+        list.append(empty);
+        return;
+      }
+      data.items.forEach((item) => {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "notification_item" + (item.isRead ? "" : " unread");
+        row.dataset.id = item.id;
+        row.dataset.link = item.link;
+        const dot = document.createElement("span");
+        dot.className = "notification_dot";
+        const copy = document.createElement("span");
+        copy.className = "notification_copy";
+        const title = document.createElement("strong");
+        title.textContent = item.title;
+        const message = document.createElement("span");
+        message.textContent = item.message;
+        const meta = document.createElement("small");
+        meta.textContent = item.category + " · " + time(item.createdAt);
+        copy.append(title, message, meta);
+        row.append(dot, copy);
+        list.append(row);
       });
     };
-    const load=()=>api("").then(render).catch(()=>{shell.hidden=true;});
+    const load = () =>
+      api("")
+        .then(render)
+        .catch(() => {
+          shell.hidden = true;
+        });
     //Opening the notifications closes the links menu, so the two never overlap
-    button.addEventListener("click",async event=>{event.stopPropagation();setMenu(false);panel.hidden=!panel.hidden;button.setAttribute("aria-expanded",String(!panel.hidden));if(!panel.hidden)await load();});
-    list.addEventListener("click",async event=>{const row=event.target.closest(".notification_item");if(!row)return;try{if(row.classList.contains("unread"))await api("/"+row.dataset.id+"/read","PATCH");if(row.dataset.link)location.href=row.dataset.link;}catch(error){summary.textContent=error.message;}});
-    shell.querySelector(".notification_read_all").addEventListener("click",async()=>{try{await api("/read-all","PATCH");await load();}catch(error){summary.textContent=error.message;}});
-    document.addEventListener("click",event=>{if(!shell.contains(event.target)){panel.hidden=true;button.setAttribute("aria-expanded","false");}});
+    button.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      setMenu(false);
+      panel.hidden = !panel.hidden;
+      button.setAttribute("aria-expanded", String(!panel.hidden));
+      if (!panel.hidden) await load();
+    });
+    list.addEventListener("click", async (event) => {
+      const row = event.target.closest(".notification_item");
+      if (!row) return;
+      try {
+        if (row.classList.contains("unread")) await api("/" + row.dataset.id + "/read", "PATCH");
+        if (row.dataset.link) location.href = row.dataset.link;
+      } catch (error) {
+        summary.textContent = error.message;
+      }
+    });
+    shell.querySelector(".notification_read_all").addEventListener("click", async () => {
+      try {
+        await api("/read-all", "PATCH");
+        await load();
+      } catch (error) {
+        summary.textContent = error.message;
+      }
+    });
+    document.addEventListener("click", (event) => {
+      if (!shell.contains(event.target)) {
+        panel.hidden = true;
+        button.setAttribute("aria-expanded", "false");
+      }
+    });
 
     //Ask the server who is signed in. It answers with the profile as JSON for a
     //  signed-in user; anything else (an error, a redirect to the login page, a
@@ -592,36 +700,39 @@ if (location.protocol === "file:") {
 })();
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Shared decorative soap bubbles: CSS handles motion without frame-by-frame JS.
+  const bubbleLayer = document.createElement("div");
+  bubbleLayer.className = "background_bubbles";
+  bubbleLayer.setAttribute("aria-hidden", "true");
+  const bubbles = [
+    [2, 24, 88, 10, -2],
+    [5, 76, 125, 13, -6],
+    [1, 52, 48, 9, -4],
+    [89, 17, 145, 14, -5],
+    [94, 62, 76, 11, -8],
+    [85, 88, 105, 12, -3],
+    [35, 94, 58, 10, -7],
+    [62, 12, 65, 13, -9],
+  ];
+  bubbles.forEach(([left, top, size, duration, delay]) => {
+    const bubble = document.createElement("span");
+    bubble.className = "background_bubble";
+    bubble.style.cssText = `--bubble-left:${left}%;--bubble-top:${top}%;--bubble-size:${size}px;--bubble-duration:${duration}s;--bubble-delay:${delay}s`;
+    bubbleLayer.appendChild(bubble);
+  });
+  document.body.prepend(bubbleLayer);
+
   //Get the url path
   const path = location.pathname.toLowerCase();
 
   //For each "role",
   // check if the browser path includes the role
   //   if it does then add 'v4_[role]' to the document body
-  [
-    "public",
-    "auth",
-    "customer",
-    "staff",
-    "rider",
-    "admin",
-    "manager",
-    "owner",
-    "support",
-  ].forEach((role) => {
-    if (path.includes(`/${role}/`)) document.body.classList.add(`v4_${role}`);
-  });
-
-  //Create 2 html tags
-  const one = document.createElement("i");
-  const two = document.createElement("i");
-
-  //Give them classnames
-  one.className = "v4_shape v4_shape_one";
-  two.className = "v4_shape v4_shape_two";
-
-  //Add the tags to the end of the html body tag
-  document.body.append(one, two);
+  ["public", "auth", "customer", "staff", "rider", "admin", "manager", "owner", "support"].forEach(
+    (role) => {
+      if (path.includes(`/${role}/`)) document.body.classList.add(`v4_${role}`);
+    },
+  );
 
   //"intersecting" indicates that an entry (html tag) is intersecting with the viewport (is now on screen (visible))
   //the IntersectionObserver is a browser API that lets us watch when an element scrolls into view
@@ -679,14 +790,9 @@ document.addEventListener("DOMContentLoaded", () => {
   //    Add a class to the element indicating information
   document.querySelectorAll(".status").forEach((badge) => {
     const text = badge.textContent.toLowerCase();
-    if (
-      /delivered|paid|active|complete|resolved|ready|excellent|success/.test(
-        text,
-      )
-    )
+    if (/delivered|paid|active|complete|resolved|ready|excellent|success/.test(text))
       badge.classList.add("status_success");
-    else if (/error|failed|cancel|damage|danger/.test(text))
-      badge.classList.add("status_error");
+    else if (/error|failed|cancel|damage|danger/.test(text)) badge.classList.add("status_error");
     else if (/pending|warning|today|priority|await|due|review/.test(text))
       badge.classList.add("status_warning");
     else badge.classList.add("status_info");

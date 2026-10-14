@@ -22,7 +22,7 @@
   async function csrf() {
     if (!csrfPromise) {
       csrfPromise = fetch("/api/auth/csrf", {
-        headers: { "Accept": "application/json" },
+        headers: { Accept: "application/json" },
         credentials: "same-origin",
       }).then((response) => response.json());
     }
@@ -80,15 +80,23 @@
     if (!payment.refundStatus) return "";
     const parts = [];
     parts.push(`Refund ${statusLabel(payment.refundStatus)}`);
-    if (payment.refundStatus === "REQUESTED" && payment.refundRequestedAt) parts.push(dateTimeLabel(payment.refundRequestedAt));
-    if (payment.refundStatus === "REFUNDED" && payment.refundAmount != null) parts.push(money(payment.refundAmount));
-    if (payment.refundStatus === "REFUNDED" && payment.refundedAt) parts.push(dateTimeLabel(payment.refundedAt));
-    if (payment.refundStatus === "REJECTED" && payment.refundProcessedAt) parts.push(dateTimeLabel(payment.refundProcessedAt));
+    if (payment.refundStatus === "REQUESTED" && payment.refundRequestedAt)
+      parts.push(dateTimeLabel(payment.refundRequestedAt));
+    if (payment.refundStatus === "REFUNDED" && payment.refundAmount != null)
+      parts.push(money(payment.refundAmount));
+    if (payment.refundStatus === "REFUNDED" && payment.refundedAt)
+      parts.push(dateTimeLabel(payment.refundedAt));
+    if (payment.refundStatus === "REJECTED" && payment.refundProcessedAt)
+      parts.push(dateTimeLabel(payment.refundProcessedAt));
     return ` · ${parts.join(" · ")}`;
   }
 
   function canRequestRefund(payment) {
-    return payment && (payment.paymentStatus === "PAID" || payment.paymentStatus === "VERIFIED") && !payment.refundStatus;
+    return (
+      payment &&
+      (payment.paymentStatus === "PAID" || payment.paymentStatus === "VERIFIED") &&
+      !payment.refundStatus
+    );
   }
 
   function ensureRefundDialog() {
@@ -98,7 +106,8 @@
     dialog.id = "refund-request-dialog";
     dialog.className = "card";
     dialog.hidden = true;
-    dialog.style.cssText = "position:fixed;inset:10% auto auto 50%;transform:translateX(-50%);z-index:50;max-width:520px;width:calc(100% - 32px);box-shadow:0 18px 48px rgba(0,0,0,.22)";
+    dialog.style.cssText =
+      "position:fixed;inset:10% auto auto 50%;transform:translateX(-50%);z-index:50;max-width:520px;width:calc(100% - 32px);box-shadow:0 18px 48px rgba(0,0,0,.22)";
     dialog.innerHTML = `
       <span class="muted small">REQUEST REFUND</span>
       <h2 id="refund-dialog-title">Request Refund</h2>
@@ -137,30 +146,32 @@
       if (cancel) cancel.onclick = null;
     };
     if (cancel) cancel.onclick = close;
-    if (submit) submit.onclick = async () => {
-      const text = reason ? reason.value.trim() : "";
-      showError(error, "");
-      if (!text) {
-        showError(error, "Enter a refund reason.");
-        return;
-      }
-      submit.disabled = true;
-      try {
-        await api(`/api/payments/${payment.paymentID}/refund-request`, {
-          method: "POST",
-          body: JSON.stringify({ reason: text }),
-        });
-        close();
-        if (afterSubmit) await afterSubmit();
-      } catch (requestError) {
-        const message = requestError.body && requestError.body.message
-          ? requestError.body.message
-          : "Refund request could not be submitted.";
-        showError(error, message);
-      } finally {
-        submit.disabled = false;
-      }
-    };
+    if (submit)
+      submit.onclick = async () => {
+        const text = reason ? reason.value.trim() : "";
+        showError(error, "");
+        if (!text) {
+          showError(error, "Enter a refund reason.");
+          return;
+        }
+        submit.disabled = true;
+        try {
+          await api(`/api/payments/${payment.paymentID}/refund-request`, {
+            method: "POST",
+            body: JSON.stringify({ reason: text }),
+          });
+          close();
+          if (afterSubmit) await afterSubmit();
+        } catch (requestError) {
+          const message =
+            requestError.body && requestError.body.message
+              ? requestError.body.message
+              : "Refund request could not be submitted.";
+          showError(error, message);
+        } finally {
+          submit.disabled = false;
+        }
+      };
   }
 
   function cleanValue(value) {
@@ -197,7 +208,7 @@
   async function api(path, options) {
     const method = (options && options.method ? options.method : "GET").toUpperCase();
     const headers = {
-      "Accept": "application/json",
+      Accept: "application/json",
       "Content-Type": "application/json",
       ...(options && options.headers ? options.headers : {}),
     };
@@ -260,12 +271,20 @@
     setText("billing-subtotal", money(invoice.subtotal));
     setText("billing-bulk-discount", `- ${money(invoice.automaticBulkDiscount)}`);
     setText("billing-promotion-discount", `- ${money(invoice.promotionDiscount)}`);
-    setText("billing-total-discount", `- ${money(invoice.totalDiscount ?? invoice.discountAmount)}`);
+    setText(
+      "billing-total-discount",
+      `- ${money(invoice.totalDiscount ?? invoice.discountAmount)}`,
+    );
     setText("billing-final", money(invoice.finalPayableAmount));
     setText("billing-final-payable", money(invoice.finalPayableAmount));
     const appliedCode = sessionStorage.getItem(`laundrylinkPromotionCode:${invoice.orderID}`);
     const hasPromotionDiscount = Number(invoice.promotionDiscount || 0) > 0;
-    setText("billing-promotion-label", hasPromotionDiscount && appliedCode ? `Promotion Discount (${appliedCode})` : "Promotion Discount");
+    setText(
+      "billing-promotion-label",
+      hasPromotionDiscount && appliedCode
+        ? `Promotion Discount (${appliedCode})`
+        : "Promotion Discount",
+    );
     displayBulkDiscount(invoice);
   }
 
@@ -278,7 +297,7 @@
       "bulk-discount-message",
       saved > 0
         ? "10% off orders of LKR 5,000 or more. Automatically applied - no code required."
-        : `Spend ${money(remaining)} more to receive 10% off.`
+        : `Spend ${money(remaining)} more to receive 10% off.`,
     );
     setText("bulk-discount-savings", saved > 0 ? `You saved: ${money(saved)}` : "Not applied");
   }
@@ -295,7 +314,8 @@
 
     if (count) count.textContent = `${promotions.length} available`;
     list.innerHTML = promotions
-      .map((promotion) => `
+      .map(
+        (promotion) => `
         <article class="card">
           <span class="muted small">${escapeHtml(cleanValue(promotion.promotionName))}</span>
           <h3>${escapeHtml(cleanValue(promotion.promotionCode))}</h3>
@@ -303,7 +323,8 @@
           <p class="muted">Minimum order: ${money(promotion.minimumOrderAmount)}</p>
           <p class="muted">Valid until: ${dateLabel(promotion.validTo)}</p>
           <button class="custom_button custom_button_border" type="button" data-promotion-code="${escapeHtml(cleanValue(promotion.promotionCode))}">Apply</button>
-        </article>`)
+        </article>`,
+      )
       .join("");
 
     list.querySelectorAll("[data-promotion-code]").forEach((button) => {
@@ -336,9 +357,10 @@
   function displayPaymentStatus(id, status, payLink) {
     const outstandingAmount = displayOutstanding(status);
     setText("outstanding-amount", money(outstandingAmount));
-    const statusText = status.status === "PENDING"
-      ? "Payment submitted - awaiting verification"
-      : status.status.replaceAll("_", " ");
+    const statusText =
+      status.status === "PENDING"
+        ? "Payment submitted - awaiting verification"
+        : status.status.replaceAll("_", " ");
     setText("payment-order-line", `Order #${id} · ${statusText}`);
     if (payLink) {
       payLink.href = paymentFlowUrl("payment_method.html", id);
@@ -368,7 +390,9 @@
   }
 
   async function applyPromotion(id, code) {
-    const validation = await api(`/api/promotions/${encodeURIComponent(code)}/orders/${id}/validate`);
+    const validation = await api(
+      `/api/promotions/${encodeURIComponent(code)}/orders/${id}/validate`,
+    );
     if (!validation.valid) {
       return validation.message || "Promotion is not valid for this order.";
     }
@@ -391,14 +415,18 @@
     if (!id) {
       setText("outstanding-amount", "Unavailable");
       setText("payment-order-line", "Open an order before reviewing payment.");
-        setText("billing-order-label", "Invoice");
-        setText("billing-subtotal", "Unavailable");
-        setText("billing-bulk-discount", "Unavailable");
-        setText("billing-promotion-discount", "Unavailable");
-        setText("billing-total-discount", "Unavailable");
-        setText("billing-final", "Unavailable");
-        setText("billing-final-payable", "Unavailable");
-        showMessage(promotionMessage, "CROSS-MODULE CHANGE REQUIRED: this page needs a real orderID from Order Management navigation.", false);
+      setText("billing-order-label", "Invoice");
+      setText("billing-subtotal", "Unavailable");
+      setText("billing-bulk-discount", "Unavailable");
+      setText("billing-promotion-discount", "Unavailable");
+      setText("billing-total-discount", "Unavailable");
+      setText("billing-final", "Unavailable");
+      setText("billing-final-payable", "Unavailable");
+      showMessage(
+        promotionMessage,
+        "CROSS-MODULE CHANGE REQUIRED: this page needs a real orderID from Order Management navigation.",
+        false,
+      );
       if (payLink) {
         payLink.setAttribute("aria-disabled", "true");
         payLink.removeAttribute("href");
@@ -435,7 +463,8 @@
     } catch (error) {
       const list = document.getElementById("available-promotions-list");
       const count = document.getElementById("available-promotions-count");
-      if (list) list.innerHTML = '<div class="card">Available promotions could not be loaded.</div>';
+      if (list)
+        list.innerHTML = '<div class="card">Available promotions could not be loaded.</div>';
       if (count) count.textContent = "Unavailable";
     }
 
@@ -473,7 +502,8 @@
       const history = await api("/api/payments/history");
       if (!historyBody) return;
       if (!Array.isArray(history)) {
-        historyBody.innerHTML = '<tr><td colspan="8">Payment history could not be loaded.</td></tr>';
+        historyBody.innerHTML =
+          '<tr><td colspan="8">Payment history could not be loaded.</td></tr>';
         return;
       }
       if (!history.length) {
@@ -502,15 +532,20 @@
         .join("");
       historyBody.querySelectorAll(".refund-request-button").forEach((button) => {
         button.addEventListener("click", () => {
-          const payment = history.find((item) => String(item.paymentID) === String(button.dataset.paymentId));
+          const payment = history.find(
+            (item) => String(item.paymentID) === String(button.dataset.paymentId),
+          );
           if (payment) openRefundDialog(payment, () => window.location.reload());
         });
       });
       if (!historyBody.innerHTML) {
-        historyBody.innerHTML = '<tr><td colspan="8">Payment history could not be loaded.</td></tr>';
+        historyBody.innerHTML =
+          '<tr><td colspan="8">Payment history could not be loaded.</td></tr>';
       }
     } catch (error) {
-      if (historyBody) historyBody.innerHTML = '<tr><td colspan="8">Payment history could not be loaded.</td></tr>';
+      if (historyBody)
+        historyBody.innerHTML =
+          '<tr><td colspan="8">Payment history could not be loaded.</td></tr>';
     }
   }
 
@@ -555,7 +590,9 @@
         showError(errorBox, "Please select a payment method.");
         return;
       }
-      window.location.href = paymentFlowUrl("payment_checkout.html", id, { method: selected.value });
+      window.location.href = paymentFlowUrl("payment_checkout.html", id, {
+        method: selected.value,
+      });
     });
   }
 
@@ -571,7 +608,9 @@
   }
 
   function digitsOnly(value, maxLength) {
-    return String(value || "").replace(/\D/g, "").slice(0, maxLength);
+    return String(value || "")
+      .replace(/\D/g, "")
+      .slice(0, maxLength);
   }
 
   function formatCardNumber(value) {
@@ -645,11 +684,12 @@
     }
     const expiryError = validExpiry(expiry);
     if (expiryError) {
-      const message = expiryError === "format"
-        ? "Enter expiry date as MM/YY."
-        : expiryError === "month"
-          ? "Enter a valid expiry month."
-          : "Card has expired.";
+      const message =
+        expiryError === "format"
+          ? "Enter expiry date as MM/YY."
+          : expiryError === "month"
+            ? "Enter a valid expiry month."
+            : "Card has expired.";
       fieldError("expiry-date", message);
       valid = false;
     }
@@ -708,7 +748,10 @@
       const { status } = await refreshBillingAndStatus(id);
       amount = displayOutstanding(status);
       setText("summary-amount", money(amount));
-      setText("checkout-title", method === "CASH" ? `Confirm ${money(amount)}` : `Pay ${money(amount)}`);
+      setText(
+        "checkout-title",
+        method === "CASH" ? `Confirm ${money(amount)}` : `Pay ${money(amount)}`,
+      );
       if (isCancelledOrder(status)) {
         showError(errorBox, CANCELLED_ORDER_MESSAGE);
       } else if (status.status === "PENDING") {
@@ -750,11 +793,12 @@
       } catch (error) {
         button.disabled = false;
         setText("summary-status", "Failed");
-        const message = error.status === 409 && error.body && error.body.message
-          ? error.body.message
-          : error.status === 409
-            ? "This order is already paid or has a payment awaiting verification."
-          : "Payment failed. Please check the details and try again.";
+        const message =
+          error.status === 409 && error.body && error.body.message
+            ? error.body.message
+            : error.status === 409
+              ? "This order is already paid or has a payment awaiting verification."
+              : "Payment failed. Please check the details and try again.";
         showError(errorBox, message);
       }
     });
@@ -766,7 +810,8 @@
     const paymentsLink = document.getElementById("receipt-payments-link");
     const pdfLink = document.getElementById("receipt-pdf-link");
     const refundRequestButton = document.getElementById("receipt-refund-request");
-    if (paymentsLink && queryOrderID) paymentsLink.href = paymentFlowUrl("payments.html", queryOrderID);
+    if (paymentsLink && queryOrderID)
+      paymentsLink.href = paymentFlowUrl("payments.html", queryOrderID);
     if (pdfLink) pdfLink.hidden = true;
 
     if (!queryPaymentID || !queryOrderID) {
@@ -790,42 +835,58 @@
     }
 
     try {
-      const receipt = await api(`/api/payments/${queryPaymentID}/receipt?orderID=${encodeURIComponent(queryOrderID)}`);
+      const receipt = await api(
+        `/api/payments/${queryPaymentID}/receipt?orderID=${encodeURIComponent(queryOrderID)}`,
+      );
       setText("receipt-title", "Payment receipt");
-      setText("receipt-reference", receipt.transactionReference || `Receipt #LL-${receipt.orderID}-${receipt.paymentID}`);
+      setText(
+        "receipt-reference",
+        receipt.transactionReference || `Receipt #LL-${receipt.orderID}-${receipt.paymentID}`,
+      );
       setText("receipt-order", `Order #${receipt.orderID}`);
       setText("receipt-amount", money(receipt.amountPaid));
       setText("receipt-subtotal", money(receipt.subtotal));
       setText("receipt-bulk-discount", `- ${money(receipt.automaticBulkDiscount)}`);
       setText("receipt-promotion-discount", `- ${money(receipt.promotionDiscount)}`);
-      setText("receipt-total-discount", `- ${money(receipt.totalDiscount ?? receipt.discountAmount)}`);
+      setText(
+        "receipt-total-discount",
+        `- ${money(receipt.totalDiscount ?? receipt.discountAmount)}`,
+      );
       setText("receipt-final-amount", money(receipt.finalPayableAmount));
-      setText("receipt-status", `Status: ${String(receipt.paymentStatus || "Unknown").replaceAll("_", " ")}`);
-      setText("receipt-status-message", receipt.paymentStatus === "PENDING"
-        ? "Your payment has been submitted and is waiting for verification."
-        : receipt.paymentStatus === "PAID" || receipt.paymentStatus === "VERIFIED"
-          ? "Your payment has been verified successfully."
-          : receipt.paymentStatus === "REJECTED"
-            ? "Your payment was rejected."
-            : "");
+      setText(
+        "receipt-status",
+        `Status: ${String(receipt.paymentStatus || "Unknown").replaceAll("_", " ")}`,
+      );
+      setText(
+        "receipt-status-message",
+        receipt.paymentStatus === "PENDING"
+          ? "Your payment has been submitted and is waiting for verification."
+          : receipt.paymentStatus === "PAID" || receipt.paymentStatus === "VERIFIED"
+            ? "Your payment has been verified successfully."
+            : receipt.paymentStatus === "REJECTED"
+              ? "Your payment was rejected."
+              : "",
+      );
       const refundAmount = document.getElementById("receipt-refund-amount");
       const refundTime = document.getElementById("receipt-refund-time");
       if (receipt.refundStatus) {
         if (refundAmount) {
           refundAmount.hidden = false;
-          refundAmount.textContent = receipt.refundStatus === "REQUESTED"
-            ? "Refund status: REQUESTED - waiting for review."
-            : receipt.refundStatus === "REJECTED"
-              ? "Refund status: REJECTED."
-              : `Refund amount: ${money(receipt.refundAmount)}`;
+          refundAmount.textContent =
+            receipt.refundStatus === "REQUESTED"
+              ? "Refund status: REQUESTED - waiting for review."
+              : receipt.refundStatus === "REJECTED"
+                ? "Refund status: REJECTED."
+                : `Refund amount: ${money(receipt.refundAmount)}`;
         }
         if (refundTime) {
           refundTime.hidden = false;
-          refundTime.textContent = receipt.refundStatus === "REQUESTED"
-            ? `Requested at: ${dateTimeLabel(receipt.refundRequestedAt)}`
-            : receipt.refundStatus === "REJECTED"
-              ? `Reviewed at: ${dateTimeLabel(receipt.refundProcessedAt)}`
-              : `Refunded at: ${dateTimeLabel(receipt.refundedAt)}`;
+          refundTime.textContent =
+            receipt.refundStatus === "REQUESTED"
+              ? `Requested at: ${dateTimeLabel(receipt.refundRequestedAt)}`
+              : receipt.refundStatus === "REJECTED"
+                ? `Reviewed at: ${dateTimeLabel(receipt.refundProcessedAt)}`
+                : `Refunded at: ${dateTimeLabel(receipt.refundedAt)}`;
         }
       } else {
         if (refundAmount) refundAmount.hidden = true;
@@ -840,7 +901,8 @@
           refundStatus: receipt.refundStatus,
         };
         refundRequestButton.hidden = !canRequestRefund(payment);
-        refundRequestButton.onclick = () => openRefundDialog(payment, () => window.location.reload());
+        refundRequestButton.onclick = () =>
+          openRefundDialog(payment, () => window.location.reload());
       }
       setText("receipt-method", `Method: ${methodLabel(receipt.paymentMethod)}`);
       setText("receipt-time", `Date/time: ${dateTimeLabel(receipt.processedAt)}`);
@@ -851,7 +913,12 @@
       }
     } catch (error) {
       setText("receipt-title", "Receipt unavailable");
-      setText("receipt-reference", error.status === 403 ? "You do not have access to this receipt" : "Receipt could not be loaded");
+      setText(
+        "receipt-reference",
+        error.status === 403
+          ? "You do not have access to this receipt"
+          : "Receipt could not be loaded",
+      );
       setText("receipt-order", `Order #${queryOrderID}`);
       setText("receipt-amount", "Unavailable");
       setText("receipt-subtotal", "Unavailable");

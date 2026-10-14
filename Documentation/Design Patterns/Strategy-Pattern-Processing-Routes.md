@@ -44,12 +44,12 @@ public static Set<Integer> reworkTargets(Route route) {
 
 Every route starts after Verifying Items (8) and ends at Quality Inspection (21).
 
-| Route | Class | Service on the order | Stages | Rework stages after a failed check |
-| --- | --- | --- | --- | --- |
-| Wash (default) | `WashRoute` | Wash and Fold, or any service without its own route | 8 → Washing (9) → Drying (10) → Ironing (11) → 21 | Washing, Drying, Ironing |
-| Dry-Clean | `DryCleanRoute` | Dry Cleaning | 8 → Dry Clean (19) → Ironing (11) → 21 | Dry Clean, Ironing |
-| Shoe Cleaning (new) | `ShoeCleanRoute` | Shoe Cleaning | 8 → Washing (9) → Drying (10) → 21 | Washing, Drying |
-| Ironing (new) | `IroningRoute` | Ironing | 8 → Ironing (11) → 21 | Ironing |
+| Route               | Class            | Service on the order                                | Stages                                            | Rework stages after a failed check |
+| ------------------- | ---------------- | --------------------------------------------------- | ------------------------------------------------- | ---------------------------------- |
+| Wash (default)      | `WashRoute`      | Wash and Fold, or any service without its own route | 8 → Washing (9) → Drying (10) → Ironing (11) → 21 | Washing, Drying, Ironing           |
+| Dry-Clean           | `DryCleanRoute`  | Dry Cleaning                                        | 8 → Dry Clean (19) → Ironing (11) → 21            | Dry Clean, Ironing                 |
+| Shoe Cleaning (new) | `ShoeCleanRoute` | Shoe Cleaning                                       | 8 → Washing (9) → Drying (10) → 21                | Washing, Drying                    |
+| Ironing (new)       | `IroningRoute`   | Ironing                                             | 8 → Ironing (11) → 21                             | Ironing                            |
 
 Two steps are the same for every route, so they are not part of the strategy:
 
@@ -58,12 +58,12 @@ Two steps are the same for every route, so they are not part of the strategy:
 
 ## How the pattern maps to the code
 
-| Lecture role | Lecture example | LaundryLink class |
-| --- | --- | --- |
-| Strategy interface | `PaymentStrategy` | `ProcessingRoute` |
-| Concrete strategies | `CreditCardPayment`, `PayPalPayment` | `WashRoute`, `DryCleanRoute`, `ShoeCleanRoute`, `IroningRoute` |
-| Context | `ShoppingCart` | `ProcessingService` |
-| Choosing the strategy | the client calling `setPaymentStrategy` | `ProcessingTransitions.routeFor(serviceNames)` |
+| Lecture role          | Lecture example                         | LaundryLink class                                              |
+| --------------------- | --------------------------------------- | -------------------------------------------------------------- |
+| Strategy interface    | `PaymentStrategy`                       | `ProcessingRoute`                                              |
+| Concrete strategies   | `CreditCardPayment`, `PayPalPayment`    | `WashRoute`, `DryCleanRoute`, `ShoeCleanRoute`, `IroningRoute` |
+| Context               | `ShoppingCart`                          | `ProcessingService`                                            |
+| Choosing the strategy | the client calling `setPaymentStrategy` | `ProcessingTransitions.routeFor(serviceNames)`                 |
 
 ### Strategy interface
 
@@ -128,30 +128,30 @@ The rules that are the same for every route stay in the context: receiving, the 
 
 A shoe order ends at Drying, so "the quality check happens at Ironing" no longer worked for every route. The check now has a status of its own.
 
-| Action | Before | Now |
-| --- | --- | --- |
-| Record the quality check | order at Ironing (11) | order at Quality Inspection (21) |
-| Failed check | moved back to the rework stage; "redo Ironing" left the order where it was | always moves 21 → the rework stage, so every rework is in the status log |
-| Mark as packed | at Ironing, after a passed check | at Quality Inspection, after a passed check |
-| Mark as Ready | Ironing (11) → Awaiting Delivery (12) | Quality Inspection (21) → Awaiting Delivery (12) |
+| Action                   | Before                                                                     | Now                                                                      |
+| ------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Record the quality check | order at Ironing (11)                                                      | order at Quality Inspection (21)                                         |
+| Failed check             | moved back to the rework stage; "redo Ironing" left the order where it was | always moves 21 → the rework stage, so every rework is in the status log |
+| Mark as packed           | at Ironing, after a passed check                                           | at Quality Inspection, after a passed check                              |
+| Mark as Ready            | Ironing (11) → Awaiting Delivery (12)                                      | Quality Inspection (21) → Awaiting Delivery (12)                         |
 
 An order that was at Ironing with a passed check before the change is not lost: move it on to Quality Inspection and it can be packed and released with the check it already has.
 
 ## Files changed
 
-| Area | File | Change |
-| --- | --- | --- |
-| Strategy | `ProcessingRoute.java` | New interface |
-| Strategy | `WashRoute.java`, `DryCleanRoute.java`, `ShoeCleanRoute.java`, `IroningRoute.java` | New concrete strategies |
-| Selection | `ProcessingTransitions.java` | `Route` enum and its conditions removed; `routeFor` returns a `ProcessingRoute`; `QUALITY_INSPECTION = 21` added |
-| Context | `ProcessingService.java` | Uses the route object; quality check, pack and ready tied to status 21 |
-| Board | `ProcessingRepository.java` | Route picked by `routeFor` instead of a second rule in SQL; status 21 included |
-| Pages | `src/main/resources/static/js/staff/order-processing.js` | Timelines for the four routes; quality check form shown at status 21 |
-| Pages | `src/main/resources/static/js/staff/processing-board.js` | "Quality inspection" column; route label for the new routes |
-| Database | `database/migrations/015_quality_inspection_and_routes.sql` | Adds status 21, a Shoe Cleaning test order, and a read-only check of orders in processing |
-| Database | `initialize_database.sql`, `database/ddd_assignment2_sample_data.sql`, `scripts/Initialize-SupportDatabase.ps1` | Status 21 in the seed data; migration 015 added to the script |
-| Tests | `src/test/.../processing/ProcessingRouteTest.java` | Replaces `ProcessingTransitionsTest`; covers all four routes and the selection rule |
-| Tests | `ProcessingServiceTest.java`, `ProcessingIntegrationTest.java` | Updated for the new routes and status 21 |
+| Area      | File                                                                                                            | Change                                                                                                           |
+| --------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Strategy  | `ProcessingRoute.java`                                                                                          | New interface                                                                                                    |
+| Strategy  | `WashRoute.java`, `DryCleanRoute.java`, `ShoeCleanRoute.java`, `IroningRoute.java`                              | New concrete strategies                                                                                          |
+| Selection | `ProcessingTransitions.java`                                                                                    | `Route` enum and its conditions removed; `routeFor` returns a `ProcessingRoute`; `QUALITY_INSPECTION = 21` added |
+| Context   | `ProcessingService.java`                                                                                        | Uses the route object; quality check, pack and ready tied to status 21                                           |
+| Board     | `ProcessingRepository.java`                                                                                     | Route picked by `routeFor` instead of a second rule in SQL; status 21 included                                   |
+| Pages     | `src/main/resources/static/js/staff/order-processing.js`                                                        | Timelines for the four routes; quality check form shown at status 21                                             |
+| Pages     | `src/main/resources/static/js/staff/processing-board.js`                                                        | "Quality inspection" column; route label for the new routes                                                      |
+| Database  | `database/migrations/015_quality_inspection_and_routes.sql`                                                     | Adds status 21, a Shoe Cleaning test order, and a read-only check of orders in processing                        |
+| Database  | `initialize_database.sql`, `database/ddd_assignment2_sample_data.sql`, `scripts/Initialize-SupportDatabase.ps1` | Status 21 in the seed data; migration 015 added to the script                                                    |
+| Tests     | `src/test/.../processing/ProcessingRouteTest.java`                                                              | Replaces `ProcessingTransitionsTest`; covers all four routes and the selection rule                              |
+| Tests     | `ProcessingServiceTest.java`, `ProcessingIntegrationTest.java`                                                  | Updated for the new routes and status 21                                                                         |
 
 The API shape did not change: `route` is still a text field on the order, with two new values (`SHOE_CLEAN`, `IRONING`).
 
@@ -191,8 +191,8 @@ $env:JAVA_HOME = "$env:USERPROFILE\.jdks\<your-jdk-folder>"
 
 Sign in as staff (`sam@staff.com`) and open the Processing Board.
 
-| Order | Expected path |
-| --- | --- |
-| Shoe Cleaning order | Verifying Items → Washing → Drying → Quality Inspection (Ironing is refused) |
-| Ironing order | In Shop → receive items → Verifying Items → Ironing → Quality Inspection (Washing is refused) |
+| Order                           | Expected path                                                                                         |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Shoe Cleaning order             | Verifying Items → Washing → Drying → Quality Inspection (Ironing is refused)                          |
+| Ironing order                   | In Shop → receive items → Verifying Items → Ironing → Quality Inspection (Washing is refused)         |
 | Any order at Quality Inspection | Failed check sends it back to a stage on its route; Passed → pack → Mark as Ready → Awaiting Delivery |

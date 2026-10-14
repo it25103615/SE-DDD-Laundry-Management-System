@@ -12,15 +12,31 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   phone.addEventListener("input", () => {
     phone.value = phone.value.replace(/\D/g, "").slice(0, 10);
-    phone.setCustomValidity(phone.value.length === 10 ? "" : "Phone number must contain exactly 10 numbers.");
+    phone.setCustomValidity(
+      phone.value.length === 10 ? "" : "Phone number must contain exactly 10 numbers.",
+    );
   });
 
   function validatePasswords() {
-    confirmation.setCustomValidity(confirmation.value === password.value ? "" : "Passwords do not match.");
-    const checks = [password.value.length >= 8, /[a-z]/.test(password.value), /[A-Z]/.test(password.value), /\d/.test(password.value), /[^A-Za-z0-9\s]/.test(password.value)];
+    confirmation.setCustomValidity(
+      confirmation.value === password.value ? "" : "Passwords do not match.",
+    );
+    const checks = [
+      password.value.length >= 8,
+      /[a-z]/.test(password.value),
+      /[A-Z]/.test(password.value),
+      /\d/.test(password.value),
+      /[^A-Za-z0-9\s]/.test(password.value),
+    ];
     const score = checks.filter(Boolean).length;
     strengthBar.style.width = `${score * 20}%`;
-    strengthLabel.textContent = !password.value ? "Not entered" : score < 3 ? "Weak" : score < 5 ? "Almost there" : "Strong";
+    strengthLabel.textContent = !password.value
+      ? "Not entered"
+      : score < 3
+        ? "Weak"
+        : score < 5
+          ? "Almost there"
+          : "Strong";
   }
   password.addEventListener("input", validatePasswords);
   confirmation.addEventListener("input", validatePasswords);
@@ -45,7 +61,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         body: JSON.stringify(payload),
       });
       const data = await response.json().catch(() => ({}));
-      if (response.redirected || response.status !== 201) throw new Error(data.message || "Registration failed. Check your details.");
+      if (response.redirected || response.status !== 201)
+        throw new Error(data.message || "Registration failed. Check your details.");
       location.href = "login.html?registered=true";
     } catch (error) {
       message.hidden = false;
@@ -60,13 +77,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     const response = await fetch("/api/auth/csrf");
     if (!response.ok || response.redirected) throw new Error("CSRF initialization failed.");
     const token = await response.json();
-    if (!token || typeof token.headerName !== "string" || !token.headerName.trim()
-        || typeof token.token !== "string" || !token.token.trim()) throw new Error("Invalid CSRF token.");
+    if (
+      !token ||
+      typeof token.headerName !== "string" ||
+      !token.headerName.trim() ||
+      typeof token.token !== "string" ||
+      !token.token.trim()
+    )
+      throw new Error("Invalid CSRF token.");
     csrf = token;
     button.disabled = false;
   } catch {
     message.hidden = false;
     message.className = "alert alert_error form_message";
-    message.textContent = "Unable to prepare secure registration. Open this page through the running LaundryLink application and reload to try again.";
+    message.textContent =
+      "Unable to prepare secure registration. Open this page through the running LaundryLink application and reload to try again.";
   }
 });

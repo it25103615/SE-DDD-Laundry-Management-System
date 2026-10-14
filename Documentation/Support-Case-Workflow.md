@@ -1,6 +1,8 @@
 # Support workflow
 
-Customers choose Feedback, Question or Complaint. Feedback requests include a rating; questions and complaints require a topic choice in the browser: Payments & billing, Laundry & items, Pickup & delivery, Account & booking or General. An optional related order must belong to the customer.
+Customers choose Feedback, Question or Complaint. Feedback requests include a rating; questions and complaints require a topic choice in the browser: Payments & billing, Laundry & items, Pickup & delivery, Account & booking or General. A related order is mandatory for all three request types and must belong to the customer. Both HTTP validation and the service enforce this rule.
+
+Case details provide **View related order** for the submitting customer and authorised support staff, including the assigned manager, laundry staff member or rider. It opens a read-only view of the linked order's customer, status, items/services, item total, recorded payment total and status history. Access is checked through case visibility before looking up the order, and the order must match the case's customer. Managers, owners and admins also receive a link to Payments & Billing filtered to that order. Recorded payments include submitted payments and should not be treated as verified payments or a final invoice balance. Existing cases without an order remain readable and do not display the button; editing a new case now requires selecting an order.
 
 New cases enter the shared CSM queue before assignment. Customer service can reply directly to feedback and use **Handle this myself**, then save, to take ownership. Topic hints suggest a manager for billing, laundry staff for garment issues and a rider for pickup/delivery. The CSM chooses an active recipient and saves the assignment; an in-app notification links the recipient to their case. Management oversight remains available to owners/admins.
 

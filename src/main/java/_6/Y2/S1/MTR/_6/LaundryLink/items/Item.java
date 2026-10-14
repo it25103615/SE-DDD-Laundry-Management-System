@@ -1,3 +1,6 @@
+/* Item
+ * ENTITY: database-mapped domain state. Private fields encapsulate state; Lombok getters/setters or explicit methods control access. JPA relationships model associations, not class inheritance.
+ */
 package _6.Y2.S1.MTR._6.LaundryLink.items;
 
 import jakarta.persistence.Entity;
@@ -15,9 +18,9 @@ import lombok.Setter;
 @Entity
 @Table(name = "items")
 public class Item {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer itemID;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Integer itemID;
 
-    private String itemName;
+  private String itemName;
 }

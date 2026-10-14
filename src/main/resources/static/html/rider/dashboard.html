@@ -7,13 +7,14 @@
     <link rel="stylesheet" href="../../css/global.css" />
     <link rel="stylesheet" href="../../css/dashboard.css" />
     <link rel="stylesheet" href="../../css/rider/rider.css" />
+    <link rel="stylesheet" href="../../css/dashboard-polish.css" />
 
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
     <script src="../../js/rider/riderAll.js" defer></script>
     <script src="../../js/account/dashboard-identity.js" defer></script>
   </head>
-  <body>
+  <body class="polished-dashboard">
     <nav class="dashboard_nav"></nav>
 
     <!-- page_end_gap keeps the last content off the edge of the window. -->
@@ -28,7 +29,8 @@
           class="custom_button custom_button_bg"
           href="task_list.html"
           style="font-size: 17px; padding: 14px 28px"
-        >Select New Assignments</a>
+          >Select New Assignments</a
+        >
       </header>
 
       <section class="grid grid_three" aria-label="Dashboard summary">
@@ -64,7 +66,11 @@
       </header>
 
       <div class="grid grid_two">
-        <section class="task_section pickup_section" data-role="mine" aria-labelledby="dash_pickup_heading">
+        <section
+          class="task_section pickup_section"
+          data-role="mine"
+          aria-labelledby="dash_pickup_heading"
+        >
           <div class="task_section_header">
             <div>
               <span class="task_icon" aria-hidden="true">↑</span>
@@ -92,7 +98,11 @@
           </div>
         </section>
 
-        <section class="task_section delivery_section" data-role="mine" aria-labelledby="dash_delivery_heading">
+        <section
+          class="task_section delivery_section"
+          data-role="mine"
+          aria-labelledby="dash_delivery_heading"
+        >
           <div class="task_section_header">
             <div>
               <span class="task_icon" aria-hidden="true">↓</span>

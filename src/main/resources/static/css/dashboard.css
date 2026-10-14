@@ -87,11 +87,7 @@
 .metric {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(
-    145deg,
-    rgba(234, 233, 233, 0.96),
-    rgba(233, 248, 255, 0.88)
-  );
+  background: linear-gradient(145deg, rgba(234, 233, 233, 0.96), rgba(233, 248, 255, 0.88));
   min-height: 168px;
 }
 .metric::before {
@@ -169,12 +165,7 @@ tbody tr:hover {
   padding: 34px;
   border-radius: 24px;
   color: white;
-  background: linear-gradient(
-    120deg,
-    var(--blue-ocean),
-    var(--blue-bright) 58%,
-    var(--purple)
-  );
+  background: linear-gradient(120deg, var(--blue-ocean), var(--blue-bright) 58%, var(--purple));
   box-shadow: 0 22px 48px rgba(3, 75, 120, 0.26);
   position: relative;
   overflow: hidden;
@@ -187,11 +178,7 @@ tbody tr:hover {
   right: -55px;
   top: -80px;
   border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(255, 255, 255, 0.22),
-    transparent 68%
-  );
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.22), transparent 68%);
   /* Decoration only. Without this the circle sits on top of the banner's top-right
      corner and swallows hovers and clicks meant for the button there (for example
      "+ New order" on the customer dashboard). */
@@ -226,11 +213,7 @@ tbody tr:hover {
   right: 8%;
   top: 23px;
   border-radius: 99px;
-  background: linear-gradient(
-    90deg,
-    var(--teal) 0 58%,
-    rgba(3, 75, 120, 0.12) 58%
-  );
+  background: linear-gradient(90deg, var(--teal) 0 58%, rgba(3, 75, 120, 0.12) 58%);
 }
 
 .tracking_icon {
@@ -380,8 +363,13 @@ tbody tr:hover {
   padding: 15px 0;
   border-bottom: 1px solid rgba(3, 75, 120, 0.09);
 }
-.operational-alert-row:last-child { border-bottom: 0; }
-.operational-alert-row > strong { min-width: 0; overflow-wrap: anywhere; }
+.operational-alert-row:last-child {
+  border-bottom: 0;
+}
+.operational-alert-row > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .operational-alert-row > .status {
   justify-self: end;
   min-width: 2.25rem;

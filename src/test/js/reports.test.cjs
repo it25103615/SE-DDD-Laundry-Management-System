@@ -13,6 +13,16 @@ function harness() {
  return {get,requests,downloads,message:()=>message,change(id,value,event='input'){get(id).value=value;get(id).listeners[event]();},submit(){get('report-filters').onsubmit({preventDefault(){}});},export(){get('export').onclick();}};
 }
 function result(from='All time',to='All time') {return {period:{from,to,serviceId:'All services'},summary:{totalOrders:0},statuses:[],services:[],customers:[],support:{},alerts:[],serviceOptions:[]};}
+test('future start date is blocked and the picker is capped at Colombo today', async()=>{
+ const h=harness();await tick();h.requests[0].resolve(result());await tick();
+ const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Colombo',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+ const p=key=>parts.find(item=>item.type===key).value;
+ assert.equal(h.get('from').max,`${p('year')}-${p('month')}-${p('day')}`);
+ h.change('from','2099-12-31');h.submit();h.export();
+ assert.equal(h.get('from').validationMessage,'Start date cannot be in the future.');
+ assert.equal(h.requests.length,1);assert.equal(h.downloads.length,0);
+ h.change('from',h.get('from').max);assert.equal(h.get('from').validationMessage,'');
+});
 test('invalid dates immediately report an error and block generation/export; correction clears validity',async()=>{
  const h=harness();await tick();h.requests[0].resolve(result());await tick();
  h.change('from','2026-09-30');h.change('to','2026-07-08');

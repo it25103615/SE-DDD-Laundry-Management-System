@@ -11,8 +11,13 @@
     <script src="../../js/customer/payment-flow.js" defer></script>
   </head>
   <body data-payment-page="checkout">
-    <nav class="dashboard_nav" data-nav="flow"
-         data-exit-label="Back" data-exit-href="/html/customer/payment_method.html" data-exit-id="checkout-back-link"></nav>
+    <nav
+      class="dashboard_nav"
+      data-nav="flow"
+      data-exit-label="Back"
+      data-exit-href="/html/customer/payment_method.html"
+      data-exit-id="checkout-back-link"
+    ></nav>
     <main>
       <header class="page_header">
         <div class="subtitle">SECURE PAYMENT</div>
@@ -24,23 +29,49 @@
           <div id="card-fields">
             <div class="field">
               <label for="cardholder-name">Cardholder Name</label>
-              <input class="input" id="cardholder-name" autocomplete="cc-name" placeholder="Name as shown on card" />
+              <input
+                class="input"
+                id="cardholder-name"
+                autocomplete="cc-name"
+                placeholder="Name as shown on card"
+              />
               <small class="danger" data-error-for="cardholder-name"></small>
             </div>
             <div class="field">
               <label for="card-number">Card Number</label>
-              <input class="input" id="card-number" inputmode="numeric" autocomplete="cc-number" maxlength="19" placeholder="4242 4242 4242 4242" />
+              <input
+                class="input"
+                id="card-number"
+                inputmode="numeric"
+                autocomplete="cc-number"
+                maxlength="19"
+                placeholder="4242 4242 4242 4242"
+              />
               <small class="danger" data-error-for="card-number"></small>
             </div>
             <div class="grid grid_two">
               <div class="field">
                 <label for="expiry-date">Expiry Date</label>
-                <input class="input" id="expiry-date" inputmode="numeric" autocomplete="cc-exp" maxlength="5" placeholder="MM/YY" />
+                <input
+                  class="input"
+                  id="expiry-date"
+                  inputmode="numeric"
+                  autocomplete="cc-exp"
+                  maxlength="5"
+                  placeholder="MM/YY"
+                />
                 <small class="danger" data-error-for="expiry-date"></small>
               </div>
               <div class="field">
                 <label for="cvv">CVV</label>
-                <input class="input" id="cvv" inputmode="numeric" autocomplete="cc-csc" maxlength="3" placeholder="123" />
+                <input
+                  class="input"
+                  id="cvv"
+                  inputmode="numeric"
+                  autocomplete="cc-csc"
+                  maxlength="3"
+                  placeholder="123"
+                />
                 <small class="danger" data-error-for="cvv"></small>
               </div>
             </div>
@@ -50,8 +81,15 @@
           </div>
           <p class="alert alert_error" id="checkout-error" hidden></p>
           <div class="actions">
-            <button class="custom_button custom_button_bg" id="final-pay-button" type="submit">Pay Now</button>
-            <a class="custom_button custom_button_border" id="checkout-cancel-link" href="payments.html">Cancel</a>
+            <button class="custom_button custom_button_bg" id="final-pay-button" type="submit">
+              Pay Now
+            </button>
+            <a
+              class="custom_button custom_button_border"
+              id="checkout-cancel-link"
+              href="payments.html"
+              >Cancel</a
+            >
           </div>
         </form>
         <div class="card">

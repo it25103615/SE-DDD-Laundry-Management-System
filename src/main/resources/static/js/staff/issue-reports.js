@@ -13,7 +13,9 @@
   async function loadIssues() {
     const issues = await api("/issues");
     $("issue-rows").innerHTML = issues.length
-      ? issues.map((issue) => `<tr>
+      ? issues
+          .map(
+            (issue) => `<tr>
           <td>#${issue.caseID}</td>
           <td><a class="link" href="order_processing.html?orderId=${issue.orderID}">#${issue.orderID}</a></td>
           <td>${escape(issueItem(issue))}</td>
@@ -21,7 +23,9 @@
           <td>${escape(issue.reportedBy)}<br><span class="small muted">${escape(dateTime(issue.createdAt))}</span></td>
           <td>${badge(issue.caseStatus || "New")}</td>
           <td><a class="link" href="order_processing.html?orderId=${issue.orderID}">Open</a></td>
-        </tr>`).join("")
+        </tr>`,
+          )
+          .join("")
       : '<tr><td colspan="7" class="muted">No issues have been reported.</td></tr>';
   }
 
@@ -32,21 +36,27 @@
     try {
       const order = await api(`/orders/${orderId}`);
       $("item").innerHTML += order.lines
-        .map((line) => `<option value="${line.orderLineID}"${String(line.orderLineID) === String(selectedLine) ? " selected" : ""}>${escape(line.itemName)} (${line.quantity})</option>`)
+        .map(
+          (line) =>
+            `<option value="${line.orderLineID}"${String(line.orderLineID) === String(selectedLine) ? " selected" : ""}>${escape(line.itemName)} (${line.quantity})</option>`,
+        )
         .join("");
     } catch (error) {
       notice(escape(error.message), "error");
     }
   }
 
-  $("order").addEventListener("change", () => loadOrderItems($("order").value.trim().replace(/^#/, "")));
+  $("order").addEventListener("change", () =>
+    loadOrderItems($("order").value.trim().replace(/^#/, "")),
+  );
 
   $("new-report").addEventListener("submit", (event) => {
     event.preventDefault();
     if (!canReport) return notice("Only laundry staff can file issue reports.", "error");
     if (!$("new-report").reportValidity()) return;
     const orderID = Number($("order").value.trim().replace(/^#/, ""));
-    if (!Number.isInteger(orderID) || orderID < 1) return notice("Enter a valid order number.", "error");
+    if (!Number.isInteger(orderID) || orderID < 1)
+      return notice("Enter a valid order number.", "error");
 
     run(async () => {
       const issue = await api("/issues", "POST", {
@@ -57,7 +67,10 @@
       });
       $("new-report").reset();
       $("item").innerHTML = '<option value="">Whole order</option>';
-      notice(`Issue saved for order #${issue.orderID} and sent to customer service as case #${issue.caseID}.`, "success");
+      notice(
+        `Issue saved for order #${issue.orderID} and sent to customer service as case #${issue.caseID}.`,
+        "success",
+      );
       await loadIssues();
     }, event.submitter);
   });
@@ -71,11 +84,13 @@
   if (param("issue")) $("issue").value = param("issue");
 
   run(async () => {
-    const permissions = await api('/issues/permissions');
+    const permissions = await api("/issues/permissions");
     canReport = permissions.canReport === true;
-    $('new-report').hidden = !canReport;
-    $('submit-report-link').hidden = !canReport;
-    if (canReport) $('issue-description').textContent = 'Record damaged, missing or mismatched items. Each report is also sent to customer service as a complaint case.';
+    $("new-report").hidden = !canReport;
+    $("submit-report-link").hidden = !canReport;
+    if (canReport)
+      $("issue-description").textContent =
+        "Record damaged, missing or mismatched items. Each report is also sent to customer service as a complaint case.";
     await loadIssues();
   });
 })();

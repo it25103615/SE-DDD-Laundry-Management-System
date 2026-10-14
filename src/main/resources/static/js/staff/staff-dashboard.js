@@ -13,18 +13,26 @@
 
       $("metric-receive").textContent = orders.filter((order) => order.statusID === 7).length;
       $("metric-process").textContent = orders.filter((order) => order.statusID !== 7).length;
-      $("metric-issues").textContent = issues.filter((issue) => !["Resolved", "Closed"].includes(issue.caseStatus)).length;
+      $("metric-issues").textContent = issues.filter(
+        (issue) => !["Resolved", "Closed"].includes(issue.caseStatus),
+      ).length;
 
       // Orders with no status log yet sort first, then the oldest update.
-      const byWaiting = [...orders].sort((a, b) => (a.lastUpdated || "").localeCompare(b.lastUpdated || ""));
+      const byWaiting = [...orders].sort((a, b) =>
+        (a.lastUpdated || "").localeCompare(b.lastUpdated || ""),
+      );
       $("priority-rows").innerHTML = byWaiting.length
-        ? byWaiting.map((order) => `<tr>
+        ? byWaiting
+            .map(
+              (order) => `<tr>
             <td>#${order.orderID}</td>
             <td>${escape(order.customerName)}</td>
             <td>${badge(order.statusLabel)}</td>
             <td>${escape(dateTime(order.lastUpdated))}</td>
             <td><a class="link" href="${order.statusID === 7 ? "receive_items" : "order_processing"}.html?orderId=${order.orderID}">Open</a></td>
-          </tr>`).join("")
+          </tr>`,
+            )
+            .join("")
         : '<tr><td colspan="5" class="muted">No orders are being processed.</td></tr>';
     } catch (error) {
       $("priority-rows").innerHTML = "";

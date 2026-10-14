@@ -10,18 +10,24 @@
   // Board columns in workflow order, with the status IDs each one holds (four columns to fit
   // the board layout; each card still shows its exact status).
   const COLUMNS = [
-    { title: "Received", statuses: [7, 8] },            // In Shop (to be counted) and Verifying Items
-    { title: "Cleaning", statuses: [9, 19] },           // Washing or Dry Clean
+    { title: "Received", statuses: [7, 8] }, // In Shop (to be counted) and Verifying Items
+    { title: "Cleaning", statuses: [9, 19] }, // Washing or Dry Clean
     { title: "Drying & ironing", statuses: [10, 11] },
-    { title: "Quality inspection", statuses: [21] },    // quality check, packing, mark as ready
+    { title: "Quality inspection", statuses: [21] }, // quality check, packing, mark as ready
   ];
 
   // Shown on the card for every route except the wash route (the usual one).
-  const ROUTE_LABELS = { DRY_CLEAN: "Dry clean", SHOE_CLEAN: "Shoe cleaning", IRONING: "Ironing only" };
+  const ROUTE_LABELS = {
+    DRY_CLEAN: "Dry clean",
+    SHOE_CLEAN: "Shoe cleaning",
+    IRONING: "Ironing only",
+  };
 
   /** One order card linking to its Order Processing page. */
   function card(order) {
-    const issues = order.openIssues ? ` · <span class="status status_error">${order.openIssues} OPEN ISSUE${order.openIssues > 1 ? "S" : ""}</span>` : "";
+    const issues = order.openIssues
+      ? ` · <span class="status status_error">${order.openIssues} OPEN ISSUE${order.openIssues > 1 ? "S" : ""}</span>`
+      : "";
     const route = ROUTE_LABELS[order.route] ? ` · ${ROUTE_LABELS[order.route]}` : "";
     return `<a class="order_card" href="order_processing.html?orderId=${order.orderID}" style="display:block;text-decoration:none">
         <strong>#${order.orderID} · ${escape(order.customerName)}</strong>
@@ -46,7 +52,8 @@
   async function load() {
     try {
       const orders = await api("/orders");
-      $("board-count").textContent = `${orders.length} order${orders.length === 1 ? "" : "s"} in processing`;
+      $("board-count").textContent =
+        `${orders.length} order${orders.length === 1 ? "" : "s"} in processing`;
       $("board").innerHTML = COLUMNS.map((column) => {
         const inColumn = orders.filter((order) => column.statuses.includes(order.statusID));
         return `<div class="board_column">
@@ -62,7 +69,9 @@
 
   // global-post.js has already put list_mode on the board when the page was opened with ?view=list,
   // so read the starting view from the board itself to get the button label right.
-  $("view-toggle").addEventListener("click", () => setView(!$("board").classList.contains("list_mode")));
+  $("view-toggle").addEventListener("click", () =>
+    setView(!$("board").classList.contains("list_mode")),
+  );
   setView($("board").classList.contains("list_mode"));
 
   load();

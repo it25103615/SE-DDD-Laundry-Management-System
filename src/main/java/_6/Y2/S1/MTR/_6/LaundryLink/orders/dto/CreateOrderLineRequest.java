@@ -1,3 +1,6 @@
+/* CreateOrderLineRequest
+ * DTO: carries request/response data across a layer/API boundary. Validation annotations constrain input; this object is not automatically a database table.
+ */
 package _6.Y2.S1.MTR._6.LaundryLink.orders.dto;
 
 import jakarta.validation.constraints.NotNull;
@@ -10,13 +13,9 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class CreateOrderLineRequest {
-    @NotNull
-    private Integer itemID;
+  @NotNull private Integer itemID;
 
-    @NotNull
-    private Integer serviceID;
+  @NotNull private Integer serviceID;
 
-    @NotNull
-    @Positive
-    private Integer quantity;
+  @NotNull @Positive private Integer quantity;
 }
