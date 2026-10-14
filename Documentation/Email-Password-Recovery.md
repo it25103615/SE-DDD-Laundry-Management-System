@@ -30,3 +30,9 @@ Unknown and inactive accounts receive the same request message but cannot verify
 Automated tests use a mocked mail transport; OTP issuance, wrong-attempt limits, expiry, single use, password hashing, and unknown-account cooldown are tested against SQL Server with transaction rollback. Real inbox delivery must be checked after configuring the sender. SMTP acceptance cannot guarantee inbox placement; check spam too.
 
 Report start dates are capped at today in Asia/Colombo and checked again in ReportService. Future start dates are rejected even if a caller bypasses the browser. Existing end-date ordering and open-ended ranges remain supported.
+
+## Local delivery verification — 14 October 2026
+
+The Gmail sender was configured through Configure-RecoveryEmail.ps1 and the application restarted successfully on port 8080. A recovery request for an active registered account completed without a mail error, and an unexpired recovery-code record was confirmed without reading or displaying its code. The SMTP request succeeded; inbox receipt and a user-driven password change still need confirmation.
+
+The sender credentials remain exclusively in the ignored application-local.properties file. They are not included in the repository. Each teammate must configure their own local sender or obtain the shared sender configuration privately; pulling development does not install mail credentials.
