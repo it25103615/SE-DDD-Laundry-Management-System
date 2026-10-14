@@ -335,7 +335,8 @@ public class RiderService {
 
     /**
      * Converts a native-query row into a DTO. The column order must match the SELECT in
-     * {@code RiderRepository}. Null text fields become {@code ""}.
+     * {@code RiderRepository}. Null text fields become {@code ""}, including the delivery
+     * instructions and rider notes (columns 10 and 11), so the popup can show "None".
      *
      * @param row one result row
      * @return the DTO
@@ -351,7 +352,9 @@ public class RiderService {
                 row[6] == null ? "" : row[6].toString().trim(),
                 row[7] == null ? "" : row[7].toString().trim(),
                 toLocalDateTime(row[8]),
-                toLocalDateTime(row[9])
+                toLocalDateTime(row[9]),
+                row[10] == null ? "" : row[10].toString().trim(),
+                row[11] == null ? "" : row[11].toString().trim()
         );
     }
 
