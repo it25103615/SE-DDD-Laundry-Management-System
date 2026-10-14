@@ -6,5 +6,6 @@ public enum PaymentStatus {
     PAID,
     VERIFIED,
     REJECTED,
+    // Read-only legacy value: existing payment records must remain readable.
     REFUNDED
 }

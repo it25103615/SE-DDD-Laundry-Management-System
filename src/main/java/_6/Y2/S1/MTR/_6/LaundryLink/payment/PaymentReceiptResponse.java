@@ -18,11 +18,6 @@ public class PaymentReceiptResponse {
     private final String transactionReference;
     private final LocalDateTime processedAt;
     private final String orderStatus;
-    private final BigDecimal refundAmount;
-    private final RefundStatus refundStatus;
-    private final LocalDateTime refundRequestedAt;
-    private final LocalDateTime refundProcessedAt;
-    private final LocalDateTime refundedAt;
 
     public PaymentReceiptResponse(
             Integer paymentID,
@@ -38,12 +33,7 @@ public class PaymentReceiptResponse {
             PaymentMethod paymentMethod,
             String transactionReference,
             LocalDateTime processedAt,
-            String orderStatus,
-            BigDecimal refundAmount,
-            RefundStatus refundStatus,
-            LocalDateTime refundRequestedAt,
-            LocalDateTime refundProcessedAt,
-            LocalDateTime refundedAt
+            String orderStatus
     ) {
         this.paymentID = paymentID;
         this.orderID = orderID;
@@ -59,11 +49,6 @@ public class PaymentReceiptResponse {
         this.transactionReference = transactionReference;
         this.processedAt = processedAt;
         this.orderStatus = orderStatus;
-        this.refundAmount = refundAmount;
-        this.refundStatus = refundStatus;
-        this.refundRequestedAt = refundRequestedAt;
-        this.refundProcessedAt = refundProcessedAt;
-        this.refundedAt = refundedAt;
     }
 
     public Integer getPaymentID() {
@@ -122,23 +107,4 @@ public class PaymentReceiptResponse {
         return orderStatus;
     }
 
-    public BigDecimal getRefundAmount() {
-        return refundAmount;
-    }
-
-    public RefundStatus getRefundStatus() {
-        return refundStatus;
-    }
-
-    public LocalDateTime getRefundRequestedAt() {
-        return refundRequestedAt;
-    }
-
-    public LocalDateTime getRefundProcessedAt() {
-        return refundProcessedAt;
-    }
-
-    public LocalDateTime getRefundedAt() {
-        return refundedAt;
-    }
 }

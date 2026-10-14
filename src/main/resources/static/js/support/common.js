@@ -89,7 +89,10 @@ window.Support = (() => {
     const load=async()=>{const query=new URLSearchParams({search:$('search-staff').value.trim()});rows=await api('/administration/staff?'+query);render();};
     const activity=async()=>{const items=await api('/administration/activity');$('admin-activity').innerHTML=items.length?items.slice(0,12).map(a=>`<div class="history-entry"><strong>${e(a.action)}</strong><div>${e(a.details)}</div><small class="muted">${e(a.actor)} · ${e(date(a.createdAt))}</small></div>`).join(''):'<p class="muted">No administrative changes recorded yet.</p>';};
     $('staff-search').onsubmit=event=>{event.preventDefault();run(load,event.submitter);};
-    $('employee-role').querySelector('[value="MANAGER"]').disabled=!owner;
+    if(context.actor.role!=='OWNER') {
+      $('staff-role').querySelector('[value="MANAGER"]').remove();
+      $('employee-role').querySelector('[value="MANAGER"]').remove();
+    }
     $('cancel-role').onclick=()=>{$('role-dialog').close();selected=null;};
     $('staff-rows').onclick=event=>{
       const button=event.target.closest('[data-role-staff],[data-delete-staff]');

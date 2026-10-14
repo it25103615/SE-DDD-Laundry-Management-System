@@ -18,9 +18,9 @@ public class NotificationService {
         if (limit < 1 || limit > 100) throw new IllegalArgumentException("Notification limit must be between 1 and 100.");
         var items = db.queryForList("""
             SELECT TOP (?) notificationID AS id,category,title,message,link,relatedType,relatedID,isRead,createdAt,readAt
-            FROM notifications WHERE recipientID=? ORDER BY createdAt DESC,notificationID DESC
+            FROM notifications WHERE recipientID=? AND (relatedType IS NULL OR relatedType<>'REFUND') ORDER BY createdAt DESC,notificationID DESC
             """, limit, actor.id());
-        Integer unread = db.queryForObject("SELECT COUNT(*) FROM notifications WHERE recipientID=? AND isRead=0", Integer.class, actor.id());
+        Integer unread = db.queryForObject("SELECT COUNT(*) FROM notifications WHERE recipientID=? AND isRead=0 AND (relatedType IS NULL OR relatedType<>'REFUND')", Integer.class, actor.id());
         return Map.of("items", items, "unread", Objects.requireNonNullElse(unread, 0));
     }
 
