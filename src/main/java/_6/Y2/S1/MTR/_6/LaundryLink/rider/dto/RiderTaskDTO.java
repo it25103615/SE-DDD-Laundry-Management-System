@@ -17,8 +17,11 @@ import java.time.LocalDateTime;
  * @param pickupScheduled   customer's chosen pickup time; used for pickups only
  * @param priorityTimestamp the sort key: {@code pickup_scheduled} for pickups, the time the
  *                          order entered Awaiting Delivery for deliveries
- * @param deliveryInstructions the task address's delivery instructions; empty string if none
- * @param riderNotes        the latest failure note left by a rider; empty string if none
+ * @param deliveryInstructions
+ *                          the customer's instructions saved on {@code address}; shown in the
+ *                          task popup; empty string if missing
+ * @param riderNotes        the latest failure note left by a rider ({@code delivery.riderNotes});
+ *                          shown in the task popup; empty string if missing
  */
 public record RiderTaskDTO(
         Integer deliverID,

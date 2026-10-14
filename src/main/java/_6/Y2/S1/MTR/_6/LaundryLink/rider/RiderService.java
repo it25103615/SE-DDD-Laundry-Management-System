@@ -335,7 +335,8 @@ public class RiderService {
 
     /**
      * Converts a native-query row into a DTO. The column order must match the SELECT in
-     * {@code RiderRepository}. Null text fields become {@code ""}.
+     * {@code RiderRepository}. Null text fields become {@code ""}, including the delivery
+     * instructions and rider notes (columns 10 and 11), so the popup can show "None".
      *
      * @param row one result row
      * @return the DTO

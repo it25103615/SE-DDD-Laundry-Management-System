@@ -54,8 +54,10 @@ public class RiderRepository {
      * <p>{@code OUTER APPLY} (not a plain JOIN) keeps a task visible even if the log row or
      * address is missing.
      *
-     * <p>The last two columns, the address's {@code DeliveryInstructions} and the task's
-     * {@code riderNotes} (the latest failure note), are shown at the bottom of the task popup.
+     * <p>The last two columns feed the bottom of the task popup: {@code DeliveryInstructions}
+     * from the same address row, and {@code delivery.riderNotes}, the latest failure note
+     * (see {@link #pickupFailed}), so the next rider can see why the last attempt failed.
+     * Both are NULL when empty.
      *
      * @return rows as {@code Object[]} in the column order read by {@code RiderService.mapRow}
      */
@@ -79,7 +81,8 @@ public class RiderRepository {
                         WHEN o.statusID = 3 THEN d.pickup_scheduled
                         ELSE awaitingDelivery.awaitingAt
                     END AS priorityTimestamp,
-                    -- Shown at the bottom of the task popup.
+                    -- For the bottom of the task popup: the delivery instructions of the address
+                    -- picked below, and the latest failure note left by a rider (NULL if none).
                     a.DeliveryInstructions AS deliveryInstructions,
                     d.riderNotes
                 FROM delivery d
@@ -99,6 +102,7 @@ public class RiderRepository {
                     -- matched by ID only, because an address the customer deleted later is kept
                     -- with userID NULL so the order still knows where to go.
                     -- Orders without one fall back to the customer's default address.
+                    -- DeliveryInstructions comes from the same address row.
                     SELECT TOP 1 a2.street, a2.city, a2.state, a2.DeliveryInstructions
                     FROM addresses a2
                     WHERE a2.addressID = d.addressID
@@ -120,8 +124,8 @@ public class RiderRepository {
      * Returns the rider's active assignments: pickups at status 4/5/6 or deliveries at
      * status 13.
      *
-     * <p>Same query shape as {@link #findAvailableTasks()}, filtered by whichever rider column
-     * matches the status. Finished work (7, 15) is excluded on purpose because this list
+     * <p>Same query shape as {@link #findAvailableTasks()} (including the delivery instructions
+     * and rider notes columns), filtered by whichever rider column matches the status. Finished work (7, 15) is excluded on purpose because this list
      * drives the "My Work" tables; finished totals come from the count queries.
      *
      * @param riderId user ID of the signed-in rider
@@ -150,7 +154,8 @@ public class RiderRepository {
                         WHEN o.statusID IN (4, 5, 6) THEN d.pickup_scheduled
                         ELSE awaitingDelivery.awaitingAt
                     END AS priorityTimestamp,
-                    -- Shown at the bottom of the task popup.
+                    -- For the bottom of the task popup: the delivery instructions of the address
+                    -- picked below, and the latest failure note left by a rider (NULL if none).
                     a.DeliveryInstructions AS deliveryInstructions,
                     d.riderNotes
                 FROM delivery d
@@ -170,6 +175,7 @@ public class RiderRepository {
                     -- matched by ID only, because an address the customer deleted later is kept
                     -- with userID NULL so the order still knows where to go.
                     -- Orders without one fall back to the customer's default address.
+                    -- DeliveryInstructions comes from the same address row.
                     SELECT TOP 1 a2.street, a2.city, a2.state, a2.DeliveryInstructions
                     FROM addresses a2
                     WHERE a2.addressID = d.addressID
