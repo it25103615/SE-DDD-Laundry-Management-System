@@ -54,6 +54,9 @@ public class RiderRepository {
      * <p>{@code OUTER APPLY} (not a plain JOIN) keeps a task visible even if the log row or
      * address is missing.
      *
+     * <p>The last two columns, the address's {@code DeliveryInstructions} and the task's
+     * {@code riderNotes} (the latest failure note), are shown at the bottom of the task popup.
+     *
      * @return rows as {@code Object[]} in the column order read by {@code RiderService.mapRow}
      */
     public List<Object[]> findAvailableTasks() {
@@ -75,7 +78,10 @@ public class RiderRepository {
                     CASE
                         WHEN o.statusID = 3 THEN d.pickup_scheduled
                         ELSE awaitingDelivery.awaitingAt
-                    END AS priorityTimestamp
+                    END AS priorityTimestamp,
+                    -- Shown at the bottom of the task popup.
+                    a.DeliveryInstructions AS deliveryInstructions,
+                    d.riderNotes
                 FROM delivery d
                 JOIN orders o ON o.orderID = d.orderID
                 JOIN status s ON s.statusID = o.statusID
@@ -93,7 +99,7 @@ public class RiderRepository {
                     -- matched by ID only, because an address the customer deleted later is kept
                     -- with userID NULL so the order still knows where to go.
                     -- Orders without one fall back to the customer's default address.
-                    SELECT TOP 1 a2.street, a2.city, a2.state
+                    SELECT TOP 1 a2.street, a2.city, a2.state, a2.DeliveryInstructions
                     FROM addresses a2
                     WHERE a2.addressID = d.addressID
                        OR (d.addressID IS NULL AND a2.userID = o.userID AND a2.isDefault = 1)
@@ -143,7 +149,10 @@ public class RiderRepository {
                     CASE
                         WHEN o.statusID IN (4, 5, 6) THEN d.pickup_scheduled
                         ELSE awaitingDelivery.awaitingAt
-                    END AS priorityTimestamp
+                    END AS priorityTimestamp,
+                    -- Shown at the bottom of the task popup.
+                    a.DeliveryInstructions AS deliveryInstructions,
+                    d.riderNotes
                 FROM delivery d
                 JOIN orders o ON o.orderID = d.orderID
                 JOIN status s ON s.statusID = o.statusID
@@ -161,7 +170,7 @@ public class RiderRepository {
                     -- matched by ID only, because an address the customer deleted later is kept
                     -- with userID NULL so the order still knows where to go.
                     -- Orders without one fall back to the customer's default address.
-                    SELECT TOP 1 a2.street, a2.city, a2.state
+                    SELECT TOP 1 a2.street, a2.city, a2.state, a2.DeliveryInstructions
                     FROM addresses a2
                     WHERE a2.addressID = d.addressID
                        OR (d.addressID IS NULL AND a2.userID = o.userID AND a2.isDefault = 1)

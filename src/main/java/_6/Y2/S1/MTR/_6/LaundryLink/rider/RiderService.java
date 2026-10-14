@@ -351,7 +351,9 @@ public class RiderService {
                 row[6] == null ? "" : row[6].toString().trim(),
                 row[7] == null ? "" : row[7].toString().trim(),
                 toLocalDateTime(row[8]),
-                toLocalDateTime(row[9])
+                toLocalDateTime(row[9]),
+                row[10] == null ? "" : row[10].toString().trim(),
+                row[11] == null ? "" : row[11].toString().trim()
         );
     }
 
