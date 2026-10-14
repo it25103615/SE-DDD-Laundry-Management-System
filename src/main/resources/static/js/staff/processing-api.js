@@ -46,6 +46,16 @@ window.Processing = (() => {
   /** A status badge as HTML. */
   const badge = (label) => `<span class="${statusClass(label)}">${escape(String(label || "").toUpperCase())}</span>`;
 
+  /**
+   * The item an issue report is about. The case subject is "type: item" (e.g. "Damaged item:
+   * Shirt/Blouse"); the staff pages already show the type on its own, so the prefix is dropped.
+   */
+  const issueItem = (issue) => {
+    const prefix = issue.issueType + ": ";
+    const subject = String(issue.subject ?? "");
+    return subject.startsWith(prefix) ? subject.slice(prefix.length) : subject;
+  };
+
   /** Shows a message banner in #notice; kind is "success", "error" or "" (neutral). */
   function notice(message, kind = "") {
     const box = $("notice");
@@ -97,5 +107,5 @@ window.Processing = (() => {
     }
   }
 
-  return { $, escape, dateTime, param, statusClass, badge, notice, api, run };
+  return { $, escape, dateTime, param, statusClass, badge, issueItem, notice, api, run };
 })();

@@ -22,7 +22,7 @@ public class SupportController {
     @GetMapping("/context")
     public Object context(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo) { return support.options(access.actor(p,demo)); }
     @GetMapping("/cases")
-    public Object list(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@RequestParam(required=false) String search,@RequestParam(required=false) String status,@RequestParam(required=false) String type,@RequestParam(required=false) String priority,@RequestParam(required=false) Integer assigneeId,@RequestParam(defaultValue="0") int page) { return support.cases(access.actor(p,demo),search,status,type,priority,assigneeId,page); }
+    public Object list(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@RequestParam(required=false) String search,@RequestParam(required=false) String status,@RequestParam(required=false) String type,@RequestParam(required=false) String priority,@RequestParam(required=false) Integer assigneeId,@RequestParam(defaultValue="0") int page,@RequestParam(required=false) String topic) { return support.cases(access.actor(p,demo),search,status,type,priority,assigneeId,page,topic); }
     @GetMapping("/cases/summary")
     public Object summary(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo) { return support.summary(access.actor(p,demo)); }
     @GetMapping("/cases/{id}")
@@ -41,7 +41,7 @@ public class SupportController {
     @GetMapping("/reports")
     public Object report(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@RequestParam(required=false) LocalDate from,@RequestParam(required=false) LocalDate to,@RequestParam(required=false) Integer serviceId) { return reports.report(access.actor(p,demo),from,to,serviceId); }
     @GetMapping("/orders")
-    public Object orders(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@RequestParam(required=false) Integer orderId,@RequestParam(defaultValue="0") int page) { return reports.orders(access.actor(p,demo),orderId,page); }
+    public Object orders(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@RequestParam(required=false) Integer orderId,@RequestParam(required=false) String customer,@RequestParam(required=false) Integer statusId,@RequestParam(required=false) LocalDate from,@RequestParam(required=false) LocalDate to,@RequestParam(defaultValue="0") int page) { return reports.orders(access.actor(p,demo),orderId,customer,statusId,from,to,page); }
     @GetMapping("/orders/{id}/history")
     public Object history(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@PathVariable int id) { return reports.orderHistory(access.actor(p,demo),id); }
     @GetMapping("/administration/catalog")
@@ -55,6 +55,9 @@ public class SupportController {
     @PutMapping("/administration/services/{id}/prices")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void setPrice(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@PathVariable int id,@Valid @RequestBody PriceInput input) { administration.setPrice(access.actor(p,demo),id,input); }
+    @PostMapping("/administration/services/{id}/items")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Object addItem(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@PathVariable int id,@Valid @RequestBody ItemInput input) { return Map.of("id",administration.addItem(access.actor(p,demo),id,input)); }
     @GetMapping("/administration/staff")
     public Object staff(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@RequestParam(required=false) String search) { return administration.staff(access.actor(p,demo),search); }
     @PostMapping("/administration/staff")
@@ -63,6 +66,16 @@ public class SupportController {
     @PutMapping("/administration/staff/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void updateStaff(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo,@PathVariable int id,@Valid @RequestBody StaffInput input) { administration.updateStaff(access.actor(p,demo),id,input); }
+    @PatchMapping("/administration/staff/{id}/role")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changeStaffRole(Principal p, @PathVariable int id, @Valid @RequestBody StaffRoleInput input) {
+        administration.changeStaffRole(access.actor(p, null), id, input.role(), input.version());
+    }
+    @DeleteMapping("/administration/staff/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteStaff(Principal p, @PathVariable int id, @Valid @RequestBody StaffDeletionInput input) {
+        administration.deleteStaff(access.actor(p, null), id, input.version());
+    }
     @GetMapping("/administration/roles")
     public Object roles(Principal p,@RequestHeader(value="X-Demo-User",required=false) Integer demo) { return administration.roles(access.actor(p,demo)); }
     @GetMapping("/administration/activity")

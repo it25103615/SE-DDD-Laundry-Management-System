@@ -131,6 +131,7 @@ class AccountEmailReuseTest {
 
     @Test void requestWaitingBehindDeletionRechecksOldIdBeforeControllerRuns() throws Exception {
         JdbcTemplate db = mock(JdbcTemplate.class);
+        when(db.queryForObject(anyString(), eq(String.class), eq(10))).thenReturn("CUSTOMER");
         AtomicBoolean active = new AtomicBoolean(true);
         when(db.query(anyString(), any(RowMapper.class), eq(10)))
                 .thenAnswer(call -> active.get() ? List.of(EMAIL) : List.of());
@@ -199,6 +200,10 @@ class AccountEmailReuseTest {
                     when(rs.getString("email")).thenReturn(email.get());
                     when(rs.getString("password")).thenReturn(hash);
                     when(rs.getString("role")).thenReturn(role.get());
+                    when(rs.getString(1)).thenReturn(role.get());
+                    ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+                    when(metadata.getColumnCount()).thenReturn(1);
+                    when(rs.getMetaData()).thenReturn(metadata);
                     when(rs.getBoolean("active")).thenReturn(active.get());
                     return rs;
                 });

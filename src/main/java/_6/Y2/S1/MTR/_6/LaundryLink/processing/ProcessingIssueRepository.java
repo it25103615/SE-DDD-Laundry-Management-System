@@ -16,7 +16,8 @@ import org.springframework.stereotype.Repository;
  * feedback), so customer service work it in their queue like any other case:
  * <ul>
  *   <li>{@code caseType} holds the issue type (Damaged item, Existing stain, ...);</li>
- *   <li>{@code subject} names the item it is about, or "Whole order";</li>
+ *   <li>{@code subject} is the issue type and the item it is about (or "Whole order"),
+ *       e.g. "Damaged item: Shirt/Blouse";</li>
  *   <li>{@code feedback} holds the staff member's description;</li>
  *   <li>{@code userID} is the order's customer, so they can see and reply to the case;</li>
  *   <li>the staff member who reported it is the actor of the case's
@@ -74,15 +75,18 @@ public class ProcessingIssueRepository {
 
     /**
      * Opens a High-priority case for the issue, filed under the order's customer.
-     * Returns the new feedbackID. feedback has no triggers, so OUTPUT is allowed here.
+     * Returns the new feedbackID through a table variable, compatible with feedback triggers.
      */
     public int insertIssueCase(int orderID, String issueType, String subject, String description) {
         String trimmedSubject = subject.length() > MAX_SUBJECT_LENGTH ? subject.substring(0, MAX_SUBJECT_LENGTH) : subject;
         return db.queryForObject("""
-                INSERT INTO feedback (feedback, userID, orderID, caseType, subject, priority)
-                OUTPUT INSERTED.feedbackID
-                SELECT ?, o.userID, o.orderID, ?, ?, 'High'
-                FROM orders o WHERE o.orderID = ?
+                SET NOCOUNT ON;
+                DECLARE @created TABLE (id INT);
+                INSERT INTO feedback (feedback, userID, orderID, caseType, subject, priority, topic)
+                OUTPUT INSERTED.feedbackID INTO @created
+                SELECT ?, o.userID, o.orderID, ?, ?, 'High', 'Laundry & items'
+                FROM orders o WHERE o.orderID = ?;
+                SELECT id FROM @created;
                 """, Integer.class, description, issueType, trimmedSubject, orderID);
     }
 

@@ -57,17 +57,17 @@ public class ReportService {
             GROUP BY o.userID,u.firstName,u.lastName ORDER BY recordedPayments DESC,o.userID
             """,args));
         result.put("support",repo.query("""
-            SELECT COUNT(*) AS totalCases,
-              COALESCE(SUM(CASE WHEN caseStatus NOT IN('Resolved','Closed') THEN 1 ELSE 0 END),0) AS openCases,
+            SELECT COALESCE(SUM(CASE WHEN caseType<>'Feedback' THEN 1 ELSE 0 END),0) AS totalCases,
+              COALESCE(SUM(CASE WHEN caseType<>'Feedback' AND caseStatus NOT IN('Resolved','Closed') THEN 1 ELSE 0 END),0) AS openCases,
               AVG(CAST(rating AS DECIMAL(5,2))) AS averageRating,COUNT(rating) AS ratingCount
             FROM feedback WHERE deleted=0
             """).getFirst());
         result.put("alerts",repo.query("""
             SELECT 'High-priority support cases' AS label,COUNT(*) AS total
-            FROM feedback WHERE deleted=0 AND priority='High' AND caseStatus NOT IN('Resolved','Closed')
+            FROM feedback WHERE deleted=0 AND caseType<>'Feedback' AND priority='High' AND caseStatus NOT IN('Resolved','Closed')
             UNION ALL
             SELECT 'Unassigned support cases',COUNT(*)
-            FROM feedback WHERE deleted=0 AND assigneeID IS NULL AND caseStatus NOT IN('Resolved','Closed')
+            FROM feedback WHERE deleted=0 AND caseType<>'Feedback' AND assigneeID IS NULL AND caseStatus NOT IN('Resolved','Closed')
             UNION ALL
             SELECT 'Overdue pickups',COUNT(*)
             FROM delivery WHERE pickup_scheduled<SYSDATETIME() AND pickup_actual IS NULL
@@ -79,23 +79,43 @@ public class ReportService {
         result.put("period",Map.of("from",from==null?"All time":from.toString(),"to",to==null?"All time":to.toString(),"serviceId",serviceId==null?"All services":serviceId.toString()));
         return result;
     }
-    public List<Map<String,Object>> orders(Actor actor,Integer orderId,int page) {
+    // Order lookup. Every filter is optional: passing null switches that condition off
+    // ("? IS NULL OR ..."), so the filters can be combined freely.
+    // placedOn is the day the order was made: the date of its earliest log row, which is the
+    // creation row dbo.trg_order_status_log writes for every new order (migration 016). It is
+    // returned as text (style 23 = yyyy-mm-dd) so the page gets the same format from any driver.
+    // Both dates are inclusive: "from" alone finds orders made on or after that day, "to" alone
+    // orders made on or before it, and the two together a range.
+    // "customer" matches any part of the customer's full name, ignoring case; blank counts as not set.
+    public List<Map<String,Object>> orders(Actor actor,Integer orderId,String customer,Integer statusId,LocalDate from,LocalDate to,int page) {
         access.staff(actor);
+        String name=customer==null||customer.isBlank()?null:customer.trim();
         if(page<0) throw new ResponseStatusException(BAD_REQUEST,"Invalid page.");
+        if(from!=null && to!=null && from.isAfter(to)) throw new ResponseStatusException(BAD_REQUEST,"Start date must be on or before end date.");
         return repo.query("""
             SELECT o.orderID AS id,CONCAT(u.firstName,' ',u.lastName) AS customer,s.statusLabel AS status,
+            CONVERT(CHAR(10),placed.placedOn,23) AS placedOn,
             (SELECT COALESCE(SUM(CAST(l.linePrice AS DECIMAL(18,2))),0) FROM orderLines l WHERE l.orderID=o.orderID) AS orderValue
             FROM orders o JOIN users u ON u.userID=o.userID LEFT JOIN status s ON s.statusID=o.statusID
-            WHERE (? IS NULL OR o.orderID=?) ORDER BY o.orderID DESC OFFSET ? ROWS FETCH NEXT 25 ROWS ONLY
-            """,orderId,orderId,(long)page*25);
+            OUTER APPLY (SELECT MIN(g.logDate) AS placedOn FROM logs g WHERE g.orderID=o.orderID) placed
+            WHERE (? IS NULL OR o.orderID=?)
+              AND (? IS NULL OR LOWER(CONCAT(u.firstName,' ',u.lastName)) LIKE LOWER(CONCAT('%',?,'%')))
+              AND (? IS NULL OR o.statusID=?)
+              AND (? IS NULL OR placed.placedOn>=CAST(? AS DATE))
+              AND (? IS NULL OR placed.placedOn<=CAST(? AS DATE))
+            ORDER BY o.orderID DESC OFFSET ? ROWS FETCH NEXT 25 ROWS ONLY
+            """,orderId,orderId,name,name,statusId,statusId,from,from,to,to,(long)page*25);
     }
     public List<Map<String,Object>> orderHistory(Actor actor,int id) {
         access.staff(actor);
         if(repo.count("SELECT COUNT(*) FROM orders WHERE orderID=?",id)==0) throw new ResponseStatusException(NOT_FOUND,"Order not found.");
+        // The creation row (status_before IS NULL) is listed first. Migration 016 added it to older
+        // orders afterwards, with the same date and time as their first status change and a higher
+        // logID, so sorting on date, time and logID alone would put it second.
         return repo.query("""
             SELECT l.logID AS id,l.logDate,l.logTime,b.statusLabel AS beforeStatus,a.statusLabel AS afterStatus
             FROM logs l LEFT JOIN status b ON b.statusID=l.status_before LEFT JOIN status a ON a.statusID=l.status_after
-            WHERE l.orderID=? ORDER BY l.logDate,l.logTime,l.logID
+            WHERE l.orderID=? ORDER BY CASE WHEN l.status_before IS NULL THEN 0 ELSE 1 END,l.logDate,l.logTime,l.logID
             """,id);
     }
 }

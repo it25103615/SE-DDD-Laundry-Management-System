@@ -32,6 +32,12 @@ class SupportControllerTest {
             .andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").exists());
         verifyNoInteractions(service);
     }
+    @Test void rejectsUnknownTopicBeforeBusinessLogic() throws Exception {
+        mvc.perform(post("/api/support/cases").header("X-Demo-User","1").contentType("application/json")
+            .content("{\"type\":\"Question\",\"subject\":\"Help\",\"message\":\"Please help\",\"topic\":\"Unknown topic\"}"))
+            .andExpect(status().isBadRequest());
+        verifyNoInteractions(service);
+    }
     @Test void rejectsOverlongMessage() throws Exception {
         mvc.perform(post("/api/support/cases").header("X-Demo-User","1").contentType("application/json")
             .content("{\"type\":\"Question\",\"subject\":\"Help\",\"message\":\""+"a".repeat(501)+"\"}"))

@@ -14,6 +14,12 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
     @Query(value = "SELECT COUNT(*) FROM payments WHERE orderID = :orderID AND paymentStatus IN ('PENDING', 'PAID', 'VERIFIED')", nativeQuery = true)
     int countSubmittedOrSuccessfulPayments(@Param("orderID") Integer orderID);
 
+    // Closes any payment still awaiting verification when its order is cancelled, so it cannot
+    // be approved afterwards. Returns the number of payments rejected (usually 0 or 1).
+    @Modifying
+    @Query(value = "UPDATE payments SET paymentStatus = 'REJECTED' WHERE orderID = :orderID AND paymentStatus = 'PENDING'", nativeQuery = true)
+    int rejectPendingPayments(@Param("orderID") Integer orderID);
+
     List<Order> findByUserID(Integer userID);
 
     Optional<Order> findByOrderIDAndUserID(Integer orderID, Integer userID);

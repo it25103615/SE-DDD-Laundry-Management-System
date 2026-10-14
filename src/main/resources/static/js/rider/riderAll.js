@@ -200,17 +200,21 @@
     }
 
     /**
-     * Builds the task-details table (customer, address, phone, status). Pickup tasks also
-     * show the scheduled pickup time; deliveries do not have one.
+     * Builds the task-details popup body: the details table (customer, address, phone, status,
+     * plus the scheduled time for pickups) with the action buttons beside it, and the delivery
+     * instructions and rider notes underneath.
      * @param {Object} task A RiderTaskDTO.
+     * @param {string} buttonsHtml Action buttons shown to the right of the table.
      * @returns {string} HTML.
      */
-    function detailBody(task) {
+    function detailBody(task, buttonsHtml) {
+        // Deliveries have no scheduled time, so the row only appears for pickups.
         const schedule = task.type === "pickup"
-            ? `<p><strong>Pickup scheduled</strong><br><span class="muted">${escapeHtml(
-                formatTime(task.pickupScheduled)
-              )}</span></p>`
+            ? `<tr><th>Pickup scheduled</th><td>${escapeHtml(formatTime(task.pickupScheduled))}</td></tr>`
             : "";
+        // Shows the text, or a muted "None" when the field is empty.
+        const noteText = (text) =>
+            text ? escapeHtml(text) : `<span class="muted">None</span>`;
         return `
             <div class="modal_grid">
                 <div class="table_wrap">
@@ -224,10 +228,19 @@
                             <tr><th>Status</th><td><span class="status ${statusClass(
                                 task.status
                             )}">${escapeHtml(task.status)}</span></td></tr>
+                            ${schedule}
                         </tbody>
                     </table>
                 </div>
-                <div>${schedule}</div>
+                <div class="modal_actions">${buttonsHtml}</div>
+            </div>
+            <div class="table_wrap modal_notes">
+                <table>
+                    <tbody>
+                        <tr><th>Delivery instructions</th><td>${noteText(task.deliveryInstructions)}</td></tr>
+                        <tr><th>Rider notes</th><td>${noteText(task.riderNotes)}</td></tr>
+                    </tbody>
+                </table>
             </div>`;
     }
 
@@ -267,7 +280,7 @@
 
         if (task.type === "pickup" && task.statusID === 6) {
             return [
-                ["pickup-delivered", "Delivered"]
+                ["pickup-delivered", "Delivered to Shop"]
             ];
         }
 
@@ -325,44 +338,31 @@
         let buttons;
 
         if (mode === "available") {
+            // Accept first, Close last, matching the My Work popup where Close is at the bottom.
             buttons = `
-            ${closeButton}
-
             <button
                 type="button"
                 class="custom_button custom_button_bg rider-accept"
                 data-id="${task.deliverID}">
                 Accept Assignment
             </button>
-        `;
-        } else {
-            const statusButtons = popupStatusButtons(task);
-
-            buttons = `
-            <div
-                style="
-                    display:flex;
-                    flex-direction:column;
-                    align-items:flex-end;
-                    gap:10px;
-                    width:100%;
-                ">
-                ${statusButtons}
-            </div>
 
             ${closeButton}
         `;
+        } else {
+            // The .modal_actions column already stacks these vertically.
+            buttons = `${popupStatusButtons(task)}${closeButton}`;
         }
 
         // Connects the status-action buttons displayed in the My Work popup.
     // These use the same handler as the row status dropdown to keep both controls
     // consistent and avoid duplicating action logic.
 
+        // The buttons go inside the body (beside the table), not in openModal's bottom row.
         openModal(
             task,
             `${task.type === "pickup" ? "PICKUP" : "DELIVERY"} TASK`,
-            detailBody(task),
-            buttons
+            detailBody(task, buttons)
         );
 
         modalContent.querySelectorAll("[data-modal-close]").forEach((btn) =>

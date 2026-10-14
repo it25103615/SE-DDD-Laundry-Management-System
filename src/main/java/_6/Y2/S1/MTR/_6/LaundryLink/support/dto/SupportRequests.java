@@ -11,7 +11,12 @@ public final class SupportRequests {
         @NotBlank @Size(max = 500) String message,
         @Positive Integer orderId,
         @Min(1) @Max(5) Integer rating,
-        @PositiveOrZero Integer version) {}
+        @PositiveOrZero Integer version,
+        @Pattern(regexp="General|Payments & billing|Laundry & items|Pickup & delivery|Account & booking") String topic) {
+        public CaseInput(String type,String subject,String message,Integer orderId,Integer rating,Integer version) {
+            this(type,subject,message,orderId,rating,version,"General");
+        }
+    }
     public record CaseUpdate(
         @NotBlank @Pattern(regexp = "New|Assigned|In Review|Resolved|Closed|Reopened") String status,
         @NotBlank @Pattern(regexp = "Low|Normal|High") String priority,
@@ -28,6 +33,15 @@ public final class SupportRequests {
     public record PriceInput(
         @NotNull @Positive Integer itemId,
         @NotNull @DecimalMin("0.00") @Digits(integer = 8, fraction = 2) BigDecimal price) {}
+    // A new item for a service, by name. 30 is the length of items.itemName; the price rules are
+    // the same as PriceInput.
+    public record ItemInput(
+        @NotBlank @Size(max = 30) String name,
+        @NotNull @DecimalMin("0.00") @Digits(integer = 8, fraction = 2) BigDecimal price) {}
+    public record StaffRoleInput(
+        @NotBlank @Pattern(regexp = "RIDER|STAFF|CSM|MANAGER") String role,
+        @NotNull @PositiveOrZero Integer version) {}
+    public record StaffDeletionInput(@NotNull @PositiveOrZero Integer version) {}
     public record StaffInput(
         @NotBlank @Size(max = 50) String firstName,
         @NotBlank @Size(max = 50) String lastName,

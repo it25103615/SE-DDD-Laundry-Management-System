@@ -89,4 +89,13 @@ class ProcessingControllerTest {
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(issues);
     }
+
+    @Test
+    void issueFormPermissionIsStaffOnly() throws Exception {
+        mvc.perform(get("/api/processing/issues/permissions").principal(staffLogin))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.canReport").value(true));
+        when(processing.currentStaff(any())).thenReturn(new StaffMember(12,"Maya Manager","MANAGER"));
+        mvc.perform(get("/api/processing/issues/permissions").principal(staffLogin))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.canReport").value(false));
+    }
 }

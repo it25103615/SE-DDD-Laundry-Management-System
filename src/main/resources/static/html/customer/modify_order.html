@@ -13,7 +13,8 @@
   <body>
     <nav class="dashboard_nav" data-nav="flow"
          data-exit-label="Back to order" data-exit-href="/html/customer/order_details.html" data-exit-keep-query></nav>
-    <main>
+    <!-- page_end_gap keeps the last content off the edge of the window. -->
+    <main class="page_end_gap">
       <header class="welcome_banner" style="margin-top: 34px">
         <div class="subtitle">MODIFY CONFIRMED ORDER</div>
         <div class="top_bar">
@@ -36,9 +37,7 @@
           border-left-color: #ff9f43;
         "
       >
-        <strong>Modification cutoff: Saturday, 15 August at 7:00 AM</strong
-        ><br />Changes close one hour before the 8:00–11:00 AM pickup window.
-        Once your rider starts the pickup, the order is locked.
+        You can change this order until you submit a payment for it.
       </div>
       <form action="order_details.html" style="margin-top: 22px">
         <section class="card">

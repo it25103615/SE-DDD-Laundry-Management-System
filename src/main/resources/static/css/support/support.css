@@ -1,7 +1,25 @@
 /* Support module uses existing LaundryLink typography and colours. */
 .support-page { max-width:1200px; margin:auto; padding-bottom:60px; }
 .support-page .toolbar { display:flex; flex-wrap:wrap; align-items:end; gap:14px; margin:20px 0; }
-.support-page .toolbar .field { flex:1; min-width:150px; }
+/* The row lines its items up along the bottom. A field's 18px bottom margin (global.css)
+   counts as part of the field, so without margin:0 the buttons sit 18px lower than the inputs. */
+.support-page .toolbar .field { flex:1; min-width:150px; margin:0; }
+/* Order lookup filters: a grid of four equal columns instead of the flexible toolbar row.
+   Each search box spans two columns, so on the row below, Status and "Placed from" sit exactly
+   under Order ID, and "Placed until" and the buttons exactly under Customer name.
+   minmax(0,1fr) lets a column shrink below the natural width of its date input. */
+.support-page .order-filters { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); }
+.support-page .order-filters .search-field { grid-column:span 2; }
+.support-page .order-filters .field { min-width:0; }
+/* The buttons share their column by natural width (the longer label gets more room) and keep
+   their text on one line; if the column gets too narrow for both, Clear drops below. */
+.support-page .order-filters .filter-buttons { display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; }
+.support-page .order-filters .filter-buttons button { flex:1 1 auto; padding-inline:14px; white-space:nowrap; }
+/* Narrower screens: two columns (each search box takes a full row), then a single column.
+   The switch to two columns comes at 1200px because below that a quarter-width column is
+   too narrow to hold both buttons side by side. */
+@media(max-width:1200px) { .support-page .order-filters { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:480px) { .support-page .order-filters { grid-template-columns:minmax(0,1fr); } .support-page .order-filters .search-field { grid-column:auto; } }
 .support-page .actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
 .support-page button { cursor:pointer; }
 .support-page button:disabled { opacity:.5; cursor:wait; }
@@ -45,6 +63,12 @@
 .support-page .chart-row { display:grid; grid-template-columns:140px 1fr 35px; gap:10px; margin:12px 0; align-items:center; }
 .support-page .bar { background:#e5eef7; border-radius:6px; overflow:hidden; height:12px; }
 .support-page .bar span { display:block; height:100%; background:#1979ba; }
+.support-page .report-visuals .chart-row { grid-template-columns:minmax(90px,1fr) minmax(70px,1.5fr) minmax(70px,auto); }
+.support-page .report-visuals .chart-row > span { overflow-wrap:anywhere; }
+.support-page .report-visuals .chart-row strong { text-align:right; overflow-wrap:anywhere; }
+.support-page .report-visuals .bar { height:16px; }
+.support-page .report-visuals .bar span { background:linear-gradient(90deg,#53bddc,#7166df); border-radius:6px; }
+.support-page .report-visuals h3 { margin-bottom:12px; }
 @media(max-width:760px) { .support-page .split { grid-template-columns:1fr; } .support-page .grid_three { grid-template-columns:1fr; } .support-page .chart-row { grid-template-columns:100px 1fr 30px; } }
 
 /* Customer-service workspace */
@@ -77,12 +101,14 @@
 .case-table-wrap thead { background:#f6f9fb; }
 .case-table-wrap th { padding:13px 18px; color:#687b89; font-size:.73rem; letter-spacing:.075em; text-align:left; text-transform:uppercase; white-space:nowrap; }
 .case-table-wrap td { padding:17px 18px; border-top:1px solid #edf1f4; vertical-align:middle; }
-.case-row { position:relative; transition:background .18s ease,box-shadow .18s ease; }
+/* The whole row opens the case (cases.js), so show the hand cursor over all of it */
+.case-row { position:relative; cursor:pointer; transition:background .18s ease,box-shadow .18s ease; }
 .case-row:hover { background:#f5fbfe; box-shadow:inset 3px 0 #1592bc; }
 .case-row.needs-attention { background:linear-gradient(90deg,rgba(255,245,224,.72),transparent 32%); }
 .case-row.needs-attention:hover { background:#fff9ed; box-shadow:inset 3px 0 #d98800; }
 .case-row.is-complete { color:#60727f; background:rgba(247,250,249,.72); }
-.case-row td:first-child small,.case-row td:nth-child(2) small { display:block; margin-top:4px; color:#778994; font-size:.76rem; }
+/* The small sub-label under the main text of the Case, Subject / customer and Type cells. */
+.case-row td:first-child small,.case-row td:nth-child(2) small,.case-row td:nth-child(3) small { display:block; margin-top:4px; color:#778994; font-size:.76rem; }
 .case-row td:nth-child(2) strong { display:block; max-width:320px; overflow:hidden; color:#19364a; text-overflow:ellipsis; white-space:nowrap; }
 .case-number { color:#087ba3; font-weight:800; white-space:nowrap; }
 .type-label { color:#506775; font-size:.88rem; font-weight:650; }
@@ -105,6 +131,12 @@
 .case-skeleton small { width:55%; height:9px; margin-top:8px; }
 @keyframes support-shimmer { to { background-position:-200% 0; } }
 
+/* global.css slides <main> in with "animation: page-enter ... both". "both" keeps the animation's
+   transform applied after it ends, and an element with a transform becomes the box that its
+   position:fixed children are placed against. The case panel and its backdrop then stuck to the
+   top of <main> instead of the browser window: misaligned, and off screen when the page was
+   scrolled down. "backwards" still hides the page before the slide-in, but lets go afterwards. */
+main.support-page { animation-fill-mode:backwards; }
 .detail-backdrop { position:fixed; z-index:1090; inset:0; background:rgba(8,27,39,.48); backdrop-filter:blur(3px); animation:backdrop-in .2s ease both; }
 .support-page .detail { position:fixed; z-index:1100; top:0; right:0; width:min(980px,94vw); height:100dvh; margin:0; padding:28px; overflow-y:auto; border:0; border-left:1px solid #d6e4ec; border-radius:24px 0 0 24px; background:#f8fbfd; box-shadow:-24px 0 70px rgba(8,40,59,.25); animation:panel-in .26s cubic-bezier(.2,.75,.25,1) both; }
 body.case-panel-open { overflow:hidden; }
@@ -113,7 +145,14 @@ body.case-panel-open .dashboard_nav { visibility:hidden; }
 @keyframes backdrop-in { from { opacity:0; } }
 .support-page .detail > .top_bar { position:sticky; z-index:4; top:-28px; margin:-28px -28px 20px; padding:23px 28px 18px; border-bottom:1px solid #dfebf1; background:rgba(248,251,253,.94); backdrop-filter:blur(12px); }
 .support-page .detail > .top_bar h2 { max-width:80%; margin:0; font-size:clamp(1.35rem,2.5vw,2rem); }
-.panel-close { display:grid; width:40px; height:40px; padding:0; place-items:center; border:1px solid #d0dfe7; border-radius:50%; color:#395463; background:white; font-size:1.5rem; }
+/* Close button of the case panel. The "×" character in the button is hidden (font-size:0) and the
+   cross is drawn here instead: as a letter of the serif page font it came out thin and sat off
+   centre in the circle. Two 2px bars form a plus sign, turned 45 degrees to make the cross.
+   "inset:0; margin:auto" on a fixed-size box places it in the exact middle of the circle.
+   flex:none keeps the circle round when a long case title needs the room. */
+.panel-close { display:grid; flex:none; width:40px; height:40px; padding:0; place-items:center; border:1px solid #d0dfe7; border-radius:50%; color:#395463; background:white; font-size:0; }
+.panel-close::before { content:""; position:absolute; inset:0; margin:auto; width:16px; height:16px; background:linear-gradient(currentColor,currentColor) center/100% 2px no-repeat,linear-gradient(currentColor,currentColor) center/2px 100% no-repeat; transform:rotate(45deg); }
+.panel-close:hover { color:#0b4f6c; border-color:#9fc3d4; background:#eef6fa; }
 .support-page #detail-meta { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 16px; }
 .support-page #detail-meta > span:not(.case-badge):not(.priority-badge) { padding:5px 10px; border:1px solid #dce7ed; border-radius:999px; color:#55707f; background:white; font-size:.78rem; }
 .support-page #detail-message { display:flex; flex-direction:column; gap:6px; margin:0; padding:17px 19px; border:1px solid #d8e6ee; border-left:4px solid #1a95bd; border-radius:12px; color:#294759; background:white; }
@@ -138,6 +177,18 @@ body.case-panel-open .dashboard_nav { visibility:hidden; }
 .support-page .case-timeline { max-height:560px; padding-right:4px; overflow-y:auto; }
 .support-page .notice { position:fixed; z-index:1200; top:84px; right:24px; max-width:min(420px,calc(100vw - 32px)); margin:0; box-shadow:0 14px 38px rgba(20,56,76,.2); animation:notice-in .25s ease both; }
 @keyframes notice-in { from { opacity:0; transform:translateY(-10px); } }
+.support-page #detail-notice { position:static; max-width:none; margin:16px 0; box-shadow:none; animation:none; }
+/* Pop-ups of the service catalogue page (add/edit a service, edit item prices, add an item).
+   Same look as the address pop-up of the profile page (.address-dialog in profile-live.css). */
+.catalog-dialog { width:min(480px,calc(100vw - 32px)); padding:26px 28px; border:0; border-radius:18px; box-shadow:0 24px 65px rgba(3,42,72,.3); }
+.catalog-dialog::backdrop { background:rgba(16,42,59,.45); }
+.catalog-dialog h2 { margin:0 0 10px; }
+/* A failed save is reported inside the pop-up, in the normal flow of the form, instead of as the
+   floating notice at the top right of the page. */
+.support-page .dialog-notice { position:static; max-width:none; margin:16px 0 0; box-shadow:none; animation:none; }
+.feedback-view .case-table-wrap th:nth-child(4), .feedback-view .case-table-wrap th:nth-child(5),
+.feedback-view .case-row td:nth-child(4), .feedback-view .case-row td:nth-child(5),
+.feedback-view .customer-request .case-badge { display:none; }
 
 @media(max-width:1050px) {
   .support-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -218,3 +269,24 @@ body.case-panel-open .dashboard_nav { visibility:hidden; }
 .support-page .case-table-wrap { border-radius:0; box-shadow:none; }
 @media(max-width:900px) { .overview-layout { grid-template-columns:1fr; } }
 @media(max-width:600px) { .support-header { flex-direction:column; align-items:start; } .overview-card { padding:18px; } .overview-case { flex-wrap:wrap; } .overview-case-state { max-width:none; justify-content:start; } .overview-case-state time { text-align:left; } .overview-case-main { flex-basis:100%; } }
+.case-type-choices { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:18px 0; }
+.case-type-choices button { padding:18px; text-align:left; border:1px solid #c6d9e6; border-radius:14px; background:#f8fcff; color:#19364a; cursor:pointer; }
+.case-type-choices strong,.case-type-choices span { display:block; }
+.case-type-choices span { margin-top:6px; font-size:.85rem; line-height:1.5; }
+.case-type-choices button[aria-pressed="true"],.case-type-tabs button[aria-pressed="true"] { border-color:#347caf; background:#e7f4ff; box-shadow:inset 0 0 0 1px #347caf; }
+.case-type-tabs { display:flex; flex-wrap:wrap; gap:10px; padding:18px 22px 0; }
+.case-type-tabs button { padding:10px 16px; border:1px solid #c6d9e6; border-radius:999px; background:white; color:#19364a; cursor:pointer; }
+#chat-notice { color:#234b65; min-height:1.4em; overflow-wrap:anywhere; }
+@media(max-width:600px) { .case-type-choices { grid-template-columns:1fr; } }
+body[data-audience="customer"] #case-summary,
+body[data-audience="customer"] .case-type-tabs,
+body[data-audience="customer"] #filters,
+body[data-audience="customer"] #detail-meta .priority-badge,
+body[data-audience="customer"] .case-table-wrap thead { display:none !important; }
+.customer-request-list { display:grid; gap:14px; }
+/* The whole card opens the request (cases.js), like a row of the staff table */
+.customer-request { cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:20px; padding:20px; border:1px solid #dce8ee; border-radius:14px; background:white; }
+.customer-request h3 { margin:8px 0; }
+.customer-request p,.customer-request small { color:#617584; }
+.customer-request .case-open-button { flex-shrink:0; }
+@media(max-width:600px) { .customer-request { align-items:flex-start; flex-direction:column; } }

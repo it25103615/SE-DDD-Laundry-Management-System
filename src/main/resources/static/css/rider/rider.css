@@ -125,6 +125,63 @@
 .modal_grid table td {
   vertical-align: top;
 }
+/* Task popup buttons, stacked in the column to the right of the details table. */
+.modal_actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.modal_actions .custom_button {
+  width: 100%;
+}
+/* Delivery instructions and rider notes: a second card, full width under the details. */
+.modal_notes {
+  margin-top: 22px;
+}
+/* Label column only as wide as its text, so the notes get the remaining width. */
+.modal_notes th {
+  width: 1%;
+  white-space: nowrap;
+}
+.modal_notes td {
+  white-space: pre-wrap;
+}
+/* Popup cards: square cells, with only the card's outer corners rounded
+   (top of the first row, bottom of the last row). */
+.modal_box tbody th,
+.modal_box tbody td {
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.76);
+  transition: background-color 0.18s ease;
+}
+/* The row background moves onto the cells: a <tr> background is not clipped by its
+   cells' rounded corners in every browser, so the corners would show square. */
+.modal_box tbody tr,
+.modal_box tbody tr:hover {
+  background: transparent;
+  /* A row's box-shadow is a square box, which shows under the rounded bottom
+     corners; the drop-shadow on the table below follows the rounded cells instead. */
+  box-shadow: none;
+}
+.modal_box table {
+  filter: drop-shadow(0 6px 10px rgba(3, 75, 120, 0.08));
+}
+.modal_box tbody tr:hover > th,
+.modal_box tbody tr:hover > td {
+  background: rgba(233, 248, 255, 0.95);
+}
+.modal_box tbody tr:first-child > :first-child {
+  border-top-left-radius: 12px;
+}
+.modal_box tbody tr:first-child > :last-child {
+  border-top-right-radius: 12px;
+}
+.modal_box tbody tr:last-child > :first-child {
+  border-bottom-left-radius: 12px;
+}
+.modal_box tbody tr:last-child > :last-child {
+  border-bottom-right-radius: 12px;
+}
 
 @media (max-width: 700px) {
   .modal_grid {

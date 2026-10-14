@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Reporting an issue does three things in one transaction:
  * <ol>
  *   <li>opens a High-priority support case under the order's customer, with the issue type as its
- *       case type and the item as its subject, so it appears in the CSM queue;</li>
+ *       case type and "type: item" as its subject, so it appears in the CSM queue;</li>
  *   <li>adds an entry to the case's activity history naming the staff member who reported it;</li>
  *   <li>notifies customer service managers, owners and admins.</li>
  * </ol>
@@ -47,17 +47,21 @@ public class ProcessingIssueService {
     /** Saves an issue report and opens its support case (see the class comment). */
     @Transactional
     public IssueResponse reportIssue(IssueRequest request, StaffMember staff) {
+        if (!"STAFF".equals(staff.role())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only laundry staff can file processing issue reports. Managers can review reports.");
+        }
         if (!repository.orderExists(request.orderID())) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Order #" + request.orderID() + " was not found.");
         }
-        // The subject names the item the issue is about, e.g. "Shirt/Blouse (order #6)".
+        // The subject is the issue type and the item it is about, e.g. "Damaged item: Shirt/Blouse".
+        // The order number is not repeated here: the case stores it in its own orderID column.
         String item = "Whole order";
         if (request.orderLineID() != null) {
             item = repository.findLineItemName(request.orderLineID(), request.orderID())
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
                             "Order line #" + request.orderLineID() + " is not part of order #" + request.orderID() + "."));
         }
-        String subject = item + " (order #" + request.orderID() + ")";
+        String subject = request.issueType() + ": " + item;
 
         String description = request.description().trim();
         int feedbackID = repository.insertIssueCase(request.orderID(), request.issueType(), subject, description);

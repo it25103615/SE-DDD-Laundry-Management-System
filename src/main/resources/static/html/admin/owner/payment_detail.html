@@ -114,8 +114,9 @@
             </div>
           </div>
           <div class="actions">
-            <button class="custom_button custom_button_bg" id="approve-payment">Accept Payment</button>
-            <button class="custom_button custom_button_border" id="reject-payment">Reject Payment</button>
+            <!-- Hidden until payment-management.js has loaded the payment and knows which actions it allows. -->
+            <button class="custom_button custom_button_bg" id="approve-payment" hidden disabled>Accept Payment</button>
+            <button class="custom_button custom_button_border" id="reject-payment" hidden disabled>Reject Payment</button>
             <a class="custom_button custom_button_nobg" href="payments_billing.html">Back</a>
           </div>
         </article>

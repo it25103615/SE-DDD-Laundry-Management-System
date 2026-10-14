@@ -49,3 +49,5 @@ temp.txt
 
 # Archived resource snapshots
 src/main/resources/*.zip
+
+/backups/database/

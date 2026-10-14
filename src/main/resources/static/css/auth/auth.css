@@ -92,6 +92,11 @@
 .form_message:target {
   display: block;
 }
+/* register.js shows its banner by removing the hidden attribute instead of
+   navigating to a #fragment, so :target never applies to it. */
+#register-message:not([hidden]) {
+  display: block;
+}
 
 @media (max-width: 520px) {
   .auth_panel {

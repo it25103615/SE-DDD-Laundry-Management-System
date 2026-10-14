@@ -18,7 +18,7 @@ class SupportServiceTest {
     SupportRepository repo;
     SupportService service;
     final Actor customer=new Actor(1,"Customer","CUSTOMER",false);
-    final Actor admin=new Actor(9,"Admin","ADMIN",false);
+    final Actor admin=new Actor(9,"Customer Service Manager","CSM",false);
     @BeforeEach void setup() {
         repo=mock(SupportRepository.class);
         service=new SupportService(repo,new SupportAccess(null),mock(NotificationService.class));
@@ -100,14 +100,14 @@ class SupportServiceTest {
         when(repo.insert(anyString(),any(Object[].class))).thenReturn(1);
         var result=service.create(customer,new CaseInput("Complaint","  Missing button  ","  Please help  ",null,null,null));
         assertEquals(1,result.get("id"));
-        verify(repo).insert(anyString(),eq("Please help"),eq(1),isNull(),eq("Complaint"),eq("Missing button"),isNull());
+        verify(repo).insert(anyString(),eq("Please help"),eq(1),isNull(),eq("Complaint"),eq("Missing button"),isNull(),eq("General"));
         verify(repo).audit(1,1,"Created","Complaint submitted");
     }
     @Test void editsNewCaseWithExpectedVersion() {
         found("New");
         when(repo.update(anyString(),any(Object[].class))).thenReturn(1);
         service.edit(customer,1,new CaseInput("Question","Updated","New text",null,null,0));
-        verify(repo).update(anyString(),eq("New text"),isNull(),eq("Question"),eq("Updated"),isNull(),eq(1),eq(0));
+        verify(repo).update(anyString(),eq("New text"),isNull(),eq("Question"),eq("Updated"),isNull(),eq("General"),eq(1),eq(0));
         verify(repo).audit(1,1,"Edited","Customer updated the case details");
     }
     @Test void staffReviewWritesResolutionHistory() {
@@ -137,6 +137,14 @@ class SupportServiceTest {
         when(repo.update(anyString(),any(Object[].class))).thenReturn(1);
         assertDoesNotThrow(()->service.message(staff,1,new MessageInput("I will check the garment.")));
         verify(repo).update(contains("INSERT INTO chat"),eq("I will check the garment."),eq(6),eq(1));
+    }
+    @Test void csmFeedbackReplyDoesNotResolveOrAssignIt() {
+        var feedback=assignedItem("In Review",9); feedback.put("type","Feedback");
+        when(repo.query(anyString(),eq(1))).thenReturn(List.of(feedback));
+        when(repo.update(anyString(),any(Object[].class))).thenReturn(1);
+        service.message(admin,1,new MessageInput("Thank you for your feedback."));
+        verify(repo,never()).update(contains("caseStatus='Resolved'"),eq(1));
+        verify(repo,never()).audit(eq(1),eq(9),eq("Case updated"),anyString());
     }
     @Test void replyPersistsToChatAndAudit() {
         found("In Review");

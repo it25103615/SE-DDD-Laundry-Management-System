@@ -1,5 +1,6 @@
 package _6.Y2.S1.MTR._6.LaundryLink.support;
 
+import _6.Y2.S1.MTR._6.LaundryLink.support.dto.SupportRequests.ItemInput;
 import _6.Y2.S1.MTR._6.LaundryLink.support.dto.SupportRequests.PriceInput;
 import _6.Y2.S1.MTR._6.LaundryLink.support.dto.SupportRequests.ServiceInput;
 import _6.Y2.S1.MTR._6.LaundryLink.support.dto.SupportRequests.StaffInput;
@@ -84,6 +85,28 @@ public class AdministrationService {
         repo.audit(null, actor.id(), "Service price updated", "Service #" + serviceId + ", item #" + input.itemId());
     }
 
+    // Adds an item to a service by name. Items are shared between services, so a name that already
+    // exists (ignoring case) is reused and only priced for this service; otherwise a new item is
+    // created first. An item that is already in the service is rejected: its price is changed with
+    // setPrice. (A page that lets the manager pick an existing item instead of typing its name
+    // needs no new method here: setPrice already adds a known item to a service.)
+    @Transactional
+    public int addItem(Actor actor, int serviceId, ItemInput input) {
+        access.manager(actor);
+        if (repo.count("SELECT COUNT(*) FROM services WHERE serviceID=?", serviceId) != 1)
+            throw new ResponseStatusException(NOT_FOUND, "Service not found.");
+        String name = input.name().trim();
+        var existing = repo.query("SELECT TOP(1) itemID AS id FROM items WHERE LOWER(itemName)=LOWER(?) ORDER BY itemID", name);
+        int itemId = existing.isEmpty()
+            ? repo.insert("INSERT INTO items(itemName) OUTPUT INSERTED.itemID VALUES (?)", name)
+            : ((Number) existing.getFirst().get("id")).intValue();
+        if (repo.count("SELECT COUNT(*) FROM servicePricing WHERE serviceID=? AND itemID=?", serviceId, itemId) > 0)
+            throw new ResponseStatusException(CONFLICT, "That item is already in this service. Use Edit items to change its price.");
+        repo.update("INSERT INTO servicePricing(serviceID,itemID,price) VALUES (?,?,?)", serviceId, itemId, input.price());
+        repo.audit(null, actor.id(), "Service item added", "Service #" + serviceId + ", " + name);
+        return itemId;
+    }
+
     public List<Map<String, Object>> staff(Actor actor, String search) {
         access.manager(actor);
         if (search != null && search.length() > 100) throw new ResponseStatusException(BAD_REQUEST, "Search must be at most 100 characters.");
@@ -92,6 +115,7 @@ public class AdministrationService {
             SELECT userID AS id,firstName,lastName,CONCAT(firstName,' ',lastName) AS name,email,
                    phoneNumber AS phone,UPPER(type) AS role,active,createdAt,updatedAt,version
             FROM users WHERE UPPER(type) IN ('RIDER','STAFF','CSM','MANAGER')
+              AND email NOT LIKE 'deleted[_]%@deleted.invalid'
               AND (? IS NULL OR CONCAT(firstName,' ',lastName) LIKE ? OR email LIKE ?)
             ORDER BY active DESC,type,firstName,lastName
             """, term, term, term);
@@ -100,7 +124,7 @@ public class AdministrationService {
     @Transactional
     public int createStaff(Actor actor, StaffInput input) {
         access.manager(actor);
-        validateRole(input.role());
+        validateRole(actor, input.role());
         if (input.password() == null || input.password().isBlank())
             throw new ResponseStatusException(BAD_REQUEST, "A temporary password is required for a new account.");
         try {
@@ -119,31 +143,50 @@ public class AdministrationService {
 
     @Transactional
     public void updateStaff(Actor actor, int id, StaffInput input) {
+        throw new ResponseStatusException(FORBIDDEN, "Use Change Role or Delete Account. Personal details are managed by the employee.");
+    }
+
+    private void managedEmployee(Actor actor, int id, Integer version) {
         access.manager(actor);
-        validateRole(input.role());
-        if (id == actor.id() && !input.active()) throw new ResponseStatusException(BAD_REQUEST, "You cannot deactivate your own account.");
-        try {
-            int changed;
-            Object[] values = {input.firstName().trim(), input.lastName().trim(), input.email().trim().toLowerCase(Locale.ROOT),
-                input.phone(), input.role(), input.active(), id, input.version()};
-            if (input.password() == null || input.password().isBlank()) {
-                changed = repo.update("""
-                    UPDATE users SET firstName=?,lastName=?,email=?,phoneNumber=?,type=?,active=?,updatedAt=SYSDATETIME(),version=version+1
-                    WHERE userID=? AND version=? AND UPPER(type) IN ('RIDER','STAFF','CSM','MANAGER')
-                    """, values);
-            } else {
-                changed = repo.update("""
-                    UPDATE users SET firstName=?,lastName=?,email=?,phoneNumber=?,type=?,active=?,password=?,updatedAt=SYSDATETIME(),version=version+1
-                    WHERE userID=? AND version=? AND UPPER(type) IN ('RIDER','STAFF','CSM','MANAGER')
-                    """, input.firstName().trim(), input.lastName().trim(), input.email().trim().toLowerCase(Locale.ROOT),
-                    input.phone(), input.role(), input.active(), passwords.encode(input.password()), id, input.version());
+        if (id == actor.id()) throw new ResponseStatusException(FORBIDDEN, "You cannot manage your own role or delete your own account.");
+        if (version == null || version < 0) throw new ResponseStatusException(BAD_REQUEST, "An account version is required.");
+        // Keep target authorization and version stable until the transaction commits.
+        var rows = repo.query("SELECT UPPER(type) AS role,email,version FROM users WITH (UPDLOCK, HOLDLOCK) WHERE userID=?", id);
+        if (rows.isEmpty()) throw new ResponseStatusException(NOT_FOUND, "Employee account not found.");
+        var target = rows.getFirst();
+        String role = (String) target.get("role");
+        if (!OPERATIONAL_ROLES.contains(role) || (!actor.owner() && "MANAGER".equals(role)))
+            throw new ResponseStatusException(FORBIDDEN, "You cannot manage this account.");
+        if (_6.Y2.S1.MTR._6.LaundryLink.account.AccountSessionGuard.isRetiredEmail((String) target.get("email")))
+            throw new ResponseStatusException(CONFLICT, "This account has already been deleted.");
+        if (((Number) target.get("version")).intValue() != version)
+            throw new ResponseStatusException(CONFLICT, "Account changed. Refresh the list and try again.");
+    }
+
+    @Transactional
+    public void changeStaffRole(Actor actor, int id, String role, Integer version) {
+        managedEmployee(actor, id, version);
+        validateRole(actor, role);
+        SupportService.changed(repo.update("UPDATE users SET type=?,updatedAt=SYSDATETIME(),version=version+1 WHERE userID=? AND version=?", role, id, version));
+        repo.audit(null, actor.id(), "Employee role changed", "Account #" + id + " · " + role);
+    }
+
+    @Transactional
+    public void deleteStaff(Actor actor, int id, Integer version) {
+        managedEmployee(actor, id, version);
+        String retiredEmail = null;
+        for (int attempt = 0; attempt < 5; attempt++) {
+            String candidate = "deleted_" + id + "_" + UUID.randomUUID().toString().replace("-", "") + "@deleted.invalid";
+            if (repo.count("SELECT COUNT(*) FROM users WITH (UPDLOCK, HOLDLOCK) WHERE email=?", candidate) == 0) {
+                retiredEmail = candidate;
+                break;
             }
-            SupportService.changed(changed);
-            repo.audit(null, actor.id(), "Staff account updated", input.email().trim().toLowerCase(Locale.ROOT) + " · " + input.role() + " · " + (input.active() ? "Active" : "Inactive"));
-            if (input.active()) notifications.notifyUser(id, "ACCOUNT", "Account access updated", "Your role or account details were updated.", "/html/portal.html", "ACCOUNT", id);
-        } catch (DuplicateKeyException exception) {
-            throw new ResponseStatusException(CONFLICT, "An account with that email already exists.");
         }
+        if (retiredEmail == null) throw new ResponseStatusException(CONFLICT, "Account could not be deleted. Try again.");
+        // Preserve the ID and related records; never retain or disclose the random secret.
+        SupportService.changed(repo.update("UPDATE users SET active=0,email=?,password=?,updatedAt=SYSDATETIME(),version=version+1 WHERE userID=? AND version=?",
+                retiredEmail, passwords.encode(UUID.randomUUID().toString()), id, version));
+        repo.audit(null, actor.id(), "Employee account deleted", "Account #" + id);
     }
 
     public Map<String, Object> roles(Actor actor) {
@@ -174,7 +217,9 @@ public class AdministrationService {
         if (count > 0) throw new ResponseStatusException(CONFLICT, "A service with that name already exists.");
     }
 
-    private void validateRole(String role) {
+    private void validateRole(Actor actor, String role) {
         if (!OPERATIONAL_ROLES.contains(role)) throw new ResponseStatusException(BAD_REQUEST, "Unsupported operational role.");
+        if (!"OWNER".equals(actor.role()) && "MANAGER".equals(role))
+            throw new ResponseStatusException(FORBIDDEN, "Only the Owner can assign the Manager role.");
     }
 }

@@ -54,6 +54,10 @@ IF OBJECT_ID('dbo.feedback', 'U') IS NOT NULL
     DROP TABLE dbo.feedback;
 IF OBJECT_ID('dbo.orderPromotions', 'U') IS NOT NULL
     DROP TABLE dbo.orderPromotions;
+-- refunds (created by migration 011) references payments and users, so it is dropped first.
+-- Without this the initializer cannot be re-run on a database that already has migration 011.
+IF OBJECT_ID('dbo.refunds', 'U') IS NOT NULL
+    DROP TABLE dbo.refunds;
 IF OBJECT_ID('dbo.payments', 'U') IS NOT NULL
     DROP TABLE dbo.payments;
 IF OBJECT_ID('dbo.logs', 'U') IS NOT NULL
@@ -343,6 +347,8 @@ CREATE TABLE feedback(
     orderID INTEGER,
     caseType VARCHAR(20) NOT NULL CONSTRAINT df_feedback_type DEFAULT 'Feedback',
     subject NVARCHAR(100) NOT NULL CONSTRAINT df_feedback_subject DEFAULT 'Customer feedback',
+    topic VARCHAR(30) NOT NULL CONSTRAINT df_feedback_topic DEFAULT 'General'
+        CONSTRAINT ck_feedback_topic CHECK(topic IN ('General','Payments & billing','Laundry & items','Pickup & delivery','Account & booking')),
     rating INT NULL CONSTRAINT ck_feedback_rating CHECK(rating BETWEEN 1 AND 5),
     caseStatus VARCHAR(20) NOT NULL CONSTRAINT df_feedback_status DEFAULT 'New',
     priority VARCHAR(10) NOT NULL CONSTRAINT df_feedback_priority DEFAULT 'Normal',
@@ -501,7 +507,7 @@ GO
 -- Issues staff report during processing are stored as support cases in feedback
 -- (caseType = the issue type), so they need no table of their own.
 
--- Quality checks after Ironing; the newest row per order is the current one.
+-- Quality checks done at Quality Inspection (status 21); the newest row per order is the current one.
 CREATE TABLE qualityChecks(
     checkID        INT IDENTITY(1, 1) CONSTRAINT pk_qualityChecks PRIMARY KEY,
     orderID        INT          NOT NULL,
@@ -544,23 +550,26 @@ BEGIN
 END;
 GO
 
-/* Writes the order status history (migration 008). Fires after any UPDATE of dbo.orders and adds
-   one dbo.logs row for each order whose statusID actually changed, whichever module made the
-   change (payment approval, laundry processing or a rider). It is the only thing that writes
-   status log rows, so every step of an order appears in its history exactly once.
-   "inserted" holds the rows as they are now and "deleted" as they were before. New orders are
-   not logged (UPDATE only), and an UPDATE that leaves the status the same writes nothing.
+/* Writes the order status history (migrations 008 and 016). Fires after any INSERT or UPDATE of
+   dbo.orders and adds one dbo.logs row for each new order and for each order whose statusID
+   actually changed, whichever module made the change (payment approval, laundry processing or
+   a rider). It is the only thing that writes status log rows, so every step of an order appears
+   in its history exactly once.
+   "inserted" holds the rows as they are now and "deleted" as they were before. A new order has
+   no row in "deleted", so the LEFT JOIN leaves d empty for it: the WHERE keeps it and its row
+   gets a NULL status_before. That "creation row" records when the order was made (the Order
+   lookup page filters on its date). An UPDATE that leaves the status the same writes nothing.
    SET NOCOUNT ON keeps the row count the application sees equal to the orders it updated. */
 CREATE OR ALTER TRIGGER dbo.trg_order_status_log
-ON dbo.orders AFTER UPDATE AS
+ON dbo.orders AFTER INSERT, UPDATE AS
 BEGIN
     SET NOCOUNT ON;
     -- Read the clock once so the date and the time belong to the same moment.
     DECLARE @Now DATETIME2 = SYSDATETIME();
     INSERT dbo.logs(status_before,status_after,logDate,logTime,orderID)
     SELECT d.statusID, i.statusID, CONVERT(date,@Now), CONVERT(time,@Now), i.orderID
-    FROM inserted i JOIN deleted d ON d.orderID=i.orderID
-    WHERE COALESCE(i.statusID,-1)<>COALESCE(d.statusID,-1);
+    FROM inserted i LEFT JOIN deleted d ON d.orderID=i.orderID
+    WHERE d.orderID IS NULL OR COALESCE(i.statusID,-1)<>COALESCE(d.statusID,-1);
 END;
 GO
 
@@ -759,7 +768,8 @@ IF OBJECT_ID('dbo.status', 'U') IS NOT NULL
         (17, 'Pickup Failed'),
         (18, 'Delivery Failed'),
         (19, 'Dry Clean'),
-        (20, 'Cancelled');
+        (20, 'Cancelled'),
+        (21, 'Quality Inspection'); -- quality check, packing and "Mark as Ready" (migration 015)
     GO
 -- ================ Populate Status Table - End ===============
 -- ============================================================
