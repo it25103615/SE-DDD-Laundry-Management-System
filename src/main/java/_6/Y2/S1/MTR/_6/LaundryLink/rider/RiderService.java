@@ -74,17 +74,20 @@ public class RiderService {
     }
 
     String email = auth.getName();
-    User user =
-        users
-            .findByEmailIgnoreCase(email)
-            .orElseThrow(
-                () ->
-                    new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Rider account not found for user: " + email));
+    User user = users
+      .findByEmailIgnoreCase(email)
+      .orElseThrow(() ->
+        new ResponseStatusException(
+          HttpStatus.NOT_FOUND,
+          "Rider account not found for user: " + email
+        )
+      );
 
     if (user.getType() != UserRole.RIDER) {
       throw new ResponseStatusException(
-          HttpStatus.FORBIDDEN, "Only rider accounts can use rider tasks.");
+        HttpStatus.FORBIDDEN,
+        "Only rider accounts can use rider tasks."
+      );
     }
     return user;
   }
@@ -119,12 +122,19 @@ public class RiderService {
     Integer riderId = getCurrentRiderId();
 
     return Map.of(
-        "availablePickup", repository.countAvailablePickup(),
-        "availableDelivery", repository.countAvailableDelivery(),
-        "completedPickup", repository.countCompletedPickup(riderId),
-        "completedDelivery", repository.countCompletedDelivery(riderId),
-        "remainingPickup", repository.countRemainingPickup(riderId),
-        "remainingDelivery", repository.countRemainingDelivery(riderId));
+      "availablePickup",
+      repository.countAvailablePickup(),
+      "availableDelivery",
+      repository.countAvailableDelivery(),
+      "completedPickup",
+      repository.countCompletedPickup(riderId),
+      "completedDelivery",
+      repository.countCompletedDelivery(riderId),
+      "remainingPickup",
+      repository.countRemainingPickup(riderId),
+      "remainingDelivery",
+      repository.countRemainingDelivery(riderId)
+    );
   }
 
   /**
@@ -138,15 +148,20 @@ public class RiderService {
     User rider = currentRider();
     String firstName = rider.getFirstName() == null ? "" : rider.getFirstName();
     String lastName = rider.getLastName() == null ? "" : rider.getLastName();
-    String initials =
-        ((firstName.isEmpty() ? "" : firstName.substring(0, 1))
-                + (lastName.isEmpty() ? "" : lastName.substring(0, 1)))
-            .toUpperCase();
+    String initials = (
+      (firstName.isEmpty() ? "" : firstName.substring(0, 1)) +
+      (lastName.isEmpty() ? "" : lastName.substring(0, 1))
+    ).toUpperCase();
     return java.util.Map.of(
-        "userID", rider.getUserID(),
-        "firstName", firstName,
-        "lastName", lastName,
-        "initials", initials);
+      "userID",
+      rider.getUserID(),
+      "firstName",
+      firstName,
+      "lastName",
+      lastName,
+      "initials",
+      initials
+    );
   }
 
   /**
@@ -169,21 +184,23 @@ public class RiderService {
     Integer riderId = getCurrentRiderId();
     Object[] task = findTask(deliverId);
     String type = task[2].toString();
-    int updated =
-        "pickup".equals(type)
-            ? repository.acceptPickup(deliverId, riderId)
-            : repository.acceptDelivery(deliverId, riderId);
+    int updated = "pickup".equals(type)
+      ? repository.acceptPickup(deliverId, riderId)
+      : repository.acceptDelivery(deliverId, riderId);
     if (updated != 1) {
       throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "This assignment is no longer available.");
+        HttpStatus.CONFLICT,
+        "This assignment is no longer available."
+      );
     }
-    int next =
-        "pickup".equals(type)
-            ? repository.movePickupToEnRoute(deliverId, riderId)
-            : setDeliveryEnRoute(deliverId, riderId);
+    int next = "pickup".equals(type)
+      ? repository.movePickupToEnRoute(deliverId, riderId)
+      : setDeliveryEnRoute(deliverId, riderId);
     if (next != 1) {
       throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "The assignment could not be moved to en route.");
+        HttpStatus.CONFLICT,
+        "The assignment could not be moved to en route."
+      );
     }
   }
 
@@ -211,7 +228,9 @@ public class RiderService {
     requireCurrentTask(deliverId, "pickup", 4);
     if (repository.pickupPickedUp(deliverId, riderId) != 1) {
       throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "Pickup is no longer available for this action.");
+        HttpStatus.CONFLICT,
+        "Pickup is no longer available for this action."
+      );
     }
   }
 
@@ -229,7 +248,9 @@ public class RiderService {
     requireCurrentTask(deliverId, "pickup", 6);
     if (repository.pickupDeliveredToShop(deliverId, riderId) != 1) {
       throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "Pickup is no longer available for this action.");
+        HttpStatus.CONFLICT,
+        "Pickup is no longer available for this action."
+      );
     }
   }
 
@@ -249,7 +270,9 @@ public class RiderService {
     requireCurrentTask(deliverId, "pickup", 4);
     if (repository.pickupFailed(deliverId, riderId, request.note().trim()) != 1) {
       throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "Pickup failure could not be recorded.");
+        HttpStatus.CONFLICT,
+        "Pickup failure could not be recorded."
+      );
     }
   }
 
@@ -267,7 +290,9 @@ public class RiderService {
     requireCurrentTask(deliverId, "delivery", 13);
     if (repository.deliveryDelivered(deliverId, riderId) != 1) {
       throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "Delivery is no longer available for this action.");
+        HttpStatus.CONFLICT,
+        "Delivery is no longer available for this action."
+      );
     }
   }
 
@@ -287,7 +312,9 @@ public class RiderService {
     requireCurrentTask(deliverId, "delivery", 13);
     if (repository.deliveryFailed(deliverId, riderId, request.note().trim()) != 1) {
       throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "Delivery failure could not be recorded.");
+        HttpStatus.CONFLICT,
+        "Delivery failure could not be recorded."
+      );
     }
   }
 
@@ -315,7 +342,9 @@ public class RiderService {
       updated = repository.cancelDelivery(deliverId, riderId);
     } else {
       throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "This assignment cannot be cancelled at its current status.");
+        HttpStatus.CONFLICT,
+        "This assignment cannot be cancelled at its current status."
+      );
     }
     if (updated != 1) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "Assignment could not be cancelled.");
@@ -331,11 +360,10 @@ public class RiderService {
    */
   private Object[] findTask(Integer deliverId) {
     return repository
-        .findTaskById(deliverId)
-        .orElseThrow(
-            () ->
-                new ResponseStatusException(
-                    HttpStatus.NOT_FOUND, "Delivery assignment not found."));
+      .findTaskById(deliverId)
+      .orElseThrow(() ->
+        new ResponseStatusException(HttpStatus.NOT_FOUND, "Delivery assignment not found.")
+      );
   }
 
   /**
@@ -351,30 +379,36 @@ public class RiderService {
     Object[] task = findTask(deliverId);
     if (!type.equals(task[2].toString()) || ((Number) task[3]).intValue() != statusId) {
       throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "Invalid action for the current task status.");
+        HttpStatus.CONFLICT,
+        "Invalid action for the current task status."
+      );
     }
     // Assignment ownership is checked by the update query itself.
   }
 
   /**
-   * Converts a native-query row into a DTO. The column order must match the SELECT in {@code
-   * RiderRepository}. Null text fields become {@code ""}.
+   * Converts a native-query row into a DTO. The column order must match the SELECT in
+   * {@code RiderRepository}. Null text fields become {@code ""}, including the delivery
+   * instructions and rider notes (columns 10 and 11), so the popup can show "None".
    *
    * @param row one result row
    * @return the DTO
    */
   private RiderTaskDTO mapRow(Object[] row) {
     return new RiderTaskDTO(
-        ((Number) row[0]).intValue(),
-        row[1] == null ? null : ((Number) row[1]).intValue(),
-        row[2] == null ? null : row[2].toString(),
-        row[3] == null ? null : ((Number) row[3]).intValue(),
-        row[4] == null ? null : row[4].toString(),
-        row[5] == null ? "" : row[5].toString().trim(),
-        row[6] == null ? "" : row[6].toString().trim(),
-        row[7] == null ? "" : row[7].toString().trim(),
-        toLocalDateTime(row[8]),
-        toLocalDateTime(row[9]));
+      ((Number) row[0]).intValue(),
+      row[1] == null ? null : ((Number) row[1]).intValue(),
+      row[2] == null ? null : row[2].toString(),
+      row[3] == null ? null : ((Number) row[3]).intValue(),
+      row[4] == null ? null : row[4].toString(),
+      row[5] == null ? "" : row[5].toString().trim(),
+      row[6] == null ? "" : row[6].toString().trim(),
+      row[7] == null ? "" : row[7].toString().trim(),
+      toLocalDateTime(row[8]),
+      toLocalDateTime(row[9]),
+      row[10] == null ? "" : row[10].toString().trim(),
+      row[11] == null ? "" : row[11].toString().trim()
+    );
   }
 
   /**

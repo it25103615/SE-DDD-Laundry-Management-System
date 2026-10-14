@@ -40,7 +40,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class RiderRepository {
 
-  @PersistenceContext private EntityManager entityManager;
+  @PersistenceContext
+  private EntityManager entityManager;
 
   /**
    * Returns the open task pool: pickups waiting for a rider (status 3) and deliveries waiting for a
@@ -56,131 +57,144 @@ public class RiderRepository {
    * <p>{@code OUTER APPLY} (not a plain JOIN) keeps a task visible even if the log row or address
    * is missing.
    *
+   * <p>The last two columns feed the bottom of the task popup: {@code DeliveryInstructions}
+   * from the same address row, and {@code delivery.riderNotes}, the latest failure note
+   * (see {@link #pickupFailed}), so the next rider can see why the last attempt failed.
+   * Both are NULL when empty.
+   *
    * @return rows as {@code Object[]} in the column order read by {@code RiderService.mapRow}
    */
   public List<Object[]> findAvailableTasks() {
-    String sql =
-        """
-        SELECT
-            d.deliverID,
-            d.orderID,
-            CASE WHEN o.statusID = 3 THEN 'pickup' ELSE 'delivery' END AS taskType,
-            o.statusID,
-            s.statusLabel,
-            CONCAT(COALESCE(u.firstName, ''),
-                   CASE WHEN u.middleName IS NULL OR u.middleName = '' THEN '' ELSE ' ' + u.middleName END,
-                   CASE WHEN u.lastName IS NULL OR u.lastName = '' THEN '' ELSE ' ' + u.lastName END) AS customerName,
-            CONCAT(COALESCE(a.street, ''),
-                   CASE WHEN a.city IS NULL OR a.city = '' THEN '' ELSE ', ' + a.city END,
-                   CASE WHEN a.state IS NULL OR a.state = '' THEN '' ELSE ', ' + a.state END) AS address,
-            u.phoneNumber,
-            d.pickup_scheduled,
-            CASE
-                WHEN o.statusID = 3 THEN d.pickup_scheduled
-                ELSE awaitingDelivery.awaitingAt
-            END AS priorityTimestamp
-        FROM delivery d
-        JOIN orders o ON o.orderID = d.orderID
-        JOIN status s ON s.statusID = o.statusID
-        JOIN users u ON u.userID = o.userID
-        OUTER APPLY (
-            SELECT TOP 1
-                DATEADD(SECOND, DATEDIFF(SECOND, CAST('00:00:00' AS time), l.logTime), CAST(l.logDate AS datetime)) AS awaitingAt
-            FROM logs l
-            WHERE l.orderID = d.orderID
-              AND l.status_after = 12
-            ORDER BY l.logDate DESC, l.logTime DESC, l.logID DESC
-        ) awaitingDelivery
-        OUTER APPLY (
-            -- The address the customer chose for this order (delivery.addressID). It is
-            -- matched by ID only, because an address the customer deleted later is kept
-            -- with userID NULL so the order still knows where to go.
-            -- Orders without one fall back to the customer's default address.
-            SELECT TOP 1 a2.street, a2.city, a2.state
-            FROM addresses a2
-            WHERE a2.addressID = d.addressID
-               OR (d.addressID IS NULL AND a2.userID = o.userID AND a2.isDefault = 1)
-            ORDER BY a2.addressID DESC
-        ) a
-        WHERE
-            (o.statusID = 3 AND d.pickup_riderID IS NULL)
-            OR
-            (o.statusID = 12 AND d.delivery_riderID IS NULL)
-        ORDER BY
-            CASE WHEN o.statusID = 3 THEN d.pickup_scheduled ELSE awaitingDelivery.awaitingAt END ASC,
-            d.deliverID ASC
-        """;
+    String sql = """
+    SELECT
+        d.deliverID,
+        d.orderID,
+        CASE WHEN o.statusID = 3 THEN 'pickup' ELSE 'delivery' END AS taskType,
+        o.statusID,
+        s.statusLabel,
+        CONCAT(COALESCE(u.firstName, ''),
+               CASE WHEN u.middleName IS NULL OR u.middleName = '' THEN '' ELSE ' ' + u.middleName END,
+               CASE WHEN u.lastName IS NULL OR u.lastName = '' THEN '' ELSE ' ' + u.lastName END) AS customerName,
+        CONCAT(COALESCE(a.street, ''),
+               CASE WHEN a.city IS NULL OR a.city = '' THEN '' ELSE ', ' + a.city END,
+               CASE WHEN a.state IS NULL OR a.state = '' THEN '' ELSE ', ' + a.state END) AS address,
+        u.phoneNumber,
+        d.pickup_scheduled,
+        CASE
+            WHEN o.statusID = 3 THEN d.pickup_scheduled
+            ELSE awaitingDelivery.awaitingAt
+        END AS priorityTimestamp,
+        -- For the bottom of the task popup: the delivery instructions of the address
+        -- picked below, and the latest failure note left by a rider (NULL if none).
+        a.DeliveryInstructions AS deliveryInstructions,
+        d.riderNotes
+    FROM delivery d
+    JOIN orders o ON o.orderID = d.orderID
+    JOIN status s ON s.statusID = o.statusID
+    JOIN users u ON u.userID = o.userID
+    OUTER APPLY (
+        SELECT TOP 1
+            DATEADD(SECOND, DATEDIFF(SECOND, CAST('00:00:00' AS time), l.logTime), CAST(l.logDate AS datetime)) AS awaitingAt
+        FROM logs l
+        WHERE l.orderID = d.orderID
+          AND l.status_after = 12
+        ORDER BY l.logDate DESC, l.logTime DESC, l.logID DESC
+    ) awaitingDelivery
+    OUTER APPLY (
+        -- The address the customer chose for this order (delivery.addressID). It is
+        -- matched by ID only, because an address the customer deleted later is kept
+        -- with userID NULL so the order still knows where to go.
+        -- Orders without one fall back to the customer's default address.
+        -- DeliveryInstructions comes from the same address row.
+        SELECT TOP 1 a2.street, a2.city, a2.state, a2.DeliveryInstructions
+        FROM addresses a2
+        WHERE a2.addressID = d.addressID
+           OR (d.addressID IS NULL AND a2.userID = o.userID AND a2.isDefault = 1)
+        ORDER BY a2.addressID DESC
+    ) a
+    WHERE
+        (o.statusID = 3 AND d.pickup_riderID IS NULL)
+        OR
+        (o.statusID = 12 AND d.delivery_riderID IS NULL)
+    ORDER BY
+        CASE WHEN o.statusID = 3 THEN d.pickup_scheduled ELSE awaitingDelivery.awaitingAt END ASC,
+        d.deliverID ASC
+    """;
     return entityManager.createNativeQuery(sql).getResultList();
   }
 
   /**
    * Returns the rider's active assignments: pickups at status 4/5/6 or deliveries at status 13.
    *
-   * <p>Same query shape as {@link #findAvailableTasks()}, filtered by whichever rider column
-   * matches the status. Finished work (7, 15) is excluded on purpose because this list drives the
-   * "My Work" tables; finished totals come from the count queries.
+   * <p>Same query shape as {@link #findAvailableTasks()} (including the delivery instructions
+   * and rider notes columns), filtered by whichever rider column matches the status. Finished work (7, 15) is excluded on purpose because this list
+   * drives the "My Work" tables; finished totals come from the count queries.
    *
    * @param riderId user ID of the signed-in rider
    * @return rows as {@code Object[]} in the column order read by {@code RiderService.mapRow}
    */
   public List<Object[]> findMyWork(Integer riderId) {
-    String sql =
-        """
-        SELECT
-            d.deliverID,
-            d.orderID,
-            CASE
-                WHEN o.statusID IN (4, 5, 6) THEN 'pickup'
-                WHEN o.statusID = 13 THEN 'delivery'
-            END AS taskType,
-            o.statusID,
-            s.statusLabel,
-            CONCAT(COALESCE(u.firstName, ''),
-                   CASE WHEN u.middleName IS NULL OR u.middleName = '' THEN '' ELSE ' ' + u.middleName END,
-                   CASE WHEN u.lastName IS NULL OR u.lastName = '' THEN '' ELSE ' ' + u.lastName END) AS customerName,
-            CONCAT(COALESCE(a.street, ''),
-                   CASE WHEN a.city IS NULL OR a.city = '' THEN '' ELSE ', ' + a.city END,
-                   CASE WHEN a.state IS NULL OR a.state = '' THEN '' ELSE ', ' + a.state END) AS address,
-            u.phoneNumber,
-            d.pickup_scheduled,
-            CASE
-                WHEN o.statusID IN (4, 5, 6) THEN d.pickup_scheduled
-                ELSE awaitingDelivery.awaitingAt
-            END AS priorityTimestamp
-        FROM delivery d
-        JOIN orders o ON o.orderID = d.orderID
-        JOIN status s ON s.statusID = o.statusID
-        JOIN users u ON u.userID = o.userID
-        OUTER APPLY (
-            SELECT TOP 1
-                DATEADD(SECOND, DATEDIFF(SECOND, CAST('00:00:00' AS time), l.logTime), CAST(l.logDate AS datetime)) AS awaitingAt
-            FROM logs l
-            WHERE l.orderID = d.orderID
-              AND l.status_after = 12
-            ORDER BY l.logDate DESC, l.logTime DESC, l.logID DESC
-        ) awaitingDelivery
-        OUTER APPLY (
-            -- The address the customer chose for this order (delivery.addressID). It is
-            -- matched by ID only, because an address the customer deleted later is kept
-            -- with userID NULL so the order still knows where to go.
-            -- Orders without one fall back to the customer's default address.
-            SELECT TOP 1 a2.street, a2.city, a2.state
-            FROM addresses a2
-            WHERE a2.addressID = d.addressID
-               OR (d.addressID IS NULL AND a2.userID = o.userID AND a2.isDefault = 1)
-            ORDER BY a2.addressID DESC
-        ) a
-        WHERE
-            (o.statusID IN (4, 5, 6) AND d.pickup_riderID = :riderId)
-            OR
-            (o.statusID = 13 AND d.delivery_riderID = :riderId)
-        ORDER BY
-            CASE
-                WHEN o.statusID IN (4, 5, 6) THEN d.pickup_scheduled
-                ELSE awaitingDelivery.awaitingAt
-            END ASC,
-            d.deliverID ASC
-        """;
+    String sql = """
+    SELECT
+        d.deliverID,
+        d.orderID,
+        CASE
+            WHEN o.statusID IN (4, 5, 6) THEN 'pickup'
+            WHEN o.statusID = 13 THEN 'delivery'
+        END AS taskType,
+        o.statusID,
+        s.statusLabel,
+        CONCAT(COALESCE(u.firstName, ''),
+               CASE WHEN u.middleName IS NULL OR u.middleName = '' THEN '' ELSE ' ' + u.middleName END,
+               CASE WHEN u.lastName IS NULL OR u.lastName = '' THEN '' ELSE ' ' + u.lastName END) AS customerName,
+        CONCAT(COALESCE(a.street, ''),
+               CASE WHEN a.city IS NULL OR a.city = '' THEN '' ELSE ', ' + a.city END,
+               CASE WHEN a.state IS NULL OR a.state = '' THEN '' ELSE ', ' + a.state END) AS address,
+        u.phoneNumber,
+        d.pickup_scheduled,
+        CASE
+            WHEN o.statusID IN (4, 5, 6) THEN d.pickup_scheduled
+            ELSE awaitingDelivery.awaitingAt
+        END AS priorityTimestamp,
+        -- For the bottom of the task popup: the delivery instructions of the address
+        -- picked below, and the latest failure note left by a rider (NULL if none).
+        a.DeliveryInstructions AS deliveryInstructions,
+        d.riderNotes
+    FROM delivery d
+    JOIN orders o ON o.orderID = d.orderID
+    JOIN status s ON s.statusID = o.statusID
+    JOIN users u ON u.userID = o.userID
+    OUTER APPLY (
+        SELECT TOP 1
+            DATEADD(SECOND, DATEDIFF(SECOND, CAST('00:00:00' AS time), l.logTime), CAST(l.logDate AS datetime)) AS awaitingAt
+        FROM logs l
+        WHERE l.orderID = d.orderID
+          AND l.status_after = 12
+        ORDER BY l.logDate DESC, l.logTime DESC, l.logID DESC
+    ) awaitingDelivery
+    OUTER APPLY (
+        -- The address the customer chose for this order (delivery.addressID). It is
+        -- matched by ID only, because an address the customer deleted later is kept
+        -- with userID NULL so the order still knows where to go.
+        -- Orders without one fall back to the customer's default address.
+        -- DeliveryInstructions comes from the same address row.
+        SELECT TOP 1 a2.street, a2.city, a2.state, a2.DeliveryInstructions
+        FROM addresses a2
+        WHERE a2.addressID = d.addressID
+           OR (d.addressID IS NULL AND a2.userID = o.userID AND a2.isDefault = 1)
+        ORDER BY a2.addressID DESC
+    ) a
+    WHERE
+        (o.statusID IN (4, 5, 6) AND d.pickup_riderID = :riderId)
+        OR
+        (o.statusID = 13 AND d.delivery_riderID = :riderId)
+    ORDER BY
+        CASE
+            WHEN o.statusID IN (4, 5, 6) THEN d.pickup_scheduled
+            ELSE awaitingDelivery.awaitingAt
+        END ASC,
+        d.deliverID ASC
+    """;
     return entityManager.createNativeQuery(sql).setParameter("riderId", riderId).getResultList();
   }
 
@@ -194,27 +208,28 @@ public class RiderRepository {
    * @return the row, or empty if no such task exists
    */
   public java.util.Optional<Object[]> findTaskById(Integer deliverId) {
-    String sql =
-        """
-        SELECT d.deliverID,
-               d.orderID,
-               CASE WHEN o.statusID IN (3,4,5,6,7) THEN 'pickup'
-                    WHEN o.statusID IN (12,13,15) THEN 'delivery'
-               END AS taskType,
-               o.statusID,
-               s.statusLabel,
-               d.pickup_riderID,
-               d.delivery_riderID
-        FROM delivery d
-        JOIN orders o ON o.orderID = d.orderID
-        JOIN status s ON s.statusID = o.statusID
-        WHERE d.deliverID = :deliverId
-        """;
-    List<?> result =
-        entityManager.createNativeQuery(sql).setParameter("deliverId", deliverId).getResultList();
+    String sql = """
+    SELECT d.deliverID,
+           d.orderID,
+           CASE WHEN o.statusID IN (3,4,5,6,7) THEN 'pickup'
+                WHEN o.statusID IN (12,13,15) THEN 'delivery'
+           END AS taskType,
+           o.statusID,
+           s.statusLabel,
+           d.pickup_riderID,
+           d.delivery_riderID
+    FROM delivery d
+    JOIN orders o ON o.orderID = d.orderID
+    JOIN status s ON s.statusID = o.statusID
+    WHERE d.deliverID = :deliverId
+    """;
+    List<?> result = entityManager
+      .createNativeQuery(sql)
+      .setParameter("deliverId", deliverId)
+      .getResultList();
     return result.isEmpty()
-        ? java.util.Optional.empty()
-        : java.util.Optional.of((Object[]) result.get(0));
+      ? java.util.Optional.empty()
+      : java.util.Optional.of((Object[]) result.get(0));
   }
 
   /**
@@ -248,23 +263,22 @@ public class RiderRepository {
    * @return 1 if claimed, 0 if already taken, wrong status, or not a RIDER
    */
   public int acceptPickup(Integer deliverId, Integer riderId) {
-    String sql =
-        """
-        UPDATE d
-        SET d.pickup_riderID = :riderId
-        FROM delivery d
-        JOIN orders o ON o.orderID = d.orderID
-        JOIN users r ON r.userID = :riderId
-        WHERE d.deliverID = :deliverId
-          AND o.statusID = 3
-          AND d.pickup_riderID IS NULL
-          AND UPPER(r.type) = 'RIDER'
-        """;
+    String sql = """
+    UPDATE d
+    SET d.pickup_riderID = :riderId
+    FROM delivery d
+    JOIN orders o ON o.orderID = d.orderID
+    JOIN users r ON r.userID = :riderId
+    WHERE d.deliverID = :deliverId
+      AND o.statusID = 3
+      AND d.pickup_riderID IS NULL
+      AND UPPER(r.type) = 'RIDER'
+    """;
     return entityManager
-        .createNativeQuery(sql)
-        .setParameter("deliverId", deliverId)
-        .setParameter("riderId", riderId)
-        .executeUpdate();
+      .createNativeQuery(sql)
+      .setParameter("deliverId", deliverId)
+      .setParameter("riderId", riderId)
+      .executeUpdate();
   }
 
   /**
@@ -276,23 +290,22 @@ public class RiderRepository {
    * @return 1 if claimed, 0 otherwise
    */
   public int acceptDelivery(Integer deliverId, Integer riderId) {
-    String sql =
-        """
-        UPDATE d
-        SET d.delivery_riderID = :riderId
-        FROM delivery d
-        JOIN orders o ON o.orderID = d.orderID
-        JOIN users r ON r.userID = :riderId
-        WHERE d.deliverID = :deliverId
-          AND o.statusID = 12
-          AND d.delivery_riderID IS NULL
-          AND UPPER(r.type) = 'RIDER'
-        """;
+    String sql = """
+    UPDATE d
+    SET d.delivery_riderID = :riderId
+    FROM delivery d
+    JOIN orders o ON o.orderID = d.orderID
+    JOIN users r ON r.userID = :riderId
+    WHERE d.deliverID = :deliverId
+      AND o.statusID = 12
+      AND d.delivery_riderID IS NULL
+      AND UPPER(r.type) = 'RIDER'
+    """;
     return entityManager
-        .createNativeQuery(sql)
-        .setParameter("deliverId", deliverId)
-        .setParameter("riderId", riderId)
-        .executeUpdate();
+      .createNativeQuery(sql)
+      .setParameter("deliverId", deliverId)
+      .setParameter("riderId", riderId)
+      .executeUpdate();
   }
 
   /**
@@ -320,22 +333,20 @@ public class RiderRepository {
    * @return 1 on success, 0 otherwise
    */
   public int pickupPickedUp(Integer deliverId, Integer riderId) {
-    String sql =
-        """
-        UPDATE d
-        SET d.pickup_actual = GETDATE()
-        FROM delivery d
-        JOIN orders o ON o.orderID = d.orderID
-        WHERE d.deliverID = :deliverId
-          AND d.pickup_riderID = :riderId
-          AND o.statusID = 4
-        """;
-    int timestampUpdated =
-        entityManager
-            .createNativeQuery(sql)
-            .setParameter("deliverId", deliverId)
-            .setParameter("riderId", riderId)
-            .executeUpdate();
+    String sql = """
+    UPDATE d
+    SET d.pickup_actual = GETDATE()
+    FROM delivery d
+    JOIN orders o ON o.orderID = d.orderID
+    WHERE d.deliverID = :deliverId
+      AND d.pickup_riderID = :riderId
+      AND o.statusID = 4
+    """;
+    int timestampUpdated = entityManager
+      .createNativeQuery(sql)
+      .setParameter("deliverId", deliverId)
+      .setParameter("riderId", riderId)
+      .executeUpdate();
     if (timestampUpdated != 1) return 0;
     int pickedUp = updateStatus(deliverId, riderId, "pickup_riderID", 4, 5);
 
@@ -389,24 +400,22 @@ public class RiderRepository {
 
     // Save the note and release the task. This is done last because updateStatus
     // needs pickup_riderID to still be set.
-    String sql =
-        """
-        UPDATE d
-        SET d.riderNotes = :note,
-            d.pickup_riderID = NULL
-        FROM delivery d
-        WHERE d.deliverID = :deliverId
-          AND d.pickup_riderID = :riderId
-        """;
+    String sql = """
+    UPDATE d
+    SET d.riderNotes = :note,
+        d.pickup_riderID = NULL
+    FROM delivery d
+    WHERE d.deliverID = :deliverId
+      AND d.pickup_riderID = :riderId
+    """;
     return entityManager
-                .createNativeQuery(sql)
-                .setParameter("deliverId", deliverId)
-                .setParameter("riderId", riderId)
-                .setParameter("note", note)
-                .executeUpdate()
-            == 1
-        ? 1
-        : 0;
+      .createNativeQuery(sql)
+      .setParameter("deliverId", deliverId)
+      .setParameter("riderId", riderId)
+      .setParameter("note", note)
+      .executeUpdate() == 1
+      ? 1
+      : 0;
   }
 
   /**
@@ -421,22 +430,20 @@ public class RiderRepository {
    * @return 1 on success, 0 otherwise
    */
   public int deliveryDelivered(Integer deliverId, Integer riderId) {
-    String sql =
-        """
-        UPDATE d
-        SET d.delivery_time = GETDATE()
-        FROM delivery d
-        JOIN orders o ON o.orderID = d.orderID
-        WHERE d.deliverID = :deliverId
-          AND d.delivery_riderID = :riderId
-          AND o.statusID = 13
-        """;
-    int timestampUpdated =
-        entityManager
-            .createNativeQuery(sql)
-            .setParameter("deliverId", deliverId)
-            .setParameter("riderId", riderId)
-            .executeUpdate();
+    String sql = """
+    UPDATE d
+    SET d.delivery_time = GETDATE()
+    FROM delivery d
+    JOIN orders o ON o.orderID = d.orderID
+    WHERE d.deliverID = :deliverId
+      AND d.delivery_riderID = :riderId
+      AND o.statusID = 13
+    """;
+    int timestampUpdated = entityManager
+      .createNativeQuery(sql)
+      .setParameter("deliverId", deliverId)
+      .setParameter("riderId", riderId)
+      .executeUpdate();
     if (timestampUpdated != 1) return 0;
     int delivered = updateStatus(deliverId, riderId, "delivery_riderID", 13, 14);
 
@@ -473,24 +480,22 @@ public class RiderRepository {
     if (updateStatus(deliverId, riderId, "delivery_riderID", 18, 12) != 1) return 0;
 
     // Save the note and release the task (last, see pickupFailed).
-    String sql =
-        """
-        UPDATE d
-        SET d.riderNotes = :note,
-            d.delivery_riderID = NULL
-        FROM delivery d
-        WHERE d.deliverID = :deliverId
-          AND d.delivery_riderID = :riderId
-        """;
+    String sql = """
+    UPDATE d
+    SET d.riderNotes = :note,
+        d.delivery_riderID = NULL
+    FROM delivery d
+    WHERE d.deliverID = :deliverId
+      AND d.delivery_riderID = :riderId
+    """;
     return entityManager
-                .createNativeQuery(sql)
-                .setParameter("deliverId", deliverId)
-                .setParameter("riderId", riderId)
-                .setParameter("note", note)
-                .executeUpdate()
-            == 1
-        ? 1
-        : 0;
+      .createNativeQuery(sql)
+      .setParameter("deliverId", deliverId)
+      .setParameter("riderId", riderId)
+      .setParameter("note", note)
+      .executeUpdate() == 1
+      ? 1
+      : 0;
   }
 
   /**
@@ -503,22 +508,20 @@ public class RiderRepository {
    * @return 1 on success, 0 otherwise
    */
   public int cancelPickup(Integer deliverId, Integer riderId) {
-    String sql =
-        """
-        UPDATE d
-        SET d.pickup_riderID = NULL
-        FROM delivery d
-        JOIN orders o ON o.orderID = d.orderID
-        WHERE d.deliverID = :deliverId
-          AND d.pickup_riderID = :riderId
-          AND o.statusID = 4
-        """;
-    int updated =
-        entityManager
-            .createNativeQuery(sql)
-            .setParameter("deliverId", deliverId)
-            .setParameter("riderId", riderId)
-            .executeUpdate();
+    String sql = """
+    UPDATE d
+    SET d.pickup_riderID = NULL
+    FROM delivery d
+    JOIN orders o ON o.orderID = d.orderID
+    WHERE d.deliverID = :deliverId
+      AND d.pickup_riderID = :riderId
+      AND o.statusID = 4
+    """;
+    int updated = entityManager
+      .createNativeQuery(sql)
+      .setParameter("deliverId", deliverId)
+      .setParameter("riderId", riderId)
+      .executeUpdate();
     if (updated != 1) return 0;
     return setStatusByDeliveryId(deliverId, 3);
   }
@@ -532,22 +535,20 @@ public class RiderRepository {
    * @return 1 on success, 0 otherwise
    */
   public int cancelDelivery(Integer deliverId, Integer riderId) {
-    String sql =
-        """
-        UPDATE d
-        SET d.delivery_riderID = NULL
-        FROM delivery d
-        JOIN orders o ON o.orderID = d.orderID
-        WHERE d.deliverID = :deliverId
-          AND d.delivery_riderID = :riderId
-          AND o.statusID = 13
-        """;
-    int updated =
-        entityManager
-            .createNativeQuery(sql)
-            .setParameter("deliverId", deliverId)
-            .setParameter("riderId", riderId)
-            .executeUpdate();
+    String sql = """
+    UPDATE d
+    SET d.delivery_riderID = NULL
+    FROM delivery d
+    JOIN orders o ON o.orderID = d.orderID
+    WHERE d.deliverID = :deliverId
+      AND d.delivery_riderID = :riderId
+      AND o.statusID = 13
+    """;
+    int updated = entityManager
+      .createNativeQuery(sql)
+      .setParameter("deliverId", deliverId)
+      .setParameter("riderId", riderId)
+      .executeUpdate();
     if (updated != 1) return 0;
     return setStatusByDeliveryId(deliverId, 12);
   }
@@ -573,25 +574,28 @@ public class RiderRepository {
    * @return 1 on success, 0 otherwise
    */
   private int updateStatus(
-      Integer deliverId, Integer riderId, String riderColumn, int expectedStatus, int nextStatus) {
-    String sql =
-        """
-        UPDATE o
-        SET o.statusID = :nextStatus
-        FROM orders o
-        JOIN delivery d ON d.orderID = o.orderID
-        WHERE d.deliverID = :deliverId
-          AND d.%s = :riderId
-          AND o.statusID = :expectedStatus
-        """
-            .formatted(riderColumn);
+    Integer deliverId,
+    Integer riderId,
+    String riderColumn,
+    int expectedStatus,
+    int nextStatus
+  ) {
+    String sql = """
+    UPDATE o
+    SET o.statusID = :nextStatus
+    FROM orders o
+    JOIN delivery d ON d.orderID = o.orderID
+    WHERE d.deliverID = :deliverId
+      AND d.%s = :riderId
+      AND o.statusID = :expectedStatus
+    """.formatted(riderColumn);
     return entityManager
-        .createNativeQuery(sql)
-        .setParameter("deliverId", deliverId)
-        .setParameter("riderId", riderId)
-        .setParameter("expectedStatus", expectedStatus)
-        .setParameter("nextStatus", nextStatus)
-        .executeUpdate();
+      .createNativeQuery(sql)
+      .setParameter("deliverId", deliverId)
+      .setParameter("riderId", riderId)
+      .setParameter("expectedStatus", expectedStatus)
+      .setParameter("nextStatus", nextStatus)
+      .executeUpdate();
   }
 
   /**
@@ -605,19 +609,18 @@ public class RiderRepository {
    * @return rows updated
    */
   private int setStatusByDeliveryId(Integer deliverId, int statusId) {
-    String sql =
-        """
-        UPDATE o
-        SET o.statusID = :statusId
-        FROM orders o
-        JOIN delivery d ON d.orderID = o.orderID
-        WHERE d.deliverID = :deliverId
-        """;
+    String sql = """
+    UPDATE o
+    SET o.statusID = :statusId
+    FROM orders o
+    JOIN delivery d ON d.orderID = o.orderID
+    WHERE d.deliverID = :deliverId
+    """;
     return entityManager
-        .createNativeQuery(sql)
-        .setParameter("deliverId", deliverId)
-        .setParameter("statusId", statusId)
-        .executeUpdate();
+      .createNativeQuery(sql)
+      .setParameter("deliverId", deliverId)
+      .setParameter("statusId", statusId)
+      .executeUpdate();
   }
 
   /**
@@ -625,14 +628,13 @@ public class RiderRepository {
    * "available pickups" tile. Not limited to today.
    */
   public long countAvailablePickup() {
-    String sql =
-        """
-        SELECT COUNT(*)
-        FROM delivery d
-        INNER JOIN orders o ON o.orderID = d.orderID
-        WHERE o.statusID = 3
-          AND d.pickup_riderID IS NULL
-        """;
+    String sql = """
+    SELECT COUNT(*)
+    FROM delivery d
+    INNER JOIN orders o ON o.orderID = d.orderID
+    WHERE o.statusID = 3
+      AND d.pickup_riderID IS NULL
+    """;
     return ((Number) entityManager.createNativeQuery(sql).getSingleResult()).longValue();
   }
 
@@ -641,14 +643,13 @@ public class RiderRepository {
    * dashboard "available deliveries" tile. Not limited to today.
    */
   public long countAvailableDelivery() {
-    String sql =
-        """
-        SELECT COUNT(*)
-        FROM delivery d
-        INNER JOIN orders o ON o.orderID = d.orderID
-        WHERE o.statusID = 12
-          AND d.delivery_riderID IS NULL
-        """;
+    String sql = """
+    SELECT COUNT(*)
+    FROM delivery d
+    INNER JOIN orders o ON o.orderID = d.orderID
+    WHERE o.statusID = 12
+      AND d.delivery_riderID IS NULL
+    """;
     return ((Number) entityManager.createNativeQuery(sql).getSingleResult()).longValue();
   }
 
@@ -660,18 +661,20 @@ public class RiderRepository {
    * @param riderId the rider's user ID
    */
   public long countCompletedPickup(Integer riderId) {
-    String sql =
-        """
-        SELECT COUNT(*)
-        FROM delivery d
-        INNER JOIN orders o ON o.orderID = d.orderID
-        WHERE d.pickup_riderID = :riderId
-          AND o.statusID = 7
-        """;
+    String sql = """
+    SELECT COUNT(*)
+    FROM delivery d
+    INNER JOIN orders o ON o.orderID = d.orderID
+    WHERE d.pickup_riderID = :riderId
+      AND o.statusID = 7
+    """;
 
-    return ((Number)
-            entityManager.createNativeQuery(sql).setParameter("riderId", riderId).getSingleResult())
-        .longValue();
+    return (
+      (Number) entityManager
+        .createNativeQuery(sql)
+        .setParameter("riderId", riderId)
+        .getSingleResult()
+    ).longValue();
   }
 
   /**
@@ -682,18 +685,20 @@ public class RiderRepository {
    * @param riderId the rider's user ID
    */
   public long countCompletedDelivery(Integer riderId) {
-    String sql =
-        """
-        SELECT COUNT(*)
-        FROM delivery d
-        INNER JOIN orders o ON o.orderID = d.orderID
-        WHERE d.delivery_riderID = :riderId
-          AND o.statusID = 15
-        """;
+    String sql = """
+    SELECT COUNT(*)
+    FROM delivery d
+    INNER JOIN orders o ON o.orderID = d.orderID
+    WHERE d.delivery_riderID = :riderId
+      AND o.statusID = 15
+    """;
 
-    return ((Number)
-            entityManager.createNativeQuery(sql).setParameter("riderId", riderId).getSingleResult())
-        .longValue();
+    return (
+      (Number) entityManager
+        .createNativeQuery(sql)
+        .setParameter("riderId", riderId)
+        .getSingleResult()
+    ).longValue();
   }
 
   /**
@@ -702,17 +707,19 @@ public class RiderRepository {
    * @param riderId the rider's user ID
    */
   public long countRemainingPickup(Integer riderId) {
-    String sql =
-        """
-        SELECT COUNT(*)
-        FROM delivery d
-        INNER JOIN orders o ON o.orderID = d.orderID
-        WHERE d.pickup_riderID = :riderId
-          AND o.statusID IN (4, 5, 6)
-        """;
-    return ((Number)
-            entityManager.createNativeQuery(sql).setParameter("riderId", riderId).getSingleResult())
-        .longValue();
+    String sql = """
+    SELECT COUNT(*)
+    FROM delivery d
+    INNER JOIN orders o ON o.orderID = d.orderID
+    WHERE d.pickup_riderID = :riderId
+      AND o.statusID IN (4, 5, 6)
+    """;
+    return (
+      (Number) entityManager
+        .createNativeQuery(sql)
+        .setParameter("riderId", riderId)
+        .getSingleResult()
+    ).longValue();
   }
 
   /**
@@ -721,16 +728,18 @@ public class RiderRepository {
    * @param riderId the rider's user ID
    */
   public long countRemainingDelivery(Integer riderId) {
-    String sql =
-        """
-        SELECT COUNT(*)
-        FROM delivery d
-        INNER JOIN orders o ON o.orderID = d.orderID
-        WHERE d.delivery_riderID = :riderId
-          AND o.statusID = 13
-        """;
-    return ((Number)
-            entityManager.createNativeQuery(sql).setParameter("riderId", riderId).getSingleResult())
-        .longValue();
+    String sql = """
+    SELECT COUNT(*)
+    FROM delivery d
+    INNER JOIN orders o ON o.orderID = d.orderID
+    WHERE d.delivery_riderID = :riderId
+      AND o.statusID = 13
+    """;
+    return (
+      (Number) entityManager
+        .createNativeQuery(sql)
+        .setParameter("riderId", riderId)
+        .getSingleResult()
+    ).longValue();
   }
 }

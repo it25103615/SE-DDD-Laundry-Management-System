@@ -120,6 +120,20 @@ class RiderServiceTest {
     assertEquals("RP", me.get("initials"));
   }
 
+  @Test
+  void taskPopupRetainsMergedDeliveryInstructionsAndRiderNotes() {
+    signIn("ravi@rider.com", "RIDER");
+    when(users.findByEmailIgnoreCase("ravi@rider.com"))
+        .thenReturn(Optional.of(user(7, UserRole.RIDER)));
+    when(repository.findAvailableTasks()).thenReturn(List.<Object[]>of(new Object[] {
+        10, 5, "pickup", 3, "Awaiting Pickup", "Customer", "Colombo", "0712345678",
+        null, null, " Call at the gate ", " Customer unavailable "
+    }));
+    var task = service.getAvailableTasks().getFirst();
+    assertEquals("Call at the gate", task.deliveryInstructions());
+    assertEquals("Customer unavailable", task.riderNotes());
+  }
+
   private void signIn(String email, String role) {
     SecurityContextHolder.getContext()
         .setAuthentication(

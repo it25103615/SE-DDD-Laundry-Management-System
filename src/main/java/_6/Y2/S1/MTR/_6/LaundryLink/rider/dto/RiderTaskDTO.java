@@ -9,27 +9,35 @@ import java.time.LocalDateTime;
 /**
  * One row in a rider's task table, sent as JSON to {@code riderAll.js}.
  *
- * @param deliverID the {@code delivery.deliverID}
- * @param orderID the related order
- * @param type {@code "pickup"} or {@code "delivery"}
- * @param statusID current order status ID
- * @param status status label for display
- * @param customerName built in SQL; empty string if missing
- * @param address the address chosen for the order (the customer's default address when the order
- *     has none), built in SQL; empty string if missing
- * @param phoneNumber customer's phone; empty string if missing
- * @param pickupScheduled customer's chosen pickup time; used for pickups only
- * @param priorityTimestamp the sort key: {@code pickup_scheduled} for pickups, the time the order
- *     entered Awaiting Delivery for deliveries
+ * @param deliverID         the {@code delivery.deliverID}
+ * @param orderID           the related order
+ * @param type              {@code "pickup"} or {@code "delivery"}
+ * @param statusID          current order status ID
+ * @param status            status label for display
+ * @param customerName      built in SQL; empty string if missing
+ * @param address           the address chosen for the order (the customer's default address
+ *                          when the order has none), built in SQL; empty string if missing
+ * @param phoneNumber       customer's phone; empty string if missing
+ * @param pickupScheduled   customer's chosen pickup time; used for pickups only
+ * @param priorityTimestamp the sort key: {@code pickup_scheduled} for pickups, the time the
+ *                          order entered Awaiting Delivery for deliveries
+ * @param deliveryInstructions
+ *                          the customer's instructions saved on {@code address}; shown in the
+ *                          task popup; empty string if missing
+ * @param riderNotes        the latest failure note left by a rider ({@code delivery.riderNotes});
+ *                          shown in the task popup; empty string if missing
  */
 public record RiderTaskDTO(
-    Integer deliverID,
-    Integer orderID,
-    String type,
-    Integer statusID,
-    String status,
-    String customerName,
-    String address,
-    String phoneNumber,
-    LocalDateTime pickupScheduled,
-    LocalDateTime priorityTimestamp) {}
+  Integer deliverID,
+  Integer orderID,
+  String type,
+  Integer statusID,
+  String status,
+  String customerName,
+  String address,
+  String phoneNumber,
+  LocalDateTime pickupScheduled,
+  LocalDateTime priorityTimestamp,
+  String deliveryInstructions,
+  String riderNotes
+) {}
