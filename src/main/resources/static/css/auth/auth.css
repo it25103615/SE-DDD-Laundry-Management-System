@@ -2,13 +2,7 @@
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
-  background: linear-gradient(
-    135deg,
-    #e5faff 0%,
-    #f4f9ff 42%,
-    #eeeaff 72%,
-    #fff2df 100%
-  );
+  background: linear-gradient(135deg, #e5faff 0%, #f4f9ff 42%, #eeeaff 72%, #fff2df 100%);
 }
 .auth_main::before {
   content: "";
@@ -29,11 +23,7 @@
   right: -90px;
   bottom: 8%;
   border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(119, 104, 232, 0.24),
-    transparent 68%
-  );
+  background: radial-gradient(circle, rgba(119, 104, 232, 0.24), transparent 68%);
   animation: float-orb 11s ease-in-out infinite alternate-reverse;
 }
 
@@ -81,11 +71,32 @@
   height: 9px;
   margin: 7px 0;
 }
+.validation_hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--black-60);
+  line-height: 1.35;
+}
+.input:user-invalid {
+  border-color: #b53a45;
+  box-shadow: 0 0 0 2px rgba(181, 58, 69, 0.12);
+}
 
 .form_message {
   display: none;
+  /* Keeps the banner from sitting flush against the form card below it. */
+  margin-bottom: 20px;
 }
 .form_message:target {
+  display: block;
+}
+#recovery-message:not([hidden]) { display: block; }
+#forgot-password-form[hidden],
+#verify-code-form[hidden],
+#reset-password-form[hidden] { display: none !important; }
+/* register.js shows its banner by removing the hidden attribute instead of
+   navigating to a #fragment, so :target never applies to it. */
+#register-message:not([hidden]) {
   display: block;
 }
 

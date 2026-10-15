@@ -8,28 +8,25 @@
     <link rel="stylesheet" href="../../css/dashboard.css" />
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
+    <script src="../../js/customer/order-management.js" defer></script>
   </head>
   <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="dashboard.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="order_details.html">← Order #1052</a
-          ><a href="../portal.html">Switch Portal</a>
-        </li>
-      </ul>
-    </nav>
-    <main>
+    <nav
+      class="dashboard_nav"
+      data-nav="flow"
+      data-exit-label="Back to order"
+      data-exit-href="/html/customer/order_details.html"
+      data-exit-keep-query
+    ></nav>
+    <!-- page_end_gap keeps the last content off the edge of the window. -->
+    <main class="page_end_gap">
       <header class="welcome_banner" style="margin-top: 34px">
         <div class="subtitle">MODIFY CONFIRMED ORDER</div>
         <div class="top_bar">
           <div>
             <h1>Edit order #1052</h1>
             <p class="muted">
-              You can change services, items, instructions and pickup details
-              before the cutoff.
+              You can change services, items, instructions and pickup details before the cutoff.
             </p>
           </div>
           <span class="status status_warning">EDITABLE</span>
@@ -37,16 +34,9 @@
       </header>
       <div
         class="alert"
-        style="
-          margin-top: 20px;
-          background: #fff4d6;
-          color: #805400;
-          border-left-color: #ff9f43;
-        "
+        style="margin-top: 20px; background: #fff4d6; color: #805400; border-left-color: #ff9f43"
       >
-        <strong>Modification cutoff: Saturday, 15 August at 7:00 AM</strong
-        ><br />Changes close one hour before the 8:00–11:00 AM pickup window.
-        Once your rider starts the pickup, the order is locked.
+        You can change this order until you submit a payment for it.
       </div>
       <form action="order_details.html" style="margin-top: 22px">
         <section class="card">
@@ -55,19 +45,13 @@
               <h2>Services</h2>
               <p class="muted">Add or remove services for this order.</p>
             </div>
-            <a class="link" href="new_order_services.html"
-              >View price catalogue →</a
-            >
+            <a class="link" href="new_order_services.html">View price catalogue →</a>
           </div>
           <div class="grid grid_two">
-            <label class="check_row"
-              ><input type="checkbox" checked /> Wash &amp; Fold</label
-            ><label class="check_row"
-              ><input type="checkbox" checked /> Dry Cleaning</label
+            <label class="check_row"><input type="checkbox" checked /> Wash &amp; Fold</label
+            ><label class="check_row"><input type="checkbox" checked /> Dry Cleaning</label
             ><label class="check_row"><input type="checkbox" /> Ironing</label
-            ><label class="check_row"
-              ><input type="checkbox" /> Shoe Cleaning</label
-            >
+            ><label class="check_row"><input type="checkbox" /> Shoe Cleaning</label>
           </div>
         </section>
         <section class="card" style="margin-top: 20px">
@@ -98,8 +82,7 @@
                 </select>
               </div>
               <div class="field">
-                <label>Quantity</label
-                ><input class="input" type="number" min="1" value="4" />
+                <label>Quantity</label><input class="input" type="number" min="1" value="4" />
               </div>
             </div>
             <div class="grid grid_three edit-row">
@@ -120,16 +103,11 @@
                 </select>
               </div>
               <div class="field">
-                <label>Quantity</label
-                ><input class="input" type="number" min="1" value="2" />
+                <label>Quantity</label><input class="input" type="number" min="1" value="2" />
               </div>
             </div>
           </div>
-          <button
-            id="edit-add-item"
-            class="custom_button custom_button_nobg"
-            type="button"
-          >
+          <button id="edit-add-item" class="custom_button custom_button_nobg" type="button">
             + Add another item
           </button>
         </section>
@@ -138,13 +116,7 @@
             <h2>Pickup schedule</h2>
             <div class="field">
               <label for="edit-date">Date</label
-              ><input
-                class="input"
-                id="edit-date"
-                type="date"
-                value="2026-08-15"
-                required
-              />
+              ><input class="input" id="edit-date" type="date" value="2026-08-15" required />
             </div>
             <div class="field">
               <label for="edit-time">Time window</label
@@ -163,16 +135,13 @@
             <div class="field">
               <label for="edit-notes">Special instructions</label
               ><textarea class="input" id="edit-notes">
-Please treat the stain on the blue shirt collar.</textarea
-              >
+Please treat the stain on the blue shirt collar.</textarea>
             </div>
           </article>
         </section>
         <div class="actions">
-          <a class="custom_button custom_button_nobg" href="order_details.html"
-            >Discard changes</a
-          ><button class="custom_button custom_button_bg" type="submit">
-            Save order changes</button
+          <a class="custom_button custom_button_nobg" href="order_details.html">Discard changes</a
+          ><button class="custom_button custom_button_bg" type="submit">Save order changes</button
           ><button
             class="custom_button custom_button_border danger"
             type="button"
@@ -184,19 +153,14 @@ Please treat the stain on the blue shirt collar.</textarea
       </form>
     </main>
     <script>
-      document
-        .getElementById("edit-add-item")
-        .addEventListener("click", function () {
-          var first = document.querySelector(".edit-row"),
-            copy = first.cloneNode(true);
-          copy.querySelector("input").value = 1;
-          document.getElementById("edit-items").appendChild(copy);
-          if (window.connectedToast)
-            connectedToast(
-              "Item row added",
-              "Select the new item and service before saving.",
-            );
-        });
+      document.getElementById("edit-add-item").addEventListener("click", function () {
+        var first = document.querySelector(".edit-row"),
+          copy = first.cloneNode(true);
+        copy.querySelector("input").value = 1;
+        document.getElementById("edit-items").appendChild(copy);
+        if (window.connectedToast)
+          connectedToast("Item row added", "Select the new item and service before saving.");
+      });
     </script>
   </body>
 </html>

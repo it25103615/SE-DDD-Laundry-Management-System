@@ -3,211 +3,52 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Choose Services | LaundryLink</title>
+    <title>Choose a Service | LaundryLink</title>
     <link rel="stylesheet" href="../../css/global.css" />
     <link rel="stylesheet" href="../../css/dashboard.css" />
     <script src="../../js/global-pre.js"></script>
     <script src="../../js/global-post.js" defer></script>
+    <script src="../../js/customer/order-management.js" defer></script>
   </head>
   <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="dashboard.html"><h3>LaundryLink</h3></a>
-        </li>
-        <li class="nav_right">
-          <a href="dashboard.html">Cancel order</a
-          ><a href="../portal.html">Switch Portal</a>
-        </li>
-      </ul>
-    </nav>
-    <main>
+    <nav
+      class="dashboard_nav"
+      data-nav="flow"
+      data-exit-label="Cancel order"
+      data-exit-href="/html/customer/dashboard.html"
+    ></nav>
+    <!-- The bottom padding leaves a gap between the last card and the end of the page. -->
+    <main style="padding-bottom: 60px">
       <header class="page_header">
         <div class="subtitle">NEW ORDER · SERVICE CATALOGUE</div>
-        <h1>Choose services and view prices</h1>
+        <h1>Choose a service and view prices</h1>
         <p>
-          Review the available garment services and estimated per-item prices
-          before selecting what you need.
+          Review the available services and estimated per-item prices, then select the one you need.
+          An order covers one service; place a separate order for each service.
         </p>
       </header>
       <ol class="step_list">
-        <li class="active">1 Services &amp; prices</li>
+        <li class="active">1 Service &amp; prices</li>
         <li>2 Add items</li>
         <li>3 Schedule</li>
         <li>4 Instructions</li>
         <li>5 Review</li>
       </ol>
-      <section class="grid grid_two">
-        <article class="card">
-          <div class="top_bar">
-            <div>
-              <span class="status status_info">EVERYDAY CARE</span>
-              <h2>Wash &amp; Fold</h2>
-            </div>
-            <label
-              ><input
-                type="checkbox"
-                form="service-form"
-                name="service"
-                value="wash-fold"
-                checked
-              />
-              Select</label
-            >
-          </div>
-          <table>
-            <tbody>
-              <tr>
-                <td>Shirt / blouse</td>
-                <td><strong>LKR 180</strong></td>
-              </tr>
-              <tr>
-                <td>Trousers / skirt</td>
-                <td><strong>LKR 220</strong></td>
-              </tr>
-              <tr>
-                <td>Dress</td>
-                <td><strong>LKR 350</strong></td>
-              </tr>
-              <tr>
-                <td>Bed sheet</td>
-                <td><strong>LKR 450</strong></td>
-              </tr>
-            </tbody>
-          </table>
-        </article>
-        <article class="card">
-          <div class="top_bar">
-            <div>
-              <span class="status" style="color: var(--purple)"
-                >SPECIALIST CARE</span
-              >
-              <h2>Dry Cleaning</h2>
-            </div>
-            <label
-              ><input
-                type="checkbox"
-                form="service-form"
-                name="service"
-                value="dry-cleaning"
-              />
-              Select</label
-            >
-          </div>
-          <table>
-            <tbody>
-              <tr>
-                <td>Shirt / blouse</td>
-                <td><strong>LKR 450</strong></td>
-              </tr>
-              <tr>
-                <td>Trousers / skirt</td>
-                <td><strong>LKR 550</strong></td>
-              </tr>
-              <tr>
-                <td>Dress</td>
-                <td><strong>LKR 850</strong></td>
-              </tr>
-              <tr>
-                <td>Two-piece suit</td>
-                <td><strong>LKR 1,500</strong></td>
-              </tr>
-            </tbody>
-          </table>
-        </article>
-        <article class="card">
-          <div class="top_bar">
-            <div>
-              <span class="status status_success">FINISHING</span>
-              <h2>Ironing</h2>
-            </div>
-            <label
-              ><input
-                type="checkbox"
-                form="service-form"
-                name="service"
-                value="ironing"
-              />
-              Select</label
-            >
-          </div>
-          <table>
-            <tbody>
-              <tr>
-                <td>Shirt / blouse</td>
-                <td><strong>LKR 150</strong></td>
-              </tr>
-              <tr>
-                <td>Trousers / skirt</td>
-                <td><strong>LKR 180</strong></td>
-              </tr>
-              <tr>
-                <td>Dress</td>
-                <td><strong>LKR 260</strong></td>
-              </tr>
-              <tr>
-                <td>Bed linen</td>
-                <td><strong>LKR 300</strong></td>
-              </tr>
-            </tbody>
-          </table>
-        </article>
-        <article class="card">
-          <div class="top_bar">
-            <div>
-              <span class="status status_warning">FOOTWEAR</span>
-              <h2>Shoe Cleaning</h2>
-            </div>
-            <label
-              ><input
-                type="checkbox"
-                form="service-form"
-                name="service"
-                value="shoe-cleaning"
-              />
-              Select</label
-            >
-          </div>
-          <table>
-            <tbody>
-              <tr>
-                <td>Everyday shoes</td>
-                <td><strong>LKR 750</strong></td>
-              </tr>
-              <tr>
-                <td>Trainers</td>
-                <td><strong>LKR 900</strong></td>
-              </tr>
-              <tr>
-                <td>Premium material</td>
-                <td><strong>LKR 1,200</strong></td>
-              </tr>
-            </tbody>
-          </table>
-        </article>
+      <!-- Filled by order-management.js (initServices) with one card per service that is active
+           and has prices, read from /api/services, /api/items and /api/service-pricing. -->
+      <section class="grid grid_two" aria-live="polite">
+        <p class="muted">Loading services…</p>
       </section>
-      <div class="card" style="margin-top: 22px">
-        <div class="top_bar">
-          <div>
-            <h3>Pricing information</h3>
-            <p class="muted">
-              The estimate updates as you add items. Final prices are confirmed
-              after inspection.
-            </p>
-          </div>
-          <a class="link" href="../public/pricing.html"
-            >Open full public pricing →</a
-          >
-        </div>
-      </div>
-      <form id="service-form" action="new_order_items.html" method="get">
+      <!-- Submitting is handled by order-management.js, which saves the chosen service and
+           opens the Add items step. The action is kept so global-post.js does not treat this
+           as a demo form and show its "Saved successfully" message. -->
+      <form id="service-form" action="new_order_items.html" method="get" style="margin-top: 22px">
         <label class="check_row"
-          ><input type="checkbox" required />I have reviewed the available
-          services and estimated prices.</label
+          ><input type="checkbox" required />I have reviewed the available services and estimated
+          prices.</label
         >
         <div class="actions">
-          <a class="custom_button custom_button_nobg" href="dashboard.html"
-            >Cancel</a
+          <a class="custom_button custom_button_nobg" href="dashboard.html">Cancel</a
           ><button class="custom_button custom_button_bg" type="submit">
             Continue to add items
           </button>

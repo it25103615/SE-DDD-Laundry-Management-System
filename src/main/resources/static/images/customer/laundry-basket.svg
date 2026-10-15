@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="260" height="170" viewBox="0 0 260 170" fill="none">
+<defs><linearGradient id="basket" x1="72" y1="85" x2="173" y2="159" gradientUnits="userSpaceOnUse"><stop stop-color="#8BD8FF"/><stop offset="1" stop-color="#429DDE"/></linearGradient><linearGradient id="towel" x1="81" y1="40" x2="182" y2="78" gradientUnits="userSpaceOnUse"><stop stop-color="#FFFFFF"/><stop offset="1" stop-color="#DBF0FF"/></linearGradient></defs>
+<ellipse cx="130" cy="145" rx="105" ry="16" fill="#DFF3FF"/>
+<path d="M41 105C17 48 91 5 138 26C184 2 229 50 219 94C247 128 185 154 122 148C68 153 28 140 41 105Z" fill="#E9F7FF"/>
+<rect x="70" y="64" width="123" height="25" rx="10" fill="#619CEB"/>
+<path d="M83 77H178" stroke="#B7D7FF" stroke-width="3" stroke-linecap="round"/>
+<rect x="79" y="45" width="105" height="23" rx="9" fill="url(#towel)"/>
+<path d="M91 57H172" stroke="#BDDDF4" stroke-width="2" stroke-linecap="round"/>
+<rect x="89" y="27" width="85" height="21" rx="9" fill="white"/>
+<path d="M65 89H195L181 139C180 147 174 151 166 151H94C86 151 80 147 79 139L65 89Z" fill="url(#basket)"/>
+<rect x="59" y="84" width="142" height="13" rx="6.5" fill="#A4E2FF"/>
+<g stroke="#D7F3FF" stroke-width="6" stroke-linecap="round"><path d="M89 108L93 133M110 108L112 133M131 108V133M152 108L150 133M173 108L169 133"/></g>
+<g fill="#62B5F0"><path d="M211 35L214 44L223 47L214 50L211 59L208 50L199 47L208 44Z"/><path d="M47 60L49 66L55 68L49 70L47 76L45 70L39 68L45 66Z"/></g>
+</svg>

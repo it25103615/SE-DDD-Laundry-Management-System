@@ -1,237 +1,322 @@
-(function () {
-  var stages = Array.from(document.querySelectorAll(".timeline-stage"));
-  var checks = Array.from(document.querySelectorAll(".stage-check"));
+/*
+ * Order Processing (html/staff/order_processing.html?orderId=N) - TC-LP05, LP07 to LP10.
+ *
+ * Loads one order from GET /api/processing/orders/{id} and draws:
+ *  - the timeline for the order's route (wash, dry clean, shoe cleaning or ironing only; every
+ *    route ends at Quality Inspection), with completed / current / locked stages;
+ *  - the items, the customer's instructions (the order's note and preferences, and the
+ *    address's delivery instruction), the status history and issues;
+ *  - the actions the server says are allowed next: move to the next stage (the server still
+ *    refuses invalid moves, TC-LP08, but the page no longer offers them), and - once the order is at
+ *    Quality Inspection - the quality check with a rework stage when it fails (TC-LP09),
+ *    packing, and "Mark as Ready" (TC-LP10), which shows an error under the button when it is
+ *    pressed before the check has passed and the order is packed.
+ * After every action the page reloads the order so it always shows the saved state.
+ * Buttons are created here (not in the HTML) so global-post.js does not attach demo toasts.
+ */
+(() => {
+  const { $, escape, dateTime, param, badge, issueItem, api, notice, run } = Processing;
+  const orderId = param("orderId");
+  let order = null;
 
-  var paid = document.getElementById("payment-paid");
-  var dispatch = document.getElementById("dispatch-button");
-  var lock = document.getElementById("dispatch-lock");
-  var status = document.getElementById("order-status");
-  var bar = document.getElementById("progress-bar");
-  var percent = document.getElementById("progress-percent");
+  /** The status where the quality check, packing and "Mark as Ready" happen, on every route. */
+  const QUALITY_INSPECTION = 21;
 
-  //count how many checkboxes are checked
-  //calculate the percentage of orders that are amountDone
-  //set progress bar width and text to that percentage
-  //
-  //for each stage at index i:
-  //  clear completed/current/locked classes
-  //  if checkbox[i] is checked:
-  //    mark stage completed, show ✓, enable checkbox
-  //  else if the index is the same as the number of elements marked as done:
-  //    mark stage current, show its number, enable checkbox
-  //  else:
-  //    mark stage locked, show its number, disable checkbox
-  //
-  //operationalDone = all checkboxes checked
-  //paymentDone = payment checkbox checked
-  //
-  //if operationalDone:
-  //  status text = "READY FOR DISPATCH"
-  //else:
-  //  status text = label of the next incomplete stage (uppercased)
-  //
-  //dispatch button enabled only if operationalDone AND paymentDone
-  //
-  //set an alert box:
-  //  if both amountDone: success "Dispatch unlocked"
-  //  else if only processing amountDone: error "Waiting for payment"
-  //  else: error "Dispatch locked" (message mentions whichever is missing)
-  function update() {
-    var amountDone = checks.filter(function (c) {
-      return c.checked;
-    }).length;
+  // Timeline steps shared by every route: the two before the cleaning stages and the two after.
+  const START = [
+    { status: 7, title: "Order received", text: "Items counted against the order at the shop." },
+    { status: 8, title: "Verifying items", text: "Items checked, tagged and condition recorded." },
+  ];
+  const END = [
+    {
+      status: QUALITY_INSPECTION,
+      title: "Quality inspection",
+      text: "Check item count, finish and customer instructions.",
+    },
+    {
+      packed: true,
+      title: "Packed and ready",
+      text: "Seal the order and release it for delivery.",
+    },
+  ];
 
-    var pct = Math.round((amountDone / checks.length) * 100);
+  /**
+   * Timeline stages for each route; `status` is the order status that stage corresponds to.
+   * The keys are the route codes sent by the server (ProcessingRoute.name()), and the cleaning
+   * stages in the middle are what differs between routes.
+   */
+  const STAGES = {
+    WASH: [
+      ...START,
+      { status: 9, title: "Washing", text: "Wash every item with its selected service." },
+      { status: 10, title: "Drying", text: "Dry items according to their care requirements." },
+      {
+        status: 11,
+        title: "Ironing and finishing",
+        text: "Press, fold or hang items as requested.",
+      },
+      ...END,
+    ],
+    DRY_CLEAN: [
+      ...START,
+      { status: 19, title: "Dry cleaning", text: "Dry clean every item (no drying stage)." },
+      { status: 11, title: "Ironing and finishing", text: "Press and hang items as requested." },
+      ...END,
+    ],
+    SHOE_CLEAN: [
+      ...START,
+      { status: 9, title: "Washing", text: "Clean every pair as its material requires." },
+      { status: 10, title: "Drying", text: "Dry the shoes fully (no ironing stage)." },
+      ...END,
+    ],
+    IRONING: [
+      ...START,
+      {
+        status: 11,
+        title: "Ironing and finishing",
+        text: "Press, fold or hang items as requested.",
+      },
+      ...END,
+    ],
+  };
 
-    bar.style.width = pct + "%";
-    percent.textContent = pct + "%";
+  /** One line under the timeline describing the order's route. */
+  const ROUTE_NOTES = {
+    WASH: "Wash route: Washing, then Drying, then Ironing.",
+    DRY_CLEAN: "Dry clean route: Dry Clean goes straight to Ironing.",
+    SHOE_CLEAN: "Shoe cleaning route: Washing, then Drying (no ironing).",
+    IRONING: "Ironing route: straight to Ironing (no washing or drying).",
+  };
 
-    stages.forEach(function (stage, i) {
-      var check = checks[i];
-      var marker = stage.querySelector(".stage-marker");
-      var note = stage.querySelector("em");
+  /** How many timeline stages are finished, from the status and the latest quality check. */
+  function completedStages(stages) {
+    if (order.statusID === 12) return stages.length; // released: everything done
+    const index = stages.findIndex((stage) => stage.status === order.statusID);
+    if (index < 0) return 0;
+    const check = order.latestQualityCheck;
+    if (order.statusID === QUALITY_INSPECTION && check && check.result === "Passed") {
+      return check.packed ? index + 2 : index + 1; // inspection (+ packing) done
+    }
+    return index; // everything before the current stage
+  }
 
-      stage.classList.remove("completed", "current", "locked");
+  function renderTimeline() {
+    const stages = STAGES[order.route] || STAGES.WASH;
+    const done = completedStages(stages);
+    $("staff-timeline").innerHTML = stages
+      .map((stage, i) => {
+        const state = i < done ? "completed" : i === done ? "current" : "locked";
+        const label =
+          state === "completed" ? "Completed" : state === "current" ? "Current stage" : "Locked";
+        return `<li class="timeline-stage ${state}"><label>
+          <span class="stage-marker">${state === "completed" ? "✓" : i + 1}</span>
+          <span><strong>${i + 1}. ${stage.title}</strong><small>${stage.text}</small><em>${label}</em></span>
+        </label></li>`;
+      })
+      .join("");
+    const percent = Math.round((done / stages.length) * 100);
+    $("progress-percent").textContent = percent + "%";
+    $("progress-bar").style.width = percent + "%";
+    $("route-note").textContent = ROUTE_NOTES[order.route] || ROUTE_NOTES.WASH;
+  }
 
-      if (check.checked) {
-        stage.classList.add("completed");
+  function renderDetails() {
+    const items = order.lines.reduce((total, line) => total + line.quantity, 0);
+    document.title = `Process Order #${order.orderID} | LaundryLink`;
+    // An order has one service, so any line carries it, e.g. "Order #2 - Wash and Fold".
+    const service = order.lines[0]?.serviceName;
+    $("order-title").textContent = `Order #${order.orderID}${service ? " - " + service : ""}`;
+    $("order-summary").textContent =
+      `${order.customerName} · ${items} item${items === 1 ? "" : "s"}`;
+    $("order-status").innerHTML = badge(order.statusLabel);
 
-        marker.textContent = "✓";
+    $("line-rows").innerHTML = order.lines
+      .map(
+        (line) => `<tr>
+        <td>${escape(line.itemName)}</td><td>${escape(line.serviceName)}</td><td>${line.quantity}</td>
+        <td>${line.receivedQuantity ?? '<span class="muted">Not received</span>'}</td>
+        <td>${escape(line.itemCondition || "—")}</td></tr>`,
+      )
+      .join("");
 
-        if (!note.textContent.startsWith("Completed")) {
-          note.textContent = "Completed · just now";
-        }
-        check.disabled = false;
-      } else if (i === amountDone) {
-        stage.classList.add("current");
-        marker.textContent = String(i + 1);
-        note.textContent = "Current stage";
-        check.disabled = false;
-      } else {
-        stage.classList.add("locked");
-        marker.textContent = String(i + 1);
-        note.textContent = "Waiting for previous stage";
-        check.disabled = true;
-      }
-    });
+    // What the customer asked for, in up to three parts:
+    //  - the note written when placing the order (orderInstructions);
+    //  - the preferences ticked when placing the order (orderPreferences, readable labels);
+    //  - TC-LP05: the delivery instruction saved on the customer's address, exactly as written.
+    // Text typed by the customer is escaped; pre-wrap keeps the line breaks of a longer note.
+    const asWritten = (text) =>
+      `<span style="white-space:pre-wrap;overflow-wrap:anywhere">${escape(text)}</span>`;
+    const preferences = order.orderPreferences || [];
+    const instructionParts = [];
+    if (order.orderInstructions) instructionParts.push(asWritten(order.orderInstructions));
+    if (preferences.length) {
+      instructionParts.push(
+        `<strong>Preferences</strong><br>${preferences.map((label) => escape(label)).join("<br>")}`,
+      );
+    }
+    if (order.deliveryInstruction) {
+      // When the order has no note, say so, so this heading does not sit straight under the box title.
+      if (!order.orderInstructions)
+        instructionParts.unshift('<span class="muted">No note for this order.</span>');
+      instructionParts.push(
+        `<strong>Delivery instruction</strong><br>${asWritten(order.deliveryInstruction)}`,
+      );
+    }
+    $("instruction").innerHTML = `<strong>Customer instructions</strong><br>${
+      instructionParts.length
+        ? instructionParts.join("<br><br>")
+        : '<span class="muted">No instructions.</span>'
+    }`;
 
-    var operationalDone = amountDone === checks.length;
-    var paymentDone = paid.checked;
+    $("history-rows").innerHTML = order.history.length
+      ? order.history
+          .map(
+            (h) =>
+              `<tr><td>${escape(h.fromStatus || "—")}</td><td>${escape(h.toStatus)}</td><td>${escape(dateTime(h.changedAt))}</td></tr>`,
+          )
+          .join("")
+      : '<tr><td colspan="3" class="muted">No status changes yet.</td></tr>';
 
-    if (operationalDone) {
-      status.textContent = "READY FOR DISPATCH";
-      status.className = "status status_success";
-    } else {
-      var next =
-        stages[amountDone] && stages[amountDone].querySelector("strong");
+    $("issue-list").innerHTML = order.issues.length
+      ? order.issues
+          .map(
+            (
+              issue,
+            ) => `<p class="small"><strong>${escape(issue.issueType)}</strong> · ${escape(issueItem(issue))}
+          ${badge(issue.caseStatus || "New")}<br>${escape(issue.description)}<br>
+          <span class="muted">${escape(issue.reportedBy)} · ${escape(dateTime(issue.createdAt))}</span></p>`,
+          )
+          .join("")
+      : '<p class="muted small">No issues reported.</p>';
+    $("report-link").href = `issue_reports.html?orderId=${order.orderID}#new-report`;
+  }
 
-      if (next) {
-        status.textContent = next.textContent
-          .replace(/^\d+\.\s*/, "")
-          .toUpperCase();
-      } else {
-        status.textContent = "PROCESSING";
-      }
+  /** The actions card: only what the server says is possible right now. */
+  function renderActions() {
+    const check = order.latestQualityCheck;
+    const parts = [`<h2>Next step</h2>`];
+
+    if (order.statusID === 7) {
+      parts.push(`<p class="muted">Count the items before processing starts.</p>
+        <a class="custom_button custom_button_bg" href="receive_items.html?orderId=${order.orderID}"
+          style="width:100%;text-align:center">Receive items →</a>`);
+    } else if (order.nextStatus) {
+      parts.push(`<button class="custom_button custom_button_bg" type="button" data-action="next"
+        data-status="${order.nextStatus.statusID}" style="width:100%">Move to ${escape(order.nextStatus.label)} →</button>`);
+    } else if (order.statusID === 12) {
+      parts.push(
+        `<div class="alert alert_success"><strong>Released for delivery.</strong><br>The order is waiting for a delivery rider.</div>`,
+      );
     }
 
-    dispatch.disabled = !(operationalDone && paymentDone);
+    // TC-LP09: quality check at Quality Inspection (failed -> choose a rework stage).
+    if (order.statusID === QUALITY_INSPECTION) {
+      if (check) {
+        parts.push(`<p class="small" style="margin-top:14px">Latest check: ${badge(check.result)}${check.packed ? " " + badge("Packed") : ""}
+          ${check.reworkStatusLabel ? "<br>Rework: " + escape(check.reworkStatusLabel) : ""}
+          <br><span class="muted">${escape(check.checkedBy)} · ${escape(dateTime(check.checkedAt))}</span></p>`);
+      }
+      parts.push(`<h3 style="margin-top:18px">Quality check</h3>
+        <div class="field"><label for="qc-result">Result</label>
+          <select class="input" id="qc-result"><option>Passed</option><option>Failed</option></select></div>
+        <div class="field" id="rework-field" style="display:none"><label for="qc-rework">Rework stage</label>
+          <select class="input" id="qc-rework">${order.reworkOptions.map((o) => `<option value="${o.statusID}">${escape(o.label)}</option>`).join("")}</select></div>
+        <label class="check_row" id="packed-field"><input type="checkbox" id="qc-packed" /> Order is packed</label>
+        <div class="field"><label for="qc-notes">Notes</label><textarea class="input" id="qc-notes" maxlength="250"></textarea></div>
+        <button class="custom_button custom_button_nobg" type="button" data-action="quality">Save quality check</button>`);
+      if (check && check.result === "Passed" && !check.packed) {
+        parts.push(
+          `<button class="custom_button custom_button_nobg" type="button" data-action="pack" style="margin-top:10px">Mark as packed</button>`,
+        );
+      }
 
-    if (operationalDone && paymentDone) {
-      lock.className = "alert alert_success";
-      lock.innerHTML = `
-        <strong>
-          Dispatch unlocked
-        </strong>
-        <br>
-        Processing is complete and payment is verified.
-      `;
-    } else if (operationalDone) {
-      lock.className = "alert alert_error";
-      lock.innerHTML = `
-        <strong>
-          Waiting for payment
-        </strong>
-        <br>
-        All processing is complete, but dispatch remains locked until payment is verified.
-      `;
-    } else {
-      lock.className = "alert alert_error";
-      lock.innerHTML = `
-        <strong>
-          Dispatch locked
-        </strong>
-        <br>
-        Complete all processing stages ${paymentDone ? "before dispatch." : "and verify the due payment."}
-      `;
+      // TC-LP10: the button only exists at Quality Inspection and is always clickable. The error
+      // under it stays hidden until it is pressed before the check has passed and the order is
+      // packed (see the "ready" action in the click handler).
+      parts.push(`<button class="custom_button custom_button_bg" type="button" data-action="ready"
+          style="width:100%;margin-top:18px">Mark as Ready →</button>
+        <div class="alert alert_error" id="ready-error" hidden style="margin-top:12px">
+          <strong>Not ready yet</strong><br>Pass the quality check and pack the order first.</div>`);
+    }
+
+    $("actions").innerHTML = parts.join("");
+
+    // Show the rework stage only for a failed check, and "packed" only for a passed one.
+    // (style.display is used because the site CSS sets display on these, which beats `hidden`.)
+    const result = $("qc-result");
+    if (result) {
+      result.addEventListener("change", () => {
+        const failed = result.value === "Failed";
+        $("rework-field").style.display = failed ? "" : "none";
+        $("packed-field").style.display = failed ? "none" : "";
+      });
     }
   }
 
-  //for each checkbox c at index i:
-  //  on change:
-  //    if c is now unchecked:
-  //      uncheck all checkboxes after index i  // unchecking a stage cascades forward
-  //
-  //    refresh progress bar / stages / dispatch state
-  //
-  //    if toast system exists:
-  //      show toast: "Stage completed" or "Stage reopened", with this stage's title
-  checks.forEach(function (c, i) {
-    c.addEventListener("change", function () {
-      if (!c.checked) {
-        checks.slice(i + 1).forEach(function (next) {
-          next.checked = false;
-        });
-      }
+  async function load() {
+    order = await api(`/orders/${encodeURIComponent(orderId)}`);
+    renderDetails();
+    renderTimeline();
+    renderActions();
+  }
 
-      update();
+  /** Performs a request, then reloads the order and shows a success message. */
+  async function act(request, success) {
+    order = await request();
+    renderDetails();
+    renderTimeline();
+    renderActions();
+    notice(escape(success), "success");
+  }
 
-      if (window.connectedToast) {
-        connectedToast(
-          c.checked ? "Stage completed" : "Stage reopened",
-          stages[i].querySelector("strong").textContent,
+  // One click handler for every action button in the card (they are re-created on each render).
+  $("actions").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-action]");
+    if (!button) return;
+    const id = order.orderID;
+    const actions = {
+      next: () =>
+        act(
+          () => api(`/orders/${id}/status`, "PUT", { statusID: Number(button.dataset.status) }),
+          "Order moved to the next stage.",
+        ),
+      quality: () => {
+        const failed = $("qc-result").value === "Failed";
+        return act(
+          () =>
+            api(`/orders/${id}/quality-check`, "POST", {
+              result: $("qc-result").value,
+              reworkStatusID: failed ? Number($("qc-rework").value) : null,
+              packed: !failed && $("qc-packed").checked,
+              notes: $("qc-notes").value,
+            }),
+          failed ? "Quality check failed - order sent back for rework." : "Quality check passed.",
         );
-      }
-    });
+      },
+      pack: () => act(() => api(`/orders/${id}/pack`, "POST"), "Order marked as packed."),
+      ready: () => {
+        // TC-LP10: not passed and packed yet - show why under the button instead of calling the server.
+        if (!order.readyForDispatch) {
+          $("ready-error").hidden = false;
+          return;
+        }
+        return act(
+          () => api(`/orders/${id}/ready`, "POST"),
+          "Order is now Awaiting Delivery. The customer has been notified.",
+        );
+      },
+    };
+    notice("");
+    run(actions[button.dataset.action], button);
   });
 
-  //on paid checkbox change
-  //  update payment badge text: "PAID" or "PAYMENT DUE"
-  //  update badge style: success if paid, error if not
-  //
-  //  refresh dispatch lock state
-  //
-  //  if toast system exists:
-  //    show toast: "Payment verified" or "Payment marked unpaid"
-  paid.addEventListener("change", function () {
-    var badge = document.getElementById("payment-badge");
-
-    badge.textContent = paid.checked ? "PAID" : "PAYMENT DUE";
-    badge.className = paid.checked
-      ? "status status_success"
-      : "status status_error";
-
-    update();
-
-    if (window.connectedToast) {
-      connectedToast(
-        paid.checked ? "Payment verified" : "Payment marked unpaid",
-        "Dispatch permission has been updated.",
-      );
-    }
-  });
-
-  //on clicking dispatch:
-  //  set status text to "DISPATCHED"
-  //  if toast system exists:
-  //    show toast: "Order dispatched"
-  //  disable dispatch button
-  //  change its label to "Dispatched ✓"
-  dispatch.addEventListener("click", function () {
-    status.textContent = "DISPATCHED";
-
-    if (window.connectedToast) {
-      connectedToast(
-        "Order dispatched",
-        "The order is now ready for rider assignment.",
-      );
-    }
-
-    dispatch.disabled = true;
-    dispatch.textContent = "Dispatched ✓";
-  });
-
-  //on clicking save-notes:
-  //  if toast system exists:
-  //    show toast: "Notes saved"
-  document.getElementById("save-notes").addEventListener("click", function () {
-    if (window.connectedToast) {
-      connectedToast(
-        "Notes saved",
-        "The processing note is visible to the next staff member.",
-      );
-    }
-  });
-
-  //for each item checkbox c:
-  //  on change:
-  //    count number of checked item checkboxes
-  //    update "scope-count" badge text: "X OF Y CHECKED"
-  //    badge style: success if all checked, else warning
-  var itemChecks = Array.from(document.querySelectorAll(".item-check"));
-  itemChecks.forEach(function (c) {
-    c.addEventListener("change", function () {
-      var count = itemChecks.filter(function (x) {
-        return x.checked;
-      }).length;
-      var badge = document.getElementById("scope-count");
-
-      badge.textContent = count + " OF " + itemChecks.length + " CHECKED";
-      badge.className =
-        count === itemChecks.length
-          ? "status status_success"
-          : "status status_warning";
-    });
-  });
-
-  update();
+  if (!orderId) {
+    $("order-summary").textContent = "";
+    notice(
+      'No order selected. Open an order from the <a class="link" href="processing_board.html">Processing Board</a>.',
+      "error",
+    );
+  } else {
+    run(load);
+  }
 })();

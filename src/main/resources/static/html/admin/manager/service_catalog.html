@@ -3,100 +3,158 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Service Catalog | LaundryLink</title>
+    <title>Service Catalogue | LaundryLink</title>
     <link rel="stylesheet" href="../../../css/global.css" />
     <link rel="stylesheet" href="../../../css/dashboard.css" />
-    <script src="../../../js/global-pre.js"></script>
-    <script src="../../../js/global-post.js" defer></script>
+    <link rel="stylesheet" href="../../../css/support/support.css" />
+    <script src="../../../js/global-pre.js" defer></script>
+    <script src="../../../js/support/common.js" defer></script>
   </head>
-  <body>
-    <nav class="dashboard_nav">
-      <ul class="navigation">
-        <li class="logo">
-          <a href="../owner/administration_overview.html"
-            ><h3>LaundryLink</h3></a
-          >
-        </li>
-        <li class="nav_right">
-          <a href="../owner/administration_overview.html">Dashboard</a
-          ><a href="../customer-service-manager/orders.html">Orders</a
-          ><a href="service_catalog.html">Service Catalog</a
-          ><span class="profile_badge">AD</span>
-        </li>
-      </ul>
-    </nav>
-    <main>
-      <header class="page_header top_bar">
-        <div>
-          <div class="subtitle">ADMINISTRATION</div>
-          <h1>Service Catalog</h1>
-          <p>Manage services, item prices and availability.</p>
-        </div>
-        <a
-          class="custom_button custom_button_bg"
-          href="../../public/pricing.html"
-          >+ Add service</a
-        >
+  <body data-page="service-catalog">
+    <nav class="dashboard_nav"></nav>
+    <main class="support-page">
+      <header class="page_header">
+        <div class="subtitle">ADMINISTRATION</div>
+        <h1>Service catalogue</h1>
+        <p id="identity">Connecting…</p>
       </header>
-      <div class="table_wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>SERVICE</th>
-              <th>ITEMS</th>
-              <th>TURNAROUND</th>
-              <th>STATUS</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Wash &amp; Fold</strong></td>
-              <td>12</td>
-              <td>48 hours</td>
-              <td><span class="status">ACTIVE</span></td>
-              <td>
-                <a class="link" href="../../public/pricing.html"
-                  >Edit pricing</a
-                >
-              </td>
-            </tr>
-            <tr>
-              <td><strong>Dry Cleaning</strong></td>
-              <td>18</td>
-              <td>72 hours</td>
-              <td><span class="status">ACTIVE</span></td>
-              <td>
-                <a class="link" href="../../public/pricing.html"
-                  >Edit pricing</a
-                >
-              </td>
-            </tr>
-            <tr>
-              <td><strong>Ironing</strong></td>
-              <td>10</td>
-              <td>48 hours</td>
-              <td><span class="status">ACTIVE</span></td>
-              <td>
-                <a class="link" href="../../public/pricing.html"
-                  >Edit pricing</a
-                >
-              </td>
-            </tr>
-            <tr>
-              <td><strong>Shoe Cleaning</strong></td>
-              <td>3</td>
-              <td>72 hours</td>
-              <td><span class="status">ACTIVE</span></td>
-              <td>
-                <a class="link" href="../../public/pricing.html"
-                  >Edit pricing</a
-                >
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+      <!-- The two things that can be created here. Each opens one of the pop-ups at the bottom of the
+     page; nothing is edited on the page itself. -->
+      <div class="actions">
+        <button class="custom_button custom_button_bg" id="new-service" type="button">
+          New service</button
+        ><button class="custom_button custom_button_bg" id="new-item" type="button">
+          New item
+        </button>
       </div>
+      <!-- Each row gets two buttons from common.js: "Edit service" (the service itself) and "Edit items"
+     (the prices of the items in that service). -->
+      <section class="card section">
+        <h2>Services</h2>
+        <div class="table_wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>Turnaround</th>
+                <th>Status</th>
+                <th>Priced items</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="service-rows"></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="card section">
+        <h2>Price list</h2>
+        <div class="table_wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>Item</th>
+                <th>Price</th>
+              </tr>
+            </thead>
+            <tbody id="price-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Pop-ups. "unstyled_form" switches off the white box global.css draws around every form, so the
+     dialog is the only box. The "dialog-notice" line shows a failed save inside the pop-up: the
+     page's own notice is drawn underneath an open dialog. -->
+
+      <!-- Add a service, or edit the one whose "Edit service" button was pressed. -->
+      <dialog id="service-dialog" class="catalog-dialog" aria-labelledby="service-form-title">
+        <form id="service-form" class="unstyled_form">
+          <h2 id="service-form-title">Add service</h2>
+          <div class="field">
+            <label for="service-name">Service name</label
+            ><input class="input" id="service-name" required maxlength="30" />
+          </div>
+          <div class="field">
+            <label for="service-description">Description</label
+            ><textarea class="input" id="service-description" required maxlength="250"></textarea>
+          </div>
+          <div class="field">
+            <label for="turnaround">Turnaround time (hours)</label
+            ><input
+              class="input"
+              id="turnaround"
+              type="number"
+              min="1"
+              max="720"
+              required
+              value="48"
+            />
+          </div>
+          <label
+            ><input id="service-active" type="checkbox" checked /> Available for new orders</label
+          >
+          <div class="notice error dialog-notice" role="alert" hidden></div>
+          <div class="actions">
+            <button class="custom_button custom_button_bg" type="submit">Save service</button
+            ><button class="custom_button" type="button" data-close-dialog>Cancel</button>
+          </div>
+        </form>
+      </dialog>
+
+      <!-- Change the price of an item in one service. The dropdown holds only that service's items. -->
+      <dialog id="items-dialog" class="catalog-dialog" aria-labelledby="items-title">
+        <form id="price-form" class="unstyled_form">
+          <h2 id="items-title">Edit items</h2>
+          <p class="muted small">Select an item of this service to change its price.</p>
+          <div class="field">
+            <label for="price-item">Item</label
+            ><select class="input" id="price-item" required></select>
+          </div>
+          <div class="field">
+            <label for="price">Price (LKR)</label
+            ><input class="input" id="price" type="number" min="0" step="0.01" required />
+          </div>
+          <div class="notice error dialog-notice" role="alert" hidden></div>
+          <div class="actions">
+            <button class="custom_button custom_button_bg" type="submit">Save price</button
+            ><button class="custom_button" type="button" data-close-dialog>Cancel</button>
+          </div>
+        </form>
+      </dialog>
+
+      <!-- Add an item to a service. The name box suggests the items that already exist; typing one of
+     those names adds that same item to the service instead of making a second copy. -->
+      <dialog id="item-dialog" class="catalog-dialog" aria-labelledby="item-title">
+        <form id="item-form" class="unstyled_form">
+          <h2 id="item-title">New item</h2>
+          <p class="muted small">Adds an item to a service with its price.</p>
+          <div class="field">
+            <label for="item-service">Service</label
+            ><select class="input" id="item-service" required></select>
+          </div>
+          <div class="field">
+            <label for="item-name">Item name</label
+            ><input
+              class="input"
+              id="item-name"
+              required
+              maxlength="30"
+              list="item-names"
+              autocomplete="off"
+            /><datalist id="item-names"></datalist>
+          </div>
+          <div class="field">
+            <label for="item-price">Price (LKR)</label
+            ><input class="input" id="item-price" type="number" min="0" step="0.01" required />
+          </div>
+          <div class="notice error dialog-notice" role="alert" hidden></div>
+          <div class="actions">
+            <button class="custom_button custom_button_bg" type="submit">Add item</button
+            ><button class="custom_button" type="button" data-close-dialog>Cancel</button>
+          </div>
+        </form>
+      </dialog>
     </main>
   </body>
 </html>
