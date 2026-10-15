@@ -29,7 +29,12 @@
             <h2 id="method-amount">Loading...</h2>
           </div>
         </div>
-        <form class="unstyled_form" id="payment-method-form" action="payment_checkout.html" style="padding: 0; box-shadow: none; border: 0; background: transparent">
+        <form
+          class="unstyled_form"
+          id="payment-method-form"
+          action="payment_checkout.html"
+          style="padding: 0; box-shadow: none; border: 0; background: transparent"
+        >
           <div class="grid grid_two" style="margin-top: 20px">
             <label class="card service_option" for="method-card">
               <input id="method-card" type="radio" name="paymentMethod" value="CARD" checked />
@@ -47,7 +52,9 @@
           <p class="alert alert_error" id="method-error" hidden></p>
           <div class="actions">
             <button class="custom_button custom_button_bg" type="submit">Continue</button>
-            <a class="custom_button custom_button_border" id="method-back-link" href="payments.html">Back</a>
+            <a class="custom_button custom_button_border" id="method-back-link" href="payments.html"
+              >Back</a
+            >
           </div>
         </form>
       </section>

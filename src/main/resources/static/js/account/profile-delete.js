@@ -32,7 +32,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   // managed by an administrator, so for them it stays hidden. The role comes from the same
   // endpoint the rest of the profile page uses; if it cannot be read, the section stays hidden.
   try {
-    const response = await fetch("/api/account/profile", { headers: { Accept: "application/json" } });
+    const response = await fetch("/api/account/profile", {
+      headers: { Accept: "application/json" },
+    });
     if (!response.ok || response.redirected) return;
     const profile = await response.json();
     if (!profile || profile.role !== "CUSTOMER") return;
@@ -43,17 +45,26 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // A redirect (for example to login after session expiry) is not a successful deletion.
   async function deleteAccount(passwordValue) {
-    const tokenResponse = await fetch("/api/auth/csrf", { headers: { Accept: "application/json" } });
-    if (!tokenResponse.ok || tokenResponse.redirected) throw new Error("Unable to verify this action. Sign in again and retry.");
+    const tokenResponse = await fetch("/api/auth/csrf", {
+      headers: { Accept: "application/json" },
+    });
+    if (!tokenResponse.ok || tokenResponse.redirected)
+      throw new Error("Unable to verify this action. Sign in again and retry.");
     const csrf = await tokenResponse.json();
     const response = await fetch("/api/account/profile", {
       method: "DELETE",
-      headers: { "Content-Type": "application/json", Accept: "application/json", [csrf.headerName]: csrf.token },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        [csrf.headerName]: csrf.token,
+      },
       body: JSON.stringify({ currentPassword: passwordValue }),
     });
-    if (response.redirected) throw new Error("Your session expired or this action was refused. Sign in again and retry.");
+    if (response.redirected)
+      throw new Error("Your session expired or this action was refused. Sign in again and retry.");
     const result = await response.json().catch(() => null);
-    if (!response.ok || !result) throw new Error(result?.message || "We could not deactivate your account. Try again.");
+    if (!response.ok || !result)
+      throw new Error(result?.message || "We could not deactivate your account. Try again.");
   }
 
   // Closes the pop-up and forgets what was typed, so the password never stays in the page.
@@ -103,7 +114,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       location.href = "/html/auth/login.html?logout=true";
     } catch (failure) {
       showDialogError(failure.message || "We could not delete your account. Try again.");
-      if (!dialog.open) showPageError(failure.message || "We could not deactivate your account. Try again.");
+      if (!dialog.open)
+        showPageError(failure.message || "We could not deactivate your account. Try again.");
     } finally {
       confirmButton.disabled = false;
     }

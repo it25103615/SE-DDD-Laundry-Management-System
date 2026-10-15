@@ -12,18 +12,18 @@ This is a feature-based progress slice, not a certified completion percentage. T
 
 ## Implemented slice
 
-| Requirement | Implementation |
-|---|---|
-| Complaint and feedback create/read/update/delete | Customer form, own-case list, edit and delete while New; database-backed endpoints |
-| Ratings | Feedback requires a rating from 1 to 5; complaints/questions cannot carry ratings |
-| Case management | Interactive live summary cards, search, type/status/priority/assignee filters, responsive case queue, slide-over detail workspace, pagination, assignment, priority and controlled status progression |
-| Case history and communications | Differentiated customer/support message bubbles, sending states, smooth scrolling, timestamps and a polished actor/activity timeline saved through the existing chat and audit tables |
-| User notifications | Shared bell/dropdown with unread count, mark-one/mark-all read behavior and links to the related screen; persistent events cover orders, accepted payments, rider assignments, support assignment/replies, and account/administration changes |
-| Operational administration | Database-backed service catalogue, item pricing, staff/rider/CSM accounts, deactivation, role assignment and administrative audit history |
-| Operational / financial / customer reports | Date/service filters, status breakdown, line values, recorded payment totals, top 100 customer summary, CSV export |
-| Business indicators | Database-backed order/customer/value/delivery totals and all-time support/rating summary |
-| Operational alerts | High-priority and unassigned cases, overdue pickups and orders without timeline activity |
-| Support order lookup | Paginated orders and shared status-log history |
+| Requirement                                      | Implementation                                                                                                                                                                                                                                |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Complaint and feedback create/read/update/delete | Customer form, own-case list, edit and delete while New; database-backed endpoints                                                                                                                                                            |
+| Ratings                                          | Feedback requires a rating from 1 to 5; complaints/questions cannot carry ratings                                                                                                                                                             |
+| Case management                                  | Interactive live summary cards, search, type/status/priority/assignee filters, responsive case queue, slide-over detail workspace, pagination, assignment, priority and controlled status progression                                         |
+| Case history and communications                  | Differentiated customer/support message bubbles, sending states, smooth scrolling, timestamps and a polished actor/activity timeline saved through the existing chat and audit tables                                                         |
+| User notifications                               | Shared bell/dropdown with unread count, mark-one/mark-all read behavior and links to the related screen; persistent events cover orders, accepted payments, rider assignments, support assignment/replies, and account/administration changes |
+| Operational administration                       | Database-backed service catalogue, item pricing, staff/rider/CSM accounts, deactivation, role assignment and administrative audit history                                                                                                     |
+| Operational / financial / customer reports       | Date/service filters, status breakdown, line values, recorded payment totals, top 100 customer summary, CSV export                                                                                                                            |
+| Business indicators                              | Database-backed order/customer/value/delivery totals and all-time support/rating summary                                                                                                                                                      |
+| Operational alerts                               | High-priority and unassigned cases, overdue pickups and orders without timeline activity                                                                                                                                                      |
+| Support order lookup                             | Paginated orders and shared status-log history                                                                                                                                                                                                |
 
 ## Start locally
 
@@ -83,8 +83,6 @@ Verified on 23 September 2026:
 - The assignment sample identities are login-ready with the documented demo password. Production accounts should use individual passwords created through registration or the management-login screen.
 
 See `support-structure-tests.log` for the latest run. The full-application context test now passes against SQL Server; see `database-startup-tests.log`. The remaining module tests use mocks and do not prove every SQL query or CRUD workflow. Run the integration checklist above against SQL Server after setup before describing the slice as demonstration-ready.
-
-
 
 ## Local connection fixed
 

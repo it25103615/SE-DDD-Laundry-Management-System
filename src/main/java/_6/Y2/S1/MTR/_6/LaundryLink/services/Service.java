@@ -1,3 +1,6 @@
+/* Service
+ * ENTITY: a laundry service catalogue row mapped by JPA. This class named Service is a domain entity, not a Spring business service. ServiceService contains the business logic.
+ */
 package _6.Y2.S1.MTR._6.LaundryLink.services;
 
 import jakarta.persistence.Entity;
@@ -15,13 +18,13 @@ import lombok.Setter;
 @Entity
 @Table(name = "services")
 public class Service {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer serviceID;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Integer serviceID;
 
-    private String serviceName;
+  private String serviceName;
 
-    // Switched off from the admin service catalogue when a service is no longer offered. Sent
-    // with /api/services so the customer's Choose a service page can leave such services out.
-    private Boolean active;
+  // Switched off from the admin service catalogue when a service is no longer offered. Sent
+  // with /api/services so the customer's Choose a service page can leave such services out.
+  private Boolean active;
 }

@@ -28,8 +28,16 @@
     { status: 8, title: "Verifying items", text: "Items checked, tagged and condition recorded." },
   ];
   const END = [
-    { status: QUALITY_INSPECTION, title: "Quality inspection", text: "Check item count, finish and customer instructions." },
-    { packed: true, title: "Packed and ready", text: "Seal the order and release it for delivery." },
+    {
+      status: QUALITY_INSPECTION,
+      title: "Quality inspection",
+      text: "Check item count, finish and customer instructions.",
+    },
+    {
+      packed: true,
+      title: "Packed and ready",
+      text: "Seal the order and release it for delivery.",
+    },
   ];
 
   /**
@@ -38,22 +46,38 @@
    * stages in the middle are what differs between routes.
    */
   const STAGES = {
-    WASH: [...START,
+    WASH: [
+      ...START,
       { status: 9, title: "Washing", text: "Wash every item with its selected service." },
       { status: 10, title: "Drying", text: "Dry items according to their care requirements." },
-      { status: 11, title: "Ironing and finishing", text: "Press, fold or hang items as requested." },
-      ...END],
-    DRY_CLEAN: [...START,
+      {
+        status: 11,
+        title: "Ironing and finishing",
+        text: "Press, fold or hang items as requested.",
+      },
+      ...END,
+    ],
+    DRY_CLEAN: [
+      ...START,
       { status: 19, title: "Dry cleaning", text: "Dry clean every item (no drying stage)." },
       { status: 11, title: "Ironing and finishing", text: "Press and hang items as requested." },
-      ...END],
-    SHOE_CLEAN: [...START,
+      ...END,
+    ],
+    SHOE_CLEAN: [
+      ...START,
       { status: 9, title: "Washing", text: "Clean every pair as its material requires." },
       { status: 10, title: "Drying", text: "Dry the shoes fully (no ironing stage)." },
-      ...END],
-    IRONING: [...START,
-      { status: 11, title: "Ironing and finishing", text: "Press, fold or hang items as requested." },
-      ...END],
+      ...END,
+    ],
+    IRONING: [
+      ...START,
+      {
+        status: 11,
+        title: "Ironing and finishing",
+        text: "Press, fold or hang items as requested.",
+      },
+      ...END,
+    ],
   };
 
   /** One line under the timeline describing the order's route. */
@@ -66,27 +90,30 @@
 
   /** How many timeline stages are finished, from the status and the latest quality check. */
   function completedStages(stages) {
-    if (order.statusID === 12) return stages.length;               // released: everything done
+    if (order.statusID === 12) return stages.length; // released: everything done
     const index = stages.findIndex((stage) => stage.status === order.statusID);
     if (index < 0) return 0;
     const check = order.latestQualityCheck;
     if (order.statusID === QUALITY_INSPECTION && check && check.result === "Passed") {
-      return check.packed ? index + 2 : index + 1;                 // inspection (+ packing) done
+      return check.packed ? index + 2 : index + 1; // inspection (+ packing) done
     }
-    return index;                                                  // everything before the current stage
+    return index; // everything before the current stage
   }
 
   function renderTimeline() {
     const stages = STAGES[order.route] || STAGES.WASH;
     const done = completedStages(stages);
-    $("staff-timeline").innerHTML = stages.map((stage, i) => {
-      const state = i < done ? "completed" : i === done ? "current" : "locked";
-      const label = state === "completed" ? "Completed" : state === "current" ? "Current stage" : "Locked";
-      return `<li class="timeline-stage ${state}"><label>
+    $("staff-timeline").innerHTML = stages
+      .map((stage, i) => {
+        const state = i < done ? "completed" : i === done ? "current" : "locked";
+        const label =
+          state === "completed" ? "Completed" : state === "current" ? "Current stage" : "Locked";
+        return `<li class="timeline-stage ${state}"><label>
           <span class="stage-marker">${state === "completed" ? "✓" : i + 1}</span>
           <span><strong>${i + 1}. ${stage.title}</strong><small>${stage.text}</small><em>${label}</em></span>
         </label></li>`;
-    }).join("");
+      })
+      .join("");
     const percent = Math.round((done / stages.length) * 100);
     $("progress-percent").textContent = percent + "%";
     $("progress-bar").style.width = percent + "%";
@@ -99,42 +126,67 @@
     // An order has one service, so any line carries it, e.g. "Order #2 - Wash and Fold".
     const service = order.lines[0]?.serviceName;
     $("order-title").textContent = `Order #${order.orderID}${service ? " - " + service : ""}`;
-    $("order-summary").textContent = `${order.customerName} · ${items} item${items === 1 ? "" : "s"}`;
+    $("order-summary").textContent =
+      `${order.customerName} · ${items} item${items === 1 ? "" : "s"}`;
     $("order-status").innerHTML = badge(order.statusLabel);
 
-    $("line-rows").innerHTML = order.lines.map((line) => `<tr>
+    $("line-rows").innerHTML = order.lines
+      .map(
+        (line) => `<tr>
         <td>${escape(line.itemName)}</td><td>${escape(line.serviceName)}</td><td>${line.quantity}</td>
         <td>${line.receivedQuantity ?? '<span class="muted">Not received</span>'}</td>
-        <td>${escape(line.itemCondition || "—")}</td></tr>`).join("");
+        <td>${escape(line.itemCondition || "—")}</td></tr>`,
+      )
+      .join("");
 
     // What the customer asked for, in up to three parts:
     //  - the note written when placing the order (orderInstructions);
     //  - the preferences ticked when placing the order (orderPreferences, readable labels);
     //  - TC-LP05: the delivery instruction saved on the customer's address, exactly as written.
     // Text typed by the customer is escaped; pre-wrap keeps the line breaks of a longer note.
-    const asWritten = (text) => `<span style="white-space:pre-wrap;overflow-wrap:anywhere">${escape(text)}</span>`;
+    const asWritten = (text) =>
+      `<span style="white-space:pre-wrap;overflow-wrap:anywhere">${escape(text)}</span>`;
     const preferences = order.orderPreferences || [];
     const instructionParts = [];
     if (order.orderInstructions) instructionParts.push(asWritten(order.orderInstructions));
     if (preferences.length) {
-      instructionParts.push(`<strong>Preferences</strong><br>${preferences.map((label) => escape(label)).join("<br>")}`);
+      instructionParts.push(
+        `<strong>Preferences</strong><br>${preferences.map((label) => escape(label)).join("<br>")}`,
+      );
     }
     if (order.deliveryInstruction) {
       // When the order has no note, say so, so this heading does not sit straight under the box title.
-      if (!order.orderInstructions) instructionParts.unshift('<span class="muted">No note for this order.</span>');
-      instructionParts.push(`<strong>Delivery instruction</strong><br>${asWritten(order.deliveryInstruction)}`);
+      if (!order.orderInstructions)
+        instructionParts.unshift('<span class="muted">No note for this order.</span>');
+      instructionParts.push(
+        `<strong>Delivery instruction</strong><br>${asWritten(order.deliveryInstruction)}`,
+      );
     }
     $("instruction").innerHTML = `<strong>Customer instructions</strong><br>${
-      instructionParts.length ? instructionParts.join("<br><br>") : '<span class="muted">No instructions.</span>'}`;
+      instructionParts.length
+        ? instructionParts.join("<br><br>")
+        : '<span class="muted">No instructions.</span>'
+    }`;
 
     $("history-rows").innerHTML = order.history.length
-      ? order.history.map((h) => `<tr><td>${escape(h.fromStatus || "—")}</td><td>${escape(h.toStatus)}</td><td>${escape(dateTime(h.changedAt))}</td></tr>`).join("")
+      ? order.history
+          .map(
+            (h) =>
+              `<tr><td>${escape(h.fromStatus || "—")}</td><td>${escape(h.toStatus)}</td><td>${escape(dateTime(h.changedAt))}</td></tr>`,
+          )
+          .join("")
       : '<tr><td colspan="3" class="muted">No status changes yet.</td></tr>';
 
     $("issue-list").innerHTML = order.issues.length
-      ? order.issues.map((issue) => `<p class="small"><strong>${escape(issue.issueType)}</strong> · ${escape(issueItem(issue))}
+      ? order.issues
+          .map(
+            (
+              issue,
+            ) => `<p class="small"><strong>${escape(issue.issueType)}</strong> · ${escape(issueItem(issue))}
           ${badge(issue.caseStatus || "New")}<br>${escape(issue.description)}<br>
-          <span class="muted">${escape(issue.reportedBy)} · ${escape(dateTime(issue.createdAt))}</span></p>`).join("")
+          <span class="muted">${escape(issue.reportedBy)} · ${escape(dateTime(issue.createdAt))}</span></p>`,
+          )
+          .join("")
       : '<p class="muted small">No issues reported.</p>';
     $("report-link").href = `issue_reports.html?orderId=${order.orderID}#new-report`;
   }
@@ -152,7 +204,9 @@
       parts.push(`<button class="custom_button custom_button_bg" type="button" data-action="next"
         data-status="${order.nextStatus.statusID}" style="width:100%">Move to ${escape(order.nextStatus.label)} →</button>`);
     } else if (order.statusID === 12) {
-      parts.push(`<div class="alert alert_success"><strong>Released for delivery.</strong><br>The order is waiting for a delivery rider.</div>`);
+      parts.push(
+        `<div class="alert alert_success"><strong>Released for delivery.</strong><br>The order is waiting for a delivery rider.</div>`,
+      );
     }
 
     // TC-LP09: quality check at Quality Inspection (failed -> choose a rework stage).
@@ -171,7 +225,9 @@
         <div class="field"><label for="qc-notes">Notes</label><textarea class="input" id="qc-notes" maxlength="250"></textarea></div>
         <button class="custom_button custom_button_nobg" type="button" data-action="quality">Save quality check</button>`);
       if (check && check.result === "Passed" && !check.packed) {
-        parts.push(`<button class="custom_button custom_button_nobg" type="button" data-action="pack" style="margin-top:10px">Mark as packed</button>`);
+        parts.push(
+          `<button class="custom_button custom_button_nobg" type="button" data-action="pack" style="margin-top:10px">Mark as packed</button>`,
+        );
       }
 
       // TC-LP10: the button only exists at Quality Inspection and is always clickable. The error
@@ -219,16 +275,23 @@
     if (!button) return;
     const id = order.orderID;
     const actions = {
-      next: () => act(() => api(`/orders/${id}/status`, "PUT", { statusID: Number(button.dataset.status) }),
-        "Order moved to the next stage."),
+      next: () =>
+        act(
+          () => api(`/orders/${id}/status`, "PUT", { statusID: Number(button.dataset.status) }),
+          "Order moved to the next stage.",
+        ),
       quality: () => {
         const failed = $("qc-result").value === "Failed";
-        return act(() => api(`/orders/${id}/quality-check`, "POST", {
-          result: $("qc-result").value,
-          reworkStatusID: failed ? Number($("qc-rework").value) : null,
-          packed: !failed && $("qc-packed").checked,
-          notes: $("qc-notes").value,
-        }), failed ? "Quality check failed - order sent back for rework." : "Quality check passed.");
+        return act(
+          () =>
+            api(`/orders/${id}/quality-check`, "POST", {
+              result: $("qc-result").value,
+              reworkStatusID: failed ? Number($("qc-rework").value) : null,
+              packed: !failed && $("qc-packed").checked,
+              notes: $("qc-notes").value,
+            }),
+          failed ? "Quality check failed - order sent back for rework." : "Quality check passed.",
+        );
       },
       pack: () => act(() => api(`/orders/${id}/pack`, "POST"), "Order marked as packed."),
       ready: () => {
@@ -237,8 +300,10 @@
           $("ready-error").hidden = false;
           return;
         }
-        return act(() => api(`/orders/${id}/ready`, "POST"),
-          "Order is now Awaiting Delivery. The customer has been notified.");
+        return act(
+          () => api(`/orders/${id}/ready`, "POST"),
+          "Order is now Awaiting Delivery. The customer has been notified.",
+        );
       },
     };
     notice("");
@@ -247,7 +312,10 @@
 
   if (!orderId) {
     $("order-summary").textContent = "";
-    notice('No order selected. Open an order from the <a class="link" href="processing_board.html">Processing Board</a>.', "error");
+    notice(
+      'No order selected. Open an order from the <a class="link" href="processing_board.html">Processing Board</a>.',
+      "error",
+    );
   } else {
     run(load);
   }

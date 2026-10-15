@@ -1,88 +1,94 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Order Lookup | LaundryLink</title>
-<link rel="stylesheet" href="../../../css/global.css">
-<link rel="stylesheet" href="../../../css/dashboard.css">
-<link rel="stylesheet" href="../../../css/support/support.css">
-<script src="../../../js/global-pre.js" defer>
-</script>
-<script src="../../../js/support/common.js" defer>
-</script>
-<script src="../../../js/support/orders.js" defer>
-</script>
-</head>
-<body data-page="orders">
-<nav class="dashboard_nav"></nav>
-<main class="support-page">
-<header class="page_header">
-<div class="subtitle">ADMINISTRATION</div>
-<h1>Order lookup</h1>
-<p id="identity">Connecting…</p>
-</header>
-<div id="notice" class="notice" role="status" aria-live="polite" hidden>
-</div>
-<!-- order-filters lays the form out as four columns (support.css). The two search boxes take
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Order Lookup | LaundryLink</title>
+    <link rel="stylesheet" href="../../../css/global.css" />
+    <link rel="stylesheet" href="../../../css/dashboard.css" />
+    <link rel="stylesheet" href="../../../css/support/support.css" />
+    <script src="../../../js/global-pre.js" defer></script>
+    <script src="../../../js/support/common.js" defer></script>
+    <script src="../../../js/support/orders.js" defer></script>
+  </head>
+  <body data-page="orders">
+    <nav class="dashboard_nav"></nav>
+    <main class="support-page">
+      <header class="page_header">
+        <div class="subtitle">ADMINISTRATION</div>
+        <h1>Order lookup</h1>
+        <p id="identity">Connecting…</p>
+      </header>
+      <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+      <!-- order-filters lays the form out as four columns (support.css). The two search boxes take
      two columns each; the three filters and the buttons take one each on the row below. -->
-<form id="order-search" class="toolbar order-filters">
-<div class="field search-field">
-<label for="order-id">Order ID</label>
-<input class="input" id="order-id" type="number" min="1" step="1" placeholder="Any order">
-</div>
-<div class="field search-field">
-<label for="customer">Customer name</label>
-<input class="input" id="customer" type="search" maxlength="100" placeholder="Any customer">
-</div>
-<!-- Filters. All of them are optional and can be combined. The status options are filled in
+      <form id="order-search" class="toolbar order-filters">
+        <div class="field search-field">
+          <label for="order-id">Order ID</label>
+          <input
+            class="input"
+            id="order-id"
+            type="number"
+            min="1"
+            step="1"
+            placeholder="Any order"
+          />
+        </div>
+        <div class="field search-field">
+          <label for="customer">Customer name</label>
+          <input
+            class="input"
+            id="customer"
+            type="search"
+            maxlength="100"
+            placeholder="Any customer"
+          />
+        </div>
+        <!-- Filters. All of them are optional and can be combined. The status options are filled in
      by orders.js. Leaving one of the two dates empty searches "on or after" / "on or before". -->
-<div class="field">
-<label for="status">Status</label>
-<select class="input" id="status">
-<option value="">All statuses</option>
-</select>
-</div>
-<div class="field">
-<label for="from">Placed from</label>
-<input class="input" id="from" type="date">
-</div>
-<div class="field">
-<label for="to">Placed until</label>
-<input class="input" id="to" type="date">
-</div>
-<div class="filter-buttons">
-<button class="custom_button custom_button_bg" type="submit">Find orders</button>
-<button class="custom_button filter-reset" id="clear" type="button">Clear</button>
-</div>
-</form>
-<div class="table_wrap">
-<table>
-<thead>
-<tr>
-<th>Order</th>
-<th>Customer</th>
-<th>Status</th>
-<th>Order placed date</th>
-<th>Order value</th>
-<th>History</th>
-</tr>
-</thead>
-<tbody id="orders">
-</tbody>
-</table>
-</div>
-<div class="actions">
-<button class="custom_button" id="previous">Previous</button>
-<span id="page-label">
-</span>
-<button class="custom_button" id="next">Next</button>
-</div>
-<section class="card section" id="order-history" hidden>
-<h2 id="history-title">Order history</h2>
-<div id="history">
-</div>
-</section>
-</main>
-</body>
+        <div class="field">
+          <label for="status">Status</label>
+          <select class="input" id="status">
+            <option value="">All statuses</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="from">Placed from</label>
+          <input class="input" id="from" type="date" />
+        </div>
+        <div class="field">
+          <label for="to">Placed until</label>
+          <input class="input" id="to" type="date" />
+        </div>
+        <div class="filter-buttons">
+          <button class="custom_button custom_button_bg" type="submit">Find orders</button>
+          <button class="custom_button filter-reset" id="clear" type="button">Clear</button>
+        </div>
+      </form>
+      <div class="table_wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Customer</th>
+              <th>Status</th>
+              <th>Order placed date</th>
+              <th>Order value</th>
+              <th>History</th>
+            </tr>
+          </thead>
+          <tbody id="orders"></tbody>
+        </table>
+      </div>
+      <div class="actions">
+        <button class="custom_button" id="previous">Previous</button>
+        <span id="page-label"> </span>
+        <button class="custom_button" id="next">Next</button>
+      </div>
+      <section class="card section" id="order-history" tabindex="-1" aria-labelledby="history-title" hidden>
+        <h2 id="history-title">Order history</h2>
+        <div id="history" role="status" aria-live="polite"></div>
+      </section>
+    </main>
+  </body>
 </html>

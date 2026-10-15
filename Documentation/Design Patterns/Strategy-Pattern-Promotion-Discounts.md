@@ -23,13 +23,13 @@ Every new discount type would have meant editing this method and adding another 
 
 ## Solution
 
-| Pattern role | Lecture example | LaundryLink class |
-| --- | --- | --- |
-| Strategy interface | `PaymentStrategy` | `DiscountStrategy` |
-| Concrete strategy | `CreditCardPayment` | `PercentageDiscountStrategy` |
-| Concrete strategy | `PayPalPayment` | `FixedAmountDiscountStrategy` |
-| Context | `ShoppingCart` | `PromotionService` (`calculateDiscount`) |
-| Client (picks the strategy) | Code that calls `setPaymentStrategy` | `DiscountType` enum |
+| Pattern role                | Lecture example                      | LaundryLink class                        |
+| --------------------------- | ------------------------------------ | ---------------------------------------- |
+| Strategy interface          | `PaymentStrategy`                    | `DiscountStrategy`                       |
+| Concrete strategy           | `CreditCardPayment`                  | `PercentageDiscountStrategy`             |
+| Concrete strategy           | `PayPalPayment`                      | `FixedAmountDiscountStrategy`            |
+| Context                     | `ShoppingCart`                       | `PromotionService` (`calculateDiscount`) |
+| Client (picks the strategy) | Code that calls `setPaymentStrategy` | `DiscountType` enum                      |
 
 ```mermaid
 classDiagram
@@ -83,13 +83,13 @@ The strategy sits on the enum rather than being injected as a Spring bean, so th
 
 The refactor does not change any discount amount, API response, database column or front-end code.
 
-| Rule | Example | Discount |
-| --- | --- | --- |
-| Percentage is a share of the subtotal | 10% on 1000.00 | 100.00 |
-| Percentage rounds to 2 decimals, half up | 15% on 333.33 | 50.00 |
-| Fixed amount ignores the subtotal | 200 off on 1000.00 | 200 |
-| Discount never exceeds the subtotal | 500 off on 300.00 | 300.00 |
-| Null or negative subtotal is rejected | subtotal of -1 | `IllegalArgumentException` |
+| Rule                                     | Example            | Discount                   |
+| ---------------------------------------- | ------------------ | -------------------------- |
+| Percentage is a share of the subtotal    | 10% on 1000.00     | 100.00                     |
+| Percentage rounds to 2 decimals, half up | 15% on 333.33      | 50.00                      |
+| Fixed amount ignores the subtotal        | 200 off on 1000.00 | 200                        |
+| Discount never exceeds the subtotal      | 500 off on 300.00  | 300.00                     |
+| Null or negative subtotal is rejected    | subtotal of -1     | `IllegalArgumentException` |
 
 ## Tests
 

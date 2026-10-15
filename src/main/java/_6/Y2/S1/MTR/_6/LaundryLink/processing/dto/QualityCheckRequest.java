@@ -1,3 +1,7 @@
+/* QualityCheckRequest
+ * DTO: carries request/response data across a layer/API boundary. Validation annotations constrain input; this object is not automatically a database table.
+ *
+ */
 package _6.Y2.S1.MTR._6.LaundryLink.processing.dto;
 
 import jakarta.validation.constraints.NotNull;
@@ -12,14 +16,9 @@ import jakarta.validation.constraints.Size;
  * because they depend on the order's route.
  */
 public record QualityCheckRequest(
-        @NotNull(message = "is required")
+    @NotNull(message = "is required")
         @Pattern(regexp = "Passed|Failed", message = "must be Passed or Failed")
         String result,
-
-        Integer reworkStatusID,
-
-        Boolean packed,
-
-        @Size(max = 250, message = "must be at most 250 characters")
-        String notes) {
-}
+    Integer reworkStatusID,
+    Boolean packed,
+    @Size(max = 250, message = "must be at most 250 characters") String notes) {}

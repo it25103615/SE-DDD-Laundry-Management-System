@@ -1,16 +1,19 @@
+/* ServiceService
+ * SERVICE: business rules and orchestration. Constructor-injected collaborators show composition and dependency injection; private fields encapsulate dependencies.
+ */
 package _6.Y2.S1.MTR._6.LaundryLink.services;
 
 import java.util.List;
 
 @org.springframework.stereotype.Service
 public class ServiceService {
-    private final ServiceRepository repo;
+  private final ServiceRepository repo;
 
-    public ServiceService(ServiceRepository repo) {
-        this.repo = repo;
-    }
+  public ServiceService(ServiceRepository repo) {
+    this.repo = repo;
+  }
 
-    public List<Service> getAllServices() {
-        return repo.findAll();
-    }
+  public List<Service> getAllServices() {
+    return repo.findAll();
+  }
 }

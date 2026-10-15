@@ -16,27 +16,15 @@
         <div class="subtitle">WELCOME BACK</div>
         <h1>Log in</h1>
         <p class="muted">Log in to manage your orders.</p>
-        <div
-          id="login-error"
-          class="alert alert_error form_message"
-          role="alert"
-        >
+        <div id="login-error" class="alert alert_error form_message" role="alert">
           We could not log you in. Check your email and password.
         </div>
         <!-- Shown after the Log out button redirects here with ?logout=true -->
-        <div
-          id="logout-message"
-          class="alert alert_success form_message"
-          role="status"
-        >
+        <div id="logout-message" class="alert alert_success form_message" role="status">
           You have been signed out.
         </div>
         <!-- Shown after register.js redirects here with ?registered=true -->
-        <div
-          id="registered-message"
-          class="alert alert_success form_message"
-          role="status"
-        >
+        <div id="registered-message" class="alert alert_success form_message" role="status">
           Your account was created successfully. You can now log in.
         </div>
         <form action="/login" method="post">
@@ -65,13 +53,9 @@
             />
           </div>
           <p style="text-align: right">
-            <a class="link small" href="forgot_password.html"
-              >Forgot password?</a
-            >
+            <a class="link small" href="forgot_password.html">Forgot password?</a>
           </p>
-          <button class="custom_button custom_button_bg" type="submit">
-            Log In
-          </button>
+          <button class="custom_button custom_button_bg" type="submit">Log In</button>
           <input type="hidden" name="_csrf" id="csrf-token" />
         </form>
         <p class="auth_prompt">
@@ -90,9 +74,7 @@
           field.value = csrf.token;
         });
       const query = new URLSearchParams(location.search);
-      document.getElementById("login-error").style.display = query.has("error")
-        ? "block"
-        : "none";
+      document.getElementById("login-error").style.display = query.has("error") ? "block" : "none";
       // Confirm a sign-out, unless a failed login attempt is being reported instead
       document.getElementById("logout-message").style.display =
         query.has("logout") && !query.has("error") ? "block" : "none";

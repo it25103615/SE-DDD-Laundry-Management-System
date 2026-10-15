@@ -1,0 +1,52 @@
+/* A front-loading washer: tumble, open its door, then zoom through the drum. */
+.laundry-intro {
+  position: fixed; inset: 0; z-index: 10000; overflow: hidden;
+  display: grid; place-content: center; justify-items: center;
+  visibility: hidden; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 45%, #fff 10%, #e7f3fa 65%, #d6e7f1);
+}
+.wash-playing { overflow: hidden; }
+.wash-playing .laundry-intro { visibility: visible; pointer-events: auto; animation: wash-reveal 5.2s linear both; }
+.intro-washer {
+  position: relative; width: min(420px, 76vw, 64vh); aspect-ratio: .88;
+  border-radius: 16px; border: 1px solid #c8d6df;
+  background: linear-gradient(115deg, #fff, #f6f8fa 55%, #dce4ea);
+  box-shadow: 8px 22px 45px #294e6930, inset -9px 0 0 #d5dee5, inset 0 3px 2px white;
+  transform-origin: 50% 57%;
+}
+.washer-console { position: absolute; inset: 0 0 auto; height: 18%; display: flex; align-items: center; justify-content: space-around; padding: 0 8%; border-bottom: 1px solid #cbd5dd; }
+.washer-drawer { width: 30%; height: 34%; border: 1px solid #b6c6d1; border-radius: 4px; background: linear-gradient(#f8fbfd, #dce4ea); box-shadow: inset 0 3px 2px #b9c7d5; }
+.washer-dial { width: 12%; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(#fff, #a7b6c2, #fff, #bdcbd5, #fff); border: 2px solid #879daa; box-shadow: 1px 3px 5px #48607840; position: relative; }
+.washer-dial::after { content: ''; position: absolute; left: 46%; top: 9%; height: 22%; width: 8%; background: #426176; border-radius: 2px; }
+.washer-display { background: #172d39; color: #99e7fb; padding: 9px 12px; border-radius: 5px; font: 9px "Segoe UI", sans-serif; letter-spacing: .1em; box-shadow: inset 0 0 5px #0008; }
+.washer-display b { display: block; font: 19px monospace; margin-top: 2px; }
+.washer-opening {
+  position: absolute; width: 73%; aspect-ratio: 1; left: 13.5%; top: 23%;
+  border: 10px solid #bcc6ce; border-radius: 50%; background: #102434;
+  box-shadow: 0 0 0 3px #f7fcff, 0 0 0 6px #82929e, 0 8px 14px #52687a40;
+  perspective: 900px;
+}
+.washer-drum { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; background: #163046; }
+.washer-drum img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.washer-door {
+  position: absolute; inset: -4%; border: 14px solid #d0d8de; border-radius: 50%; transform-origin: 0 50%;
+  background: radial-gradient(ellipse at 25% 15%, #ffffff60, transparent 35%), linear-gradient(135deg, #ffffff08, #17374728);
+  box-shadow: inset 0 0 0 3px #7f929f, inset 2px 3px 6px #fff, 0 4px 9px #163b5550;
+}
+.washer-handle { position: absolute; right: 0; top: 39%; height: 23%; width: 9px; border-radius: 9px; background: linear-gradient(90deg, #667a89, #dbe5eb); }
+.washer-brand { position: absolute; bottom: 7%; width: 100%; text-align: center; color: #617785; font: 600 12px "Segoe UI", sans-serif; letter-spacing: .08em; }
+.wash-playing .washer-drum { animation: washer-tumble 3s cubic-bezier(.25,.15,.3,1) both, drum-reveal 5.2s ease both; }
+.wash-playing .washer-door { animation: washer-open 5.2s ease-in-out both; }
+.wash-playing .intro-washer { animation: washer-zoom 5.2s cubic-bezier(.55,0,.3,1) both; }
+@keyframes washer-tumble { 0% { transform: rotate(0); } 100% { transform: rotate(720deg); } }
+@keyframes washer-open { 0%, 57% { transform: rotateY(0); } 76%, 100% { transform: rotateY(-110deg); } }
+@keyframes washer-zoom { 0%, 74% { transform: scale(1); } 100% { transform: scale(7); } }
+@keyframes drum-reveal { 0%, 78% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes wash-reveal { 0%, 83% { opacity: 1; } 100% { opacity: 0; } }
+.laundry-intro > p { position: absolute; bottom: 8%; width: 100%; margin: 0; text-align: center; color: #326981; font: 500 16px "Segoe UI", sans-serif; pointer-events: none; }
+.wash-playing .laundry-intro > p { animation: wash-caption 5.2s ease both; }
+@keyframes wash-caption { 0%, 65% { opacity: 1; } 78%, 100% { opacity: 0; } }
+.laundry-replay { position: absolute; top: 24px; right: 24px; padding: 10px 18px; border: 1px solid #bdd4e2; border-radius: 20px; background: #ffffffed; color: #256784; font: 14px "Segoe UI", sans-serif; cursor: pointer; }
+.laundry-replay:hover { background: #e9f8ff; }
+.laundry-replay:focus-visible { outline: 3px solid #57c1ea; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .laundry-intro { display: none; } .wash-playing { overflow: visible; } }

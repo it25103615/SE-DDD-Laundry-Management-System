@@ -23,62 +23,62 @@ Base: `src/main/java/_6/Y2/S1/MTR/_6/LaundryLink/`
 
 #### `account/` — Vipusha V. — user and account management
 
-| Old path | New path | Notes |
-|---|---|---|
-| `controller/account/AuthController.java` | `account/AuthController.java` |  |
-| `controller/account/CustomerDashboardController.java` | `account/CustomerDashboardController.java` |  |
-| `controller/account/ProfileController.java` | `account/ProfileController.java` |  |
-| `dto/account/ProfileRequests.java` | `account/dto/ProfileRequests.java` |  |
-| `dto/account/RegistrationRequest.java` | `account/dto/CustomerRegistrationRequest.java` | **Renamed** from `RegistrationRequest` (the name clashed with the existing `account/dto/RegistrationRequest`) |
-| `service/account/AccountService.java` | `account/AccountProfileService.java` | **Renamed** from `AccountService` (the name clashed with the existing `account/AccountService` interface) |
+| Old path                                              | New path                                       | Notes                                                                                                         |
+| ----------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `controller/account/AuthController.java`              | `account/AuthController.java`                  |                                                                                                               |
+| `controller/account/CustomerDashboardController.java` | `account/CustomerDashboardController.java`     |                                                                                                               |
+| `controller/account/ProfileController.java`           | `account/ProfileController.java`               |                                                                                                               |
+| `dto/account/ProfileRequests.java`                    | `account/dto/ProfileRequests.java`             |                                                                                                               |
+| `dto/account/RegistrationRequest.java`                | `account/dto/CustomerRegistrationRequest.java` | **Renamed** from `RegistrationRequest` (the name clashed with the existing `account/dto/RegistrationRequest`) |
+| `service/account/AccountService.java`                 | `account/AccountProfileService.java`           | **Renamed** from `AccountService` (the name clashed with the existing `account/AccountService` interface)     |
 
 #### `rider/` — Lathurshan S. — pickup and delivery
 
-| Old path | New path | Notes |
-|---|---|---|
-| `controller/rider/RiderController.java` | `rider/RiderController.java` |  |
-| `dto/rider/FailureRequest.java` | `rider/dto/FailureRequest.java` |  |
-| `dto/rider/RiderTaskDTO.java` | `rider/dto/RiderTaskDTO.java` |  |
-| `repository/rider/RiderRepository.java` | `rider/RiderRepository.java` |  |
-| `service/rider/RiderService.java` | `rider/RiderService.java` |  |
+| Old path                                | New path                        | Notes |
+| --------------------------------------- | ------------------------------- | ----- |
+| `controller/rider/RiderController.java` | `rider/RiderController.java`    |       |
+| `dto/rider/FailureRequest.java`         | `rider/dto/FailureRequest.java` |       |
+| `dto/rider/RiderTaskDTO.java`           | `rider/dto/RiderTaskDTO.java`   |       |
+| `repository/rider/RiderRepository.java` | `rider/RiderRepository.java`    |       |
+| `service/rider/RiderService.java`       | `rider/RiderService.java`       |       |
 
 #### `support/` — Agksheya B. — reporting, administration and customer support
 
-| Old path | New path | Notes |
-|---|---|---|
-| `controller/support/SupportController.java` | `support/SupportController.java` |  |
-| `dto/support/SupportRequests.java` | `support/dto/SupportRequests.java` |  |
-| `exception/support/SupportErrors.java` | `support/SupportErrors.java` |  |
-| `repository/support/SupportRepository.java` | `support/SupportRepository.java` |  |
-| `security/support/SupportAccess.java` | `support/SupportAccess.java` |  |
-| `service/support/AdministrationService.java` | `support/AdministrationService.java` |  |
-| `service/support/ReportService.java` | `support/ReportService.java` |  |
-| `service/support/SupportService.java` | `support/SupportService.java` |  |
+| Old path                                     | New path                             | Notes |
+| -------------------------------------------- | ------------------------------------ | ----- |
+| `controller/support/SupportController.java`  | `support/SupportController.java`     |       |
+| `dto/support/SupportRequests.java`           | `support/dto/SupportRequests.java`   |       |
+| `exception/support/SupportErrors.java`       | `support/SupportErrors.java`         |       |
+| `repository/support/SupportRepository.java`  | `support/SupportRepository.java`     |       |
+| `security/support/SupportAccess.java`        | `support/SupportAccess.java`         |       |
+| `service/support/AdministrationService.java` | `support/AdministrationService.java` |       |
+| `service/support/ReportService.java`         | `support/ReportService.java`         |       |
+| `service/support/SupportService.java`        | `support/SupportService.java`        |       |
 
 #### `status/` — Shared integration code — order statuses
 
-| Old path | New path | Notes |
-|---|---|---|
-| `controller/shared/StatusController.java` | `status/StatusController.java` |  |
-| `entity/shared/Status.java` | `status/Status.java` |  |
-| `repository/shared/StatusRepository.java` | `status/StatusRepository.java` |  |
-| `service/shared/StatusService.java` | `status/StatusService.java` |  |
+| Old path                                  | New path                       | Notes |
+| ----------------------------------------- | ------------------------------ | ----- |
+| `controller/shared/StatusController.java` | `status/StatusController.java` |       |
+| `entity/shared/Status.java`               | `status/Status.java`           |       |
+| `repository/shared/StatusRepository.java` | `status/StatusRepository.java` |       |
+| `service/shared/StatusService.java`       | `status/StatusService.java`    |       |
 
 #### `log/` — Shared integration code — order status logs
 
-| Old path | New path | Notes |
-|---|---|---|
-| `controller/shared/LogController.java` | `log/LogController.java` |  |
-| `entity/shared/Log.java` | `log/Log.java` | Now imports `status.Status` (previously same package) |
-| `repository/shared/LogRepository.java` | `log/LogRepository.java` |  |
-| `service/shared/LogService.java` | `log/LogService.java` |  |
+| Old path                               | New path                 | Notes                                                 |
+| -------------------------------------- | ------------------------ | ----------------------------------------------------- |
+| `controller/shared/LogController.java` | `log/LogController.java` |                                                       |
+| `entity/shared/Log.java`               | `log/Log.java`           | Now imports `status.Status` (previously same package) |
+| `repository/shared/LogRepository.java` | `log/LogRepository.java` |                                                       |
+| `service/shared/LogService.java`       | `log/LogService.java`    |                                                       |
 
 #### `notification/` — Shared integration code — notification inbox
 
-| Old path | New path | Notes |
-|---|---|---|
-| `controller/shared/NotificationController.java` | `notification/NotificationController.java` |  |
-| `service/shared/NotificationService.java` | `notification/NotificationService.java` |  |
+| Old path                                        | New path                                   | Notes |
+| ----------------------------------------------- | ------------------------------------------ | ----- |
+| `controller/shared/NotificationController.java` | `notification/NotificationController.java` |       |
+| `service/shared/NotificationService.java`       | `notification/NotificationService.java`    |       |
 
 ### Tests
 
@@ -86,55 +86,55 @@ Base: `src/test/java/_6/Y2/S1/MTR/_6/LaundryLink/`
 
 #### `account/` — Vipusha V. — user and account management
 
-| Old path | New path | Notes |
-|---|---|---|
-| `dto/account/ProfilePasswordTest.java` | `account/dto/ProfilePasswordTest.java` |  |
+| Old path                                   | New path                                           | Notes                                                           |
+| ------------------------------------------ | -------------------------------------------------- | --------------------------------------------------------------- |
+| `dto/account/ProfilePasswordTest.java`     | `account/dto/ProfilePasswordTest.java`             |                                                                 |
 | `dto/account/RegistrationRequestTest.java` | `account/dto/CustomerRegistrationRequestTest.java` | **Renamed** from `RegistrationRequestTest`, following its class |
 
 #### `rider/` — Lathurshan S. — pickup and delivery
 
-| Old path | New path | Notes |
-|---|---|---|
-| `service/rider/RiderServiceTest.java` | `rider/RiderServiceTest.java` |  |
+| Old path                              | New path                      | Notes |
+| ------------------------------------- | ----------------------------- | ----- |
+| `service/rider/RiderServiceTest.java` | `rider/RiderServiceTest.java` |       |
 
 #### `support/` — Agksheya B. — reporting, administration and customer support
 
-| Old path | New path | Notes |
-|---|---|---|
-| `controller/support/SupportControllerTest.java` | `support/SupportControllerTest.java` |  |
-| `security/support/SupportAccessTest.java` | `support/SupportAccessTest.java` |  |
-| `service/support/AdministrationServiceTest.java` | `support/AdministrationServiceTest.java` |  |
-| `service/support/SupportServiceTest.java` | `support/SupportServiceTest.java` |  |
+| Old path                                         | New path                                 | Notes |
+| ------------------------------------------------ | ---------------------------------------- | ----- |
+| `controller/support/SupportControllerTest.java`  | `support/SupportControllerTest.java`     |       |
+| `security/support/SupportAccessTest.java`        | `support/SupportAccessTest.java`         |       |
+| `service/support/AdministrationServiceTest.java` | `support/AdministrationServiceTest.java` |       |
+| `service/support/SupportServiceTest.java`        | `support/SupportServiceTest.java`        |       |
 
 ## Package lookup (for fixing imports)
 
 Package names are relative to the base package `_6.Y2.S1.MTR._6.LaundryLink`.
 
-| Old package | New package | Classes |
-|---|---|---|
-| `controller.account` | `account` | `AuthController`, `CustomerDashboardController`, `ProfileController` |
-| `controller.rider` | `rider` | `RiderController` |
-| `controller.shared` | `log` | `LogController` |
-| `controller.shared` | `notification` | `NotificationController` |
-| `controller.shared` | `status` | `StatusController` |
-| `controller.support` | `support` | `SupportController` |
-| `dto.account` | `account.dto` | `ProfileRequests`, RegistrationRequest → **CustomerRegistrationRequest** |
-| `dto.rider` | `rider.dto` | `FailureRequest`, `RiderTaskDTO` |
-| `dto.support` | `support.dto` | `SupportRequests` |
-| `entity.shared` | `log` | `Log` |
-| `entity.shared` | `status` | `Status` |
-| `exception.support` | `support` | `SupportErrors` |
-| `repository.rider` | `rider` | `RiderRepository` |
-| `repository.shared` | `log` | `LogRepository` |
-| `repository.shared` | `status` | `StatusRepository` |
-| `repository.support` | `support` | `SupportRepository` |
-| `security.support` | `support` | `SupportAccess` |
-| `service.account` | `account` | AccountService → **AccountProfileService** |
-| `service.rider` | `rider` | `RiderService` |
-| `service.shared` | `log` | `LogService` |
-| `service.shared` | `notification` | `NotificationService` |
-| `service.shared` | `status` | `StatusService` |
-| `service.support` | `support` | `AdministrationService`, `ReportService`, `SupportService` |
+| Old package          | New package    | Classes                                                                  |
+| -------------------- | -------------- | ------------------------------------------------------------------------ |
+| `controller.account` | `account`      | `AuthController`, `CustomerDashboardController`, `ProfileController`     |
+| `controller.rider`   | `rider`        | `RiderController`                                                        |
+| `controller.shared`  | `log`          | `LogController`                                                          |
+| `controller.shared`  | `notification` | `NotificationController`                                                 |
+| `controller.shared`  | `status`       | `StatusController`                                                       |
+| `controller.support` | `support`      | `SupportController`                                                      |
+| `dto.account`        | `account.dto`  | `ProfileRequests`, RegistrationRequest → **CustomerRegistrationRequest** |
+| `dto.rider`          | `rider.dto`    | `FailureRequest`, `RiderTaskDTO`                                         |
+| `dto.support`        | `support.dto`  | `SupportRequests`                                                        |
+| `entity.shared`      | `log`          | `Log`                                                                    |
+| `entity.shared`      | `status`       | `Status`                                                                 |
+| `exception.support`  | `support`      | `SupportErrors`                                                          |
+| `repository.rider`   | `rider`        | `RiderRepository`                                                        |
+| `repository.shared`  | `log`          | `LogRepository`                                                          |
+| `repository.shared`  | `status`       | `StatusRepository`                                                       |
+| `repository.support` | `support`      | `SupportRepository`                                                      |
+| `security.support`   | `support`      | `SupportAccess`                                                          |
+| `service.account`    | `account`      | AccountService → **AccountProfileService**                               |
+| `service.rider`      | `rider`        | `RiderService`                                                           |
+| `service.shared`     | `log`          | `LogService`                                                             |
+| `service.shared`     | `notification` | `NotificationService`                                                    |
+| `service.shared`     | `status`       | `StatusService`                                                          |
+| `service.support`    | `support`      | `AdministrationService`, `ReportService`, `SupportService`               |
 
 Static and nested imports follow the same mapping, for example `dto.support.SupportRequests.*` → `support.dto.SupportRequests.*` and `security.support.SupportAccess.Actor` → `support.SupportAccess.Actor`.
 
@@ -157,13 +157,13 @@ The layer-first placeholders only held a comment ("Add module classes here as th
 
 Base: `src/main/java/_6/Y2/S1/MTR/_6/LaundryLink/`
 
-| Layer directory | Deleted `package-info.java` in |
-|---|---|
-| `controller/` | `controller/account/`, `controller/order/`, `controller/payment/`, `controller/processing/`, `controller/rider/`, `controller/support/` |
-| `dto/` | `dto/account/`, `dto/order/`, `dto/payment/`, `dto/processing/`, `dto/rider/`, `dto/support/` |
-| `entity/` | `entity/account/`, `entity/order/`, `entity/payment/`, `entity/processing/`, `entity/rider/`, `entity/support/` |
-| `repository/` | `repository/account/`, `repository/order/`, `repository/payment/`, `repository/processing/`, `repository/rider/`, `repository/support/` |
-| `service/` | `service/account/`, `service/order/`, `service/payment/`, `service/processing/`, `service/rider/`, `service/support/` |
+| Layer directory | Deleted `package-info.java` in                                                                                                          |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `controller/`   | `controller/account/`, `controller/order/`, `controller/payment/`, `controller/processing/`, `controller/rider/`, `controller/support/` |
+| `dto/`          | `dto/account/`, `dto/order/`, `dto/payment/`, `dto/processing/`, `dto/rider/`, `dto/support/`                                           |
+| `entity/`       | `entity/account/`, `entity/order/`, `entity/payment/`, `entity/processing/`, `entity/rider/`, `entity/support/`                         |
+| `repository/`   | `repository/account/`, `repository/order/`, `repository/payment/`, `repository/processing/`, `repository/rider/`, `repository/support/` |
+| `service/`      | `service/account/`, `service/order/`, `service/payment/`, `service/processing/`, `service/rider/`, `service/support/`                   |
 
 Removed directories under that base: `controller/`, `service/`, `repository/`, `entity/`, `dto/`, `security/`, `exception/`.
 
@@ -204,9 +204,9 @@ Documents:
 
 `./mvnw clean test` was run before the restructure and again after it, against the local SQL Server database:
 
-| Run | Test classes | Tests | Failures | Errors | Skipped |
-|---|---|---|---|---|---|
-| Before | 21 | 179 | 0 | 0 | 0 |
-| After | 21 | 179 | 0 | 0 | 0 |
+| Run    | Test classes | Tests | Failures | Errors | Skipped |
+| ------ | ------------ | ----- | -------- | ------ | ------- |
+| Before | 21           | 179   | 0        | 0      | 0       |
+| After  | 21           | 179   | 0        | 0      | 0       |
 
 `LaundryLinkApplicationTests` and `ProcessingIntegrationTest` start the full Spring context, so they also confirm that every bean, entity and repository is still discovered from its new package. Both need SQL Server on `localhost:1433`.

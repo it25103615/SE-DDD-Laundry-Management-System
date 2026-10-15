@@ -74,7 +74,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   function render() {
     list.replaceChildren();
     if (!addresses.length) {
-      list.append(element("p", "muted", "You have no saved addresses yet. Add one so we know where to collect your laundry."));
+      list.append(
+        element(
+          "p",
+          "muted",
+          "You have no saved addresses yet. Add one so we know where to collect your laundry.",
+        ),
+      );
       return;
     }
     addresses.forEach((address) => {
@@ -85,7 +91,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (address.isDefault) title.append(element("span", "status", "DEFAULT"));
       details.append(title, element("p", "", addressLine(address)));
       if (address.deliveryInstructions) {
-        details.append(element("p", "muted small", "Instructions: " + address.deliveryInstructions));
+        details.append(
+          element("p", "muted small", "Instructions: " + address.deliveryInstructions),
+        );
       }
 
       const buttons = element("div", "address-buttons");
@@ -120,7 +128,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Opens the form empty (to add) or filled with an existing address (to edit).
   function openForm(address) {
     editingID = address ? address.addressID : null;
-    $("address-form-title").textContent = address ? `Edit "${address.nickname || "address"}"` : "Add a new address";
+    $("address-form-title").textContent = address
+      ? `Edit "${address.nickname || "address"}"`
+      : "Add a new address";
     $("address-nickname").value = address?.nickname || "";
     $("address-street").value = address?.street || "";
     $("address-city").value = address?.city || "";
@@ -217,7 +227,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       radio.value = String(address.addressID);
       radio.checked = index === 0; // the first one starts selected so there is always an answer
       const label = element("span");
-      label.append(element("strong", "", address.nickname || "Saved address"), document.createElement("br"), element("span", "muted", addressLine(address)));
+      label.append(
+        element("strong", "", address.nickname || "Saved address"),
+        document.createElement("br"),
+        element("span", "muted", addressLine(address)),
+      );
       row.append(radio, label);
       choiceBox.append(row);
     });
@@ -293,9 +307,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       // If the deleted address was open in the form, close the form.
       if (editingID === address.addressID) closeForm();
       await load();
-      show(newDefault
-        ? `${name} was deleted. "${newDefault.nickname}" is now your default address.`
-        : `${name} was deleted.`);
+      show(
+        newDefault
+          ? `${name} was deleted. "${newDefault.nickname}" is now your default address.`
+          : `${name} was deleted.`,
+      );
     } catch (error) {
       // Reload so the list shows what actually happened (the default may already have moved).
       await load().catch(() => {});
@@ -307,8 +323,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   try {
     // Staff, riders and managers use this profile page too, but only customers have addresses.
-    const profile = await fetch("/api/account/profile", { headers: { Accept: "application/json" }, credentials: "same-origin" })
-      .then((response) => (response.ok && !response.redirected ? response.json() : null));
+    const profile = await fetch("/api/account/profile", {
+      headers: { Accept: "application/json" },
+      credentials: "same-origin",
+    }).then((response) => (response.ok && !response.redirected ? response.json() : null));
     if (!profile || profile.role !== "CUSTOMER") return;
     section.hidden = false;
     csrf = await fetch("/api/auth/csrf").then((response) => response.json());

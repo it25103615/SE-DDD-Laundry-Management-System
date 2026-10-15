@@ -1,3 +1,6 @@
+/* OrderLineService
+ * SERVICE: business rules and orchestration. Constructor-injected collaborators show composition and dependency injection; private fields encapsulate dependencies.
+ */
 package _6.Y2.S1.MTR._6.LaundryLink.orderlines;
 
 import _6.Y2.S1.MTR._6.LaundryLink.items.ItemRepository;
@@ -11,46 +14,51 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class OrderLineService {
-    private final ItemRepository itemRepository;
-    private final ServiceRepository serviceRepository;
-    private final ServicePricingRepository servicePricingRepository;
+  private final ItemRepository itemRepository;
+  private final ServiceRepository serviceRepository;
+  private final ServicePricingRepository servicePricingRepository;
 
-    public OrderLineService(
-            ItemRepository itemRepository,
-            ServiceRepository serviceRepository,
-            ServicePricingRepository servicePricingRepository) {
-        this.itemRepository = itemRepository;
-        this.serviceRepository = serviceRepository;
-        this.servicePricingRepository = servicePricingRepository;
+  public OrderLineService(
+      ItemRepository itemRepository,
+      ServiceRepository serviceRepository,
+      ServicePricingRepository servicePricingRepository) {
+    this.itemRepository = itemRepository;
+    this.serviceRepository = serviceRepository;
+    this.servicePricingRepository = servicePricingRepository;
+  }
+
+  public OrderLine createOrderLine(CreateOrderLineRequest request) {
+    if (request.getQuantity() == null || request.getQuantity() <= 0) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Quantity must be greater than zero");
     }
 
-    public OrderLine createOrderLine(CreateOrderLineRequest request) {
-        if (request.getQuantity() == null || request.getQuantity() <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantity must be greater than zero");
-        }
+    if (!itemRepository.existsById(request.getItemID())) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found");
+    }
 
-        if (!itemRepository.existsById(request.getItemID())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found");
-        }
+    if (!serviceRepository.existsById(request.getServiceID())) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Service not found");
+    }
 
-        if (!serviceRepository.existsById(request.getServiceID())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Service not found");
-        }
-
-        ServicePricing servicePricing = servicePricingRepository
-                .findByItemIDAndServiceID(request.getItemID(), request.getServiceID())
-                .orElseThrow(() -> new ResponseStatusException(
+    ServicePricing servicePricing =
+        servicePricingRepository
+            .findByItemIDAndServiceID(request.getItemID(), request.getServiceID())
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
                         "The selected item and service combination is not available"));
 
-        if (servicePricing.getPrice() == null) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Service pricing is unavailable");
-        }
-
-        OrderLine orderLine = new OrderLine();
-        orderLine.setServicePricing(servicePricing);
-        orderLine.setQuantity(request.getQuantity());
-        orderLine.setLinePrice(servicePricing.getPrice() * request.getQuantity());
-        return orderLine;
+    if (servicePricing.getPrice() == null) {
+      throw new ResponseStatusException(
+          HttpStatus.INTERNAL_SERVER_ERROR, "Service pricing is unavailable");
     }
+
+    OrderLine orderLine = new OrderLine();
+    orderLine.setServicePricing(servicePricing);
+    orderLine.setQuantity(request.getQuantity());
+    orderLine.setLinePrice(servicePricing.getPrice() * request.getQuantity());
+    return orderLine;
+  }
 }

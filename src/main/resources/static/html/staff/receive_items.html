@@ -18,7 +18,9 @@
       <header class="page_header">
         <div class="subtitle">INBOUND ORDERS</div>
         <h1>Receive Items</h1>
-        <p>Count the items in an order that has arrived at the shop and check them against the order.</p>
+        <p>
+          Count the items in an order that has arrived at the shop and check them against the order.
+        </p>
       </header>
       <!-- Step 1: choose the order. (action is set so global-post.js leaves the form alone.) -->
       <form id="find-form" class="card" action="receive_items.html">
@@ -29,9 +31,7 @@
             <option value="">Loading orders…</option>
           </select>
         </div>
-        <button class="custom_button custom_button_bg" type="submit">
-          Get order details
-        </button>
+        <button class="custom_button custom_button_bg" type="submit">Get order details</button>
       </form>
       <div id="notice" class="alert" hidden style="margin-top: 24px"></div>
       <!-- Step 2: count every line; shown once an order is loaded. -->
@@ -59,8 +59,8 @@
             </table>
           </div>
           <label class="check_row"
-            ><input id="counted" type="checkbox" />I have counted and checked all
-            received items.</label
+            ><input id="counted" type="checkbox" />I have counted and checked all received
+            items.</label
           ><button id="confirm-button" class="custom_button custom_button_bg" type="submit">
             Confirm receipt
           </button>

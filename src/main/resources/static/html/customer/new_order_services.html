@@ -11,17 +11,20 @@
     <script src="../../js/customer/order-management.js" defer></script>
   </head>
   <body>
-    <nav class="dashboard_nav" data-nav="flow"
-         data-exit-label="Cancel order" data-exit-href="/html/customer/dashboard.html"></nav>
+    <nav
+      class="dashboard_nav"
+      data-nav="flow"
+      data-exit-label="Cancel order"
+      data-exit-href="/html/customer/dashboard.html"
+    ></nav>
     <!-- The bottom padding leaves a gap between the last card and the end of the page. -->
     <main style="padding-bottom: 60px">
       <header class="page_header">
         <div class="subtitle">NEW ORDER · SERVICE CATALOGUE</div>
         <h1>Choose a service and view prices</h1>
         <p>
-          Review the available services and estimated per-item prices, then
-          select the one you need. An order covers one service; place a
-          separate order for each service.
+          Review the available services and estimated per-item prices, then select the one you need.
+          An order covers one service; place a separate order for each service.
         </p>
       </header>
       <ol class="step_list">
@@ -41,12 +44,11 @@
            as a demo form and show its "Saved successfully" message. -->
       <form id="service-form" action="new_order_items.html" method="get" style="margin-top: 22px">
         <label class="check_row"
-          ><input type="checkbox" required />I have reviewed the available
-          services and estimated prices.</label
+          ><input type="checkbox" required />I have reviewed the available services and estimated
+          prices.</label
         >
         <div class="actions">
-          <a class="custom_button custom_button_nobg" href="dashboard.html"
-            >Cancel</a
+          <a class="custom_button custom_button_nobg" href="dashboard.html">Cancel</a
           ><button class="custom_button custom_button_bg" type="submit">
             Continue to add items
           </button>

@@ -1,3 +1,6 @@
+/* ServicePricing
+ * ENTITY: database-mapped domain state. Private fields encapsulate state; Lombok getters/setters or explicit methods control access. JPA relationships model associations, not class inheritance.
+ */
 package _6.Y2.S1.MTR._6.LaundryLink.servicepricing;
 
 import _6.Y2.S1.MTR._6.LaundryLink.items.Item;
@@ -22,24 +25,24 @@ import lombok.Setter;
 @IdClass(ServicePricingId.class)
 @Table(name = "servicePricing")
 public class ServicePricing {
-    @Id
-    @Column(name = "itemID")
-    private Integer itemID;
+  @Id
+  @Column(name = "itemID")
+  private Integer itemID;
 
-    @Id
-    @Column(name = "serviceID")
-    private Integer serviceID;
+  @Id
+  @Column(name = "serviceID")
+  private Integer serviceID;
 
-    @Column(columnDefinition = "decimal(10,2)", nullable = false)
-    private Double price;
+  @Column(columnDefinition = "decimal(10,2)", nullable = false)
+  private Double price;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "itemID", insertable = false, updatable = false)
-    @JsonIgnore
-    private Item item;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "itemID", insertable = false, updatable = false)
+  @JsonIgnore
+  private Item item;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "serviceID", insertable = false, updatable = false)
-    @JsonIgnore
-    private Service service;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "serviceID", insertable = false, updatable = false)
+  @JsonIgnore
+  private Service service;
 }

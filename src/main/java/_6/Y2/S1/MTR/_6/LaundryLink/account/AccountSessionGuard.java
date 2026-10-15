@@ -17,81 +17,133 @@ import org.springframework.security.web.authentication.logout.SecurityContextLog
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /** Single-instance coordination for the application's synchronous, email-based account lookups. */
+// OOP — Inheritance: this type extends the declared parent and inherits its applicable contract or
+// behaviour.
 public final class AccountSessionGuard extends OncePerRequestFilter {
-    private static final ReentrantLock[] LOCKS = new ReentrantLock[256];
-    static {
-        for (int i = 0; i < LOCKS.length; i++) LOCKS[i] = new ReentrantLock();
-    }
-    private final JdbcTemplate db;
 
-    public AccountSessionGuard(JdbcTemplate db) { this.db = db; }
+  private static final ReentrantLock[] LOCKS = new ReentrantLock[256];
 
-    public static boolean isRetiredEmail(String email) {
-        return email != null && email.toLowerCase(Locale.ROOT)
-                .matches("deleted_[0-9]+_[0-9a-f]{32}@deleted\\.invalid");
-    }
+  static {
+    for (int i = 0; i < LOCKS.length; i++) LOCKS[i] = new ReentrantLock();
+  }
 
-    /** Email remains the username for existing modules; the ID never changes with email reuse. */
-    public static final class AccountPrincipal extends User {
-        private static final long serialVersionUID = 1L;
-        private final int userId;
+  private final JdbcTemplate db;
 
-        public AccountPrincipal(int userId, String email, String password, boolean active, String role) {
-            super(email, password == null ? "" : password,
-                    active && !isRetiredEmail(email) && role != null, true, true, true,
-                    role == null ? List.of() : List.of(new SimpleGrantedAuthority("ROLE_" + role)));
-            this.userId = userId;
-        }
+  public AccountSessionGuard(JdbcTemplate db) {
+    this.db = db;
+  }
 
-        public int userId() { return userId; }
-    }
+  public static boolean isRetiredEmail(String email) {
+    return (
+      email != null &&
+      email.toLowerCase(Locale.ROOT).matches("deleted_[0-9]+_[0-9a-f]{32}@deleted\\.invalid")
+    );
+  }
 
-    @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
-            FilterChain chain) throws ServletException, IOException {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || authentication instanceof AnonymousAuthenticationToken) {
-            chain.doFilter(request, response);
-            return;
-        }
-        if (!(authentication.getPrincipal() instanceof AccountPrincipal account)) {
-            reject(request, response);
-            return;
-        }
-        ReentrantLock lock = LOCKS[Math.floorMod(account.userId(), LOCKS.length)];
-        lock.lock();
-        try {
-            // Never recover identity by looking up the current owner of the login email.
-            var emails = db.query("SELECT email FROM users WHERE userID=? AND active=1",
-                    (rs, row) -> rs.getString("email"), account.userId());
-            if (emails.size() != 1 || isRetiredEmail(emails.getFirst())
-                    || !account.getUsername().equalsIgnoreCase(emails.getFirst())) {
-                reject(request, response);
-                return;
-            }
-            String currentRole = db.queryForObject("SELECT MAX(UPPER(type)) FROM users WHERE userID=? AND active=1", String.class, account.userId());
-            if (currentRole == null || !account.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_" + currentRole))) {
-                reject(request, response);
-                return;
-            }
-            // Keep same-account requests serialized through controller work and transaction commit.
-            chain.doFilter(request, response);
-        } finally {
-            lock.unlock();
-        }
+  /** Email remains the username for existing modules; the ID never changes with email reuse. */
+  // OOP — Inheritance: this type extends the declared parent and inherits its applicable contract
+  // or behaviour.
+  public static final class AccountPrincipal extends User {
+
+    private static final long serialVersionUID = 1L;
+    private final int userId;
+
+    public AccountPrincipal(
+      int userId,
+      String email,
+      String password,
+      boolean active,
+      String role
+    ) {
+      super(
+        email,
+        password == null ? "" : password,
+        active && !isRetiredEmail(email) && role != null,
+        true,
+        true,
+        true,
+        role == null ? List.of() : List.of(new SimpleGrantedAuthority("ROLE_" + role))
+      );
+      this.userId = userId;
     }
 
-    private void reject(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        new SecurityContextLogoutHandler().logout(request, response,
-                SecurityContextHolder.getContext().getAuthentication());
-        if (request.getServletPath().startsWith("/api/")
-                || request.getRequestURI().startsWith(request.getContextPath() + "/api/")) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"message\":\"Sign in again. This account session is no longer valid.\"}");
-        } else {
-            response.sendRedirect(request.getContextPath() + "/html/auth/login.html");
-        }
+    public int userId() {
+      return userId;
     }
+  }
+
+  @Override
+  protected void doFilterInternal(
+    HttpServletRequest request,
+    HttpServletResponse response,
+    FilterChain chain
+  ) throws ServletException, IOException {
+    var authentication = SecurityContextHolder.getContext().getAuthentication();
+    if (
+      authentication == null ||
+      !authentication.isAuthenticated() ||
+      authentication instanceof AnonymousAuthenticationToken
+    ) {
+      chain.doFilter(request, response);
+      return;
+    }
+    if (!(authentication.getPrincipal() instanceof AccountPrincipal account)) {
+      reject(request, response);
+      return;
+    }
+    ReentrantLock lock = LOCKS[Math.floorMod(account.userId(), LOCKS.length)];
+    lock.lock();
+    try {
+      // Never recover identity by looking up the current owner of the login email.
+      var emails = db.query(
+        "SELECT email FROM users WHERE userID=? AND active=1",
+        (rs, row) -> rs.getString("email"),
+        account.userId()
+      );
+      if (
+        emails.size() != 1 ||
+        isRetiredEmail(emails.getFirst()) ||
+        !account.getUsername().equalsIgnoreCase(emails.getFirst())
+      ) {
+        reject(request, response);
+        return;
+      }
+      String currentRole = db.queryForObject(
+        "SELECT MAX(UPPER(type)) FROM users WHERE userID=? AND active=1",
+        String.class,
+        account.userId()
+      );
+      if (
+        currentRole == null ||
+        !account.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_" + currentRole))
+      ) {
+        reject(request, response);
+        return;
+      }
+      // Keep same-account requests serialized through controller work and transaction commit.
+      chain.doFilter(request, response);
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  private void reject(HttpServletRequest request, HttpServletResponse response) throws IOException {
+    new SecurityContextLogoutHandler().logout(
+      request,
+      response,
+      SecurityContextHolder.getContext().getAuthentication()
+    );
+    if (
+      request.getServletPath().startsWith("/api/") ||
+      request.getRequestURI().startsWith(request.getContextPath() + "/api/")
+    ) {
+      response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+      response.setContentType("application/json");
+      response
+        .getWriter()
+        .write("{\"message\":\"Sign in again. This account session is no longer valid.\"}");
+    } else {
+      response.sendRedirect(request.getContextPath() + "/html/auth/login.html");
+    }
+  }
 }

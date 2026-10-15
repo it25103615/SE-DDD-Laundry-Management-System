@@ -43,7 +43,6 @@ mvn clean test "-Dtest=Support*Test"
 
 The checked-in Maven wrapper is currently missing its `.mvn` configuration, so use an installed Maven distribution. See [the support evaluation guide](Documentation/Support-Progress-Evaluation.md) for database setup, demo accounts, CRUD walkthrough and remaining integration work.
 
-
 ### Login and local Windows database authentication
 
 This machine uses Windows authentication through the ignored `application-local.properties`, which is optionally imported by the shared configuration. Keep IntelliJ's working directory set to the project root; the matching Microsoft JDBC authentication DLL is located there and ignored by Git. Other machines need their own local SQL connection configuration. Full startup testing against local SQL Express now passes (34 tests total); see `database-startup-tests.log`.

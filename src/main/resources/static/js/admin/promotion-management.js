@@ -53,7 +53,7 @@
   async function csrf() {
     if (!csrfPromise) {
       csrfPromise = fetch("/api/auth/csrf", {
-        headers: { "Accept": "application/json" },
+        headers: { Accept: "application/json" },
         credentials: "same-origin",
       }).then((response) => response.json());
     }
@@ -71,20 +71,22 @@
       headers[token.headerName] = token.token;
     }
 
-    return fetch(path, { ...options, headers, credentials: "same-origin" }).then(async (response) => {
-      if (!response.ok) {
-        const error = new Error(`Request failed with status ${response.status}`);
-        error.status = response.status;
-        try {
-          error.body = await response.json();
-        } catch (ignore) {
-          error.body = null;
+    return fetch(path, { ...options, headers, credentials: "same-origin" }).then(
+      async (response) => {
+        if (!response.ok) {
+          const error = new Error(`Request failed with status ${response.status}`);
+          error.status = response.status;
+          try {
+            error.body = await response.json();
+          } catch (ignore) {
+            error.body = null;
+          }
+          throw error;
         }
-        throw error;
-      }
-      if (response.status === 204) return null;
-      return response.json();
-    });
+        if (response.status === 204) return null;
+        return response.json();
+      },
+    );
   }
 
   function promotionPayload() {
@@ -219,12 +221,18 @@
 
     saveButton.disabled = true;
     try {
-      await api(editing ? `/api/promotions/${encodeURIComponent(promotionID)}` : "/api/promotions", {
-        method: editing ? "PUT" : "POST",
-        body: JSON.stringify(payload),
-      });
+      await api(
+        editing ? `/api/promotions/${encodeURIComponent(promotionID)}` : "/api/promotions",
+        {
+          method: editing ? "PUT" : "POST",
+          body: JSON.stringify(payload),
+        },
+      );
       resetForm();
-      showMessage("promotion-success", editing ? "Promotion updated successfully." : "Promotion created successfully.");
+      showMessage(
+        "promotion-success",
+        editing ? "Promotion updated successfully." : "Promotion created successfully.",
+      );
       await loadPromotions();
     } catch (error) {
       console.error("Promotion save failed", error);
@@ -238,10 +246,16 @@
     clearMessages();
     const active = !promotion.active;
     try {
-      await api(`/api/promotions/${encodeURIComponent(promotion.promotionID)}/active?active=${active}`, {
-        method: "PATCH",
-      });
-      showMessage("promotion-success", active ? "Promotion activated successfully." : "Promotion deactivated successfully.");
+      await api(
+        `/api/promotions/${encodeURIComponent(promotion.promotionID)}/active?active=${active}`,
+        {
+          method: "PATCH",
+        },
+      );
+      showMessage(
+        "promotion-success",
+        active ? "Promotion activated successfully." : "Promotion deactivated successfully.",
+      );
       await loadPromotions();
     } catch (error) {
       console.error("Promotion status update failed", error);

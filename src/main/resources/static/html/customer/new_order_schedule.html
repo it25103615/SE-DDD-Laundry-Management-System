@@ -36,7 +36,9 @@
         font-weight: 400;
         text-align: center;
         cursor: pointer;
-        transition: background 0.15s ease, border-color 0.15s ease;
+        transition:
+          background 0.15s ease,
+          border-color 0.15s ease;
       }
       /* The radio itself is invisible but still covers the button, so it stays clickable and focusable. */
       .time-window-option input {
@@ -87,11 +89,14 @@
         display: none;
       }
     </style>
-
   </head>
   <body>
-    <nav class="dashboard_nav" data-nav="flow"
-         data-exit-label="Cancel order" data-exit-href="/html/customer/dashboard.html"></nav>
+    <nav
+      class="dashboard_nav"
+      data-nav="flow"
+      data-exit-label="Cancel order"
+      data-exit-href="/html/customer/dashboard.html"
+    ></nav>
     <main>
       <header class="page_header">
         <div class="subtitle">NEW ORDER</div>
@@ -111,13 +116,7 @@
             <h2>Pickup time</h2>
             <div class="field">
               <label for="pickup-date">Date</label
-              ><input
-                class="input"
-                id="pickup-date"
-                name="pickup_date"
-                type="date"
-                required
-              />
+              ><input class="input" id="pickup-date" name="pickup_date" type="date" required />
             </div>
             <!--
               One button per time window. Each radio's value is the window's text, which is what
@@ -126,10 +125,22 @@
             <div class="field" role="radiogroup" aria-labelledby="pickup-time-label">
               <label id="pickup-time-label">Time window</label>
               <div class="time-window-options">
-                <label class="time-window-option"><input type="radio" name="pickup_time" value="8:00 AM – 11:00 AM" />8:00 AM – 11:00 AM</label>
-                <label class="time-window-option"><input type="radio" name="pickup_time" value="11:00 AM – 2:00 PM" />11:00 AM – 2:00 PM</label>
-                <label class="time-window-option"><input type="radio" name="pickup_time" value="2:00 PM – 5:00 PM" />2:00 PM – 5:00 PM</label>
-                <label class="time-window-option"><input type="radio" name="pickup_time" value="5:00 PM – 8:00 PM" />5:00 PM – 8:00 PM</label>
+                <label class="time-window-option"
+                  ><input type="radio" name="pickup_time" value="8:00 AM – 11:00 AM" />8:00 AM –
+                  11:00 AM</label
+                >
+                <label class="time-window-option"
+                  ><input type="radio" name="pickup_time" value="11:00 AM – 2:00 PM" />11:00 AM –
+                  2:00 PM</label
+                >
+                <label class="time-window-option"
+                  ><input type="radio" name="pickup_time" value="2:00 PM – 5:00 PM" />2:00 PM – 5:00
+                  PM</label
+                >
+                <label class="time-window-option"
+                  ><input type="radio" name="pickup_time" value="5:00 PM – 8:00 PM" />5:00 PM – 8:00
+                  PM</label
+                >
               </div>
             </div>
           </section>
@@ -143,17 +154,19 @@
               <p class="muted" id="pickup-addresses-status">Loading your saved addresses…</p>
             </div>
             <!-- Shown by the script only when the customer has no saved address; opens the pop-up below. -->
-            <button class="custom_button custom_button_bg" type="button" id="add-address-button" hidden>+ Add address</button>
+            <button
+              class="custom_button custom_button_bg"
+              type="button"
+              id="add-address-button"
+              hidden
+            >
+              + Add address
+            </button>
           </section>
         </div>
         <div class="actions">
-          <a
-            class="custom_button custom_button_nobg"
-            href="new_order_items.html"
-            >← Back</a
-          ><button class="custom_button custom_button_bg" type="submit">
-            Continue
-          </button>
+          <a class="custom_button custom_button_nobg" href="new_order_items.html">← Back</a
+          ><button class="custom_button custom_button_bg" type="submit">Continue</button>
         </div>
         <p id="schedule-error" role="alert" hidden></p>
       </form>
@@ -166,15 +179,63 @@
       <dialog id="new-address-dialog" class="address-dialog" aria-labelledby="new-address-title">
         <form id="new-address-form">
           <h3 id="new-address-title">Add a new address</h3>
-          <div class="field"><label for="address-nickname">Name for this address</label><input class="input" id="address-nickname" required maxlength="50" placeholder="Home, Office…"></div>
-          <div class="field"><label for="address-street">Street address</label><input class="input" id="address-street" required maxlength="100" placeholder="18 Temple Road"></div>
-          <div class="field"><label for="address-city">City</label><input class="input" id="address-city" required maxlength="30" placeholder="Colombo 05"></div>
-          <div class="field"><label for="address-state">Province</label><input class="input" id="address-state" required maxlength="30" placeholder="Western"></div>
-          <div class="field"><label for="address-instructions">Delivery instructions (optional)</label><input class="input" id="address-instructions" maxlength="250" placeholder="For example: call at the gate"></div>
+          <div class="field">
+            <label for="address-nickname">Name for this address</label
+            ><input
+              class="input"
+              id="address-nickname"
+              required
+              maxlength="50"
+              placeholder="Home, Office…"
+            />
+          </div>
+          <div class="field">
+            <label for="address-street">Street address</label
+            ><input
+              class="input"
+              id="address-street"
+              required
+              maxlength="100"
+              placeholder="18 Temple Road"
+            />
+          </div>
+          <div class="field">
+            <label for="address-city">City</label
+            ><input
+              class="input"
+              id="address-city"
+              required
+              maxlength="30"
+              placeholder="Colombo 05"
+            />
+          </div>
+          <div class="field">
+            <label for="address-state">Province</label
+            ><input
+              class="input"
+              id="address-state"
+              required
+              maxlength="30"
+              placeholder="Western"
+            />
+          </div>
+          <div class="field">
+            <label for="address-instructions">Delivery instructions (optional)</label
+            ><input
+              class="input"
+              id="address-instructions"
+              maxlength="250"
+              placeholder="For example: call at the gate"
+            />
+          </div>
           <p id="new-address-error" class="profile-message error" role="alert" hidden></p>
           <div class="actions">
-            <button class="custom_button custom_button_bg" type="submit" id="new-address-save">Save address</button>
-            <button class="custom_button custom_button_nobg" type="button" id="new-address-cancel">Cancel</button>
+            <button class="custom_button custom_button_bg" type="submit" id="new-address-save">
+              Save address
+            </button>
+            <button class="custom_button custom_button_nobg" type="button" id="new-address-cancel">
+              Cancel
+            </button>
           </div>
         </form>
       </dialog>
@@ -189,19 +250,24 @@
         // The time window buttons: one radio input per window.
         const timeOptions = Array.from(form.querySelectorAll("input[name=pickup_time]"));
         // Text of the picked time window, or "" while none is picked.
-        const pickedTime = () => timeOptions.find(option => option.checked)?.value || "";
+        const pickedTime = () => timeOptions.find((option) => option.checked)?.value || "";
         const readDraft = () => {
-          try { return JSON.parse(sessionStorage.getItem(key)) || {}; }
-          catch (_) { return {}; }
+          try {
+            return JSON.parse(sessionStorage.getItem(key)) || {};
+          } catch (_) {
+            return {};
+          }
         };
         const schedule = readDraft().schedule || {};
         pickupDate.value = schedule.date || "";
-        timeOptions.forEach(option => { option.checked = option.value === schedule.time; });
+        timeOptions.forEach((option) => {
+          option.checked = option.value === schedule.time;
+        });
         // Tick the remembered address once the customer's saved addresses have been loaded.
         function restoreAddressChoice() {
           const remembered = readDraft().schedule?.address;
           if (!remembered) return;
-          form.querySelectorAll("input[name=address]").forEach(input => {
+          form.querySelectorAll("input[name=address]").forEach((input) => {
             if (input.value === String(remembered)) input.checked = true;
           });
         }
@@ -212,8 +278,11 @@
         const addressList = document.getElementById("pickup-addresses");
         const addressStatus = document.getElementById("pickup-addresses-status");
         // "18 Temple Road, Colombo 05, Western" - skips any part the customer left empty.
-        const addressLine = address => [address.street, address.city, address.state]
-          .map(part => (part || "").trim()).filter(Boolean).join(", ");
+        const addressLine = (address) =>
+          [address.street, address.city, address.state]
+            .map((part) => (part || "").trim())
+            .filter(Boolean)
+            .join(", ");
         const addAddressButton = document.getElementById("add-address-button");
         // Adds one saved address to the list as a radio row and returns its radio button.
         function addAddressRow(address) {
@@ -240,7 +309,8 @@
         function showAddresses(addresses) {
           if (!addresses.length) {
             // Nothing to pick from: offer the pop-up so the customer can add an address right here.
-            addressStatus.textContent = "You have no saved addresses yet. Add one so we know where to collect your laundry.";
+            addressStatus.textContent =
+              "You have no saved addresses yet. Add one so we know where to collect your laundry.";
             addAddressButton.hidden = false;
             return;
           }
@@ -250,31 +320,39 @@
           restoreAddressChoice();
           save();
         }
-        fetch("/api/account/addresses", { headers: { Accept: "application/json" }, credentials: "same-origin" })
-          .then(response => {
+        fetch("/api/account/addresses", {
+          headers: { Accept: "application/json" },
+          credentials: "same-origin",
+        })
+          .then((response) => {
             // A signed-out visitor is redirected to the login page, which is not JSON.
-            const isJson = (response.headers.get("content-type") || "").includes("application/json");
+            const isJson = (response.headers.get("content-type") || "").includes(
+              "application/json",
+            );
             if (!response.ok || !isJson) throw new Error("Addresses could not be loaded.");
             return response.json();
           })
           .then(showAddresses)
           .catch(() => {
-            addressStatus.textContent = "We could not load your saved addresses. Please sign in again or try later.";
+            addressStatus.textContent =
+              "We could not load your saved addresses. Please sign in again or try later.";
           });
 
         // ---- Add-address pop-up (only reachable when the customer has no saved address) ----
         const addressDialog = document.getElementById("new-address-dialog");
         const addressForm = document.getElementById("new-address-form");
         const addressFormError = document.getElementById("new-address-error");
-        const addressField = id => document.getElementById(id).value.trim();
+        const addressField = (id) => document.getElementById(id).value.trim();
         addAddressButton.addEventListener("click", () => addressDialog.showModal());
-        document.getElementById("new-address-cancel").addEventListener("click", () => addressDialog.close());
+        document
+          .getElementById("new-address-cancel")
+          .addEventListener("click", () => addressDialog.close());
         // Runs however the pop-up closes (Save, Cancel or the Esc key), so it always reopens empty.
         addressDialog.addEventListener("close", () => {
           addressForm.reset();
           addressFormError.hidden = true;
         });
-        addressForm.addEventListener("submit", async event => {
+        addressForm.addEventListener("submit", async (event) => {
           event.preventDefault();
           if (!addressForm.reportValidity()) return;
           const saveButton = document.getElementById("new-address-save");
@@ -282,10 +360,16 @@
           addressFormError.hidden = true;
           try {
             // Spring Security needs this token on every request that changes something.
-            const csrf = await fetch("/api/auth/csrf", { credentials: "same-origin" }).then(response => response.json());
+            const csrf = await fetch("/api/auth/csrf", { credentials: "same-origin" }).then(
+              (response) => response.json(),
+            );
             const response = await fetch("/api/account/addresses", {
               method: "POST",
-              headers: { Accept: "application/json", "Content-Type": "application/json", [csrf.headerName]: csrf.token },
+              headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+                [csrf.headerName]: csrf.token,
+              },
               credentials: "same-origin",
               body: JSON.stringify({
                 nickname: addressField("address-nickname"),
@@ -294,8 +378,8 @@
                 state: addressField("address-state"),
                 deliveryInstructions: addressField("address-instructions") || null,
                 // It is the customer's only address, so it is also their default.
-                isDefault: true
-              })
+                isDefault: true,
+              }),
             });
             // A session that has expired is redirected to the login page.
             if (response.redirected) {
@@ -303,7 +387,8 @@
               return;
             }
             const result = await response.json().catch(() => ({}));
-            if (!response.ok) throw new Error(result.message || "Something went wrong. Please try again.");
+            if (!response.ok)
+              throw new Error(result.message || "Something went wrong. Please try again.");
             // Show the new address in the list, already selected, and let the customer carry on.
             addressStatus.remove();
             addAddressButton.hidden = true;
@@ -320,24 +405,35 @@
         });
         function save() {
           const draft = readDraft();
-          sessionStorage.setItem(key, JSON.stringify({ ...draft, schedule: {
-            date: pickupDate.value, time: pickedTime(),
-            address: form.querySelector("input[name=address]:checked")?.value
-          } }));
+          sessionStorage.setItem(
+            key,
+            JSON.stringify({
+              ...draft,
+              schedule: {
+                date: pickupDate.value,
+                time: pickedTime(),
+                address: form.querySelector("input[name=address]:checked")?.value,
+              },
+            }),
+          );
         }
-        const isoDate = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+        const isoDate = (date) =>
+          `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
         // Minutes after midnight at which a time window option starts, e.g. "2:00 PM – 5:00 PM" -> 840.
         function slotStart(option) {
           const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)/i.exec(option.value.trim());
           if (!match) return null;
-          return (Number(match[1]) % 12 + (match[3].toUpperCase() === "PM" ? 12 : 0)) * 60 + Number(match[2]);
+          return (
+            ((Number(match[1]) % 12) + (match[3].toUpperCase() === "PM" ? 12 : 0)) * 60 +
+            Number(match[2])
+          );
         }
         // A scheduling slot can only be booked if it has not started yet. For today's date, grey out
         // (disable) every window whose start time has already passed, and clear the selection if it
         // was one of them. Other dates keep all windows. Returns true if any window is still open today.
         function limitSlots(dateField, options, today, nowMinutes) {
           let anyOpenToday = false;
-          options.forEach(option => {
+          options.forEach((option) => {
             const start = slotStart(option);
             if (start === null) return;
             const passed = start <= nowMinutes;
@@ -360,10 +456,13 @@
           limitSlots(pickupDate, timeOptions, today, nowMinutes);
           pickupDate.setCustomValidity(pickupDate.value ? "" : "Please select a pickup date.");
           if (pickupDate.value) {
-            const outsideRange = pickupDate.value < pickupDate.min || pickupDate.value > pickupDate.max;
+            const outsideRange =
+              pickupDate.value < pickupDate.min || pickupDate.value > pickupDate.max;
             const differentYear = Number(pickupDate.value.split("-")[0]) !== now.getFullYear();
             if (pickupDate.value > pickupDate.max || (differentYear && outsideRange)) {
-              pickupDate.setCustomValidity("Pickup can only be scheduled up to one month in advance.");
+              pickupDate.setCustomValidity(
+                "Pickup can only be scheduled up to one month in advance.",
+              );
             } else if (pickupDate.value < pickupDate.min) {
               pickupDate.setCustomValidity("Please choose today or a future date.");
             }
@@ -377,7 +476,8 @@
           const addressChosen = Boolean(form.querySelector("input[name=address]:checked"));
           let message = dateInvalid ? pickupDate.validationMessage : "";
           // The time window buttons have no pop-up of their own, so this message is shown under the form.
-          if (!message && showMissing && !timeChosen) message = "Please select a pickup time window.";
+          if (!message && showMissing && !timeChosen)
+            message = "Please select a pickup time window.";
           if (!message && showMissing && !addressChosen) {
             message = form.querySelector("input[name=address]")
               ? "Please select a pickup address."
@@ -389,10 +489,16 @@
         }
         form.noValidate = true;
         // Validate before saving so a time window cleared by the slot limits is not kept in the draft.
-        form.addEventListener("input", () => { validate(false); save(); });
-        form.addEventListener("change", () => { validate(false); save(); });
+        form.addEventListener("input", () => {
+          validate(false);
+          save();
+        });
+        form.addEventListener("change", () => {
+          validate(false);
+          save();
+        });
         window.addEventListener("pagehide", save);
-        form.addEventListener("submit", event => {
+        form.addEventListener("submit", (event) => {
           event.preventDefault();
           if (!validate(true) || !form.checkValidity()) {
             form.reportValidity();
@@ -404,7 +510,10 @@
         validate(false);
         save(); // Also discard obsolete scheduling selections from older drafts.
         // Re-check every minute so a page left open greys out windows as they start.
-        setInterval(() => { validate(false); save(); }, 60 * 1000);
+        setInterval(() => {
+          validate(false);
+          save();
+        }, 60 * 1000);
       })();
     </script>
   </body>

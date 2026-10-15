@@ -17,7 +17,10 @@ window.Processing = (() => {
 
   /** Escapes text before it is placed inside HTML, so data can never inject markup. */
   const escape = (value) =>
-    String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+    String(value ?? "").replace(
+      /[&<>"']/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+    );
 
   /** Formats an ISO date-time from the API as e.g. "28 Sept 2026, 10:15 am". */
   const dateTime = (value) => {
@@ -44,7 +47,8 @@ window.Processing = (() => {
   }
 
   /** A status badge as HTML. */
-  const badge = (label) => `<span class="${statusClass(label)}">${escape(String(label || "").toUpperCase())}</span>`;
+  const badge = (label) =>
+    `<span class="${statusClass(label)}">${escape(String(label || "").toUpperCase())}</span>`;
 
   /**
    * The item an issue report is about. The case subject is "type: item" (e.g. "Damaged item:
@@ -71,7 +75,11 @@ window.Processing = (() => {
     const headers = { Accept: "application/json" };
     if (method !== "GET") {
       // Spring Security requires the CSRF token on every state-changing request.
-      csrf ||= await fetch("/api/auth/csrf").then((r) => (r.ok ? r.json() : Promise.reject(new Error("Unable to verify this action. Please sign in again."))));
+      csrf ||= await fetch("/api/auth/csrf").then((r) =>
+        r.ok
+          ? r.json()
+          : Promise.reject(new Error("Unable to verify this action. Please sign in again.")),
+      );
       headers[csrf.headerName] = csrf.token;
     }
     if (body !== undefined) headers["Content-Type"] = "application/json";
@@ -83,7 +91,8 @@ window.Processing = (() => {
     });
     // Not signed in / wrong role: Spring redirects to the login or portal page instead of JSON.
     if (response.redirected || !(response.headers.get("content-type") || "").includes("json")) {
-      if (response.ok || response.redirected) throw new Error("Please sign in with a staff account to use laundry processing.");
+      if (response.ok || response.redirected)
+        throw new Error("Please sign in with a staff account to use laundry processing.");
     }
     const data = response.status === 204 ? null : await response.json().catch(() => null);
     if (!response.ok) {

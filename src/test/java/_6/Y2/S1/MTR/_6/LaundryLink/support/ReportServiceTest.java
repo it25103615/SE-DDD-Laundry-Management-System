@@ -16,6 +16,15 @@ class ReportServiceTest {
     final ReportService service = new ReportService(repo, new SupportAccess(null));
     final SupportAccess.Actor owner = new SupportAccess.Actor(5, "Owner", "OWNER", false);
 
+    @Test void futureStartDateIsRejectedBeforeDatabaseAccess() {
+        var tomorrow = LocalDate.now(java.time.ZoneId.of("Asia/Colombo")).plusDays(1);
+        var error = assertThrows(ResponseStatusException.class,
+            () -> service.report(owner, tomorrow, null, null));
+        assertEquals(400, error.getStatusCode().value());
+        assertEquals("Start date cannot be in the future.", error.getReason());
+        verifyNoInteractions(repo);
+    }
+
     @Test void reversedDatesAreRejectedBeforeDatabaseAccess() {
         var error = assertThrows(ResponseStatusException.class, () -> service.report(owner,
             LocalDate.parse("2026-09-30"), LocalDate.parse("2026-07-08"), null));

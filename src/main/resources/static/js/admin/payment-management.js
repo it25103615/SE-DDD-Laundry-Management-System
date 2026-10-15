@@ -64,7 +64,7 @@
   async function csrf() {
     if (!csrfPromise) {
       csrfPromise = fetch("/api/auth/csrf", {
-        headers: { "Accept": "application/json" },
+        headers: { Accept: "application/json" },
         credentials: "same-origin",
       }).then((response) => response.json());
     }
@@ -141,11 +141,12 @@
 
   function refundStatusMarkup(status) {
     if (!status) return "";
-    const className = status === "REFUNDED"
-      ? "status_success"
-      : status === "REJECTED"
-        ? "status_error"
-        : "status_warning";
+    const className =
+      status === "REFUNDED"
+        ? "status_success"
+        : status === "REJECTED"
+          ? "status_error"
+          : "status_warning";
     return `<br><span class="status ${className}">Refund ${label(status)}</span>`;
   }
 
@@ -163,8 +164,13 @@
           outstandingByOrder.set(record.orderID, Number(record.outstandingAmount || 0));
         }
       });
-      const outstanding = Array.from(outstandingByOrder.values()).reduce((total, value) => total + value, 0);
-      const failed = records.filter((record) => record.paymentStatus === "REJECTED" || /failed/i.test(record.orderStatus || "")).length;
+      const outstanding = Array.from(outstandingByOrder.values()).reduce(
+        (total, value) => total + value,
+        0,
+      );
+      const failed = records.filter(
+        (record) => record.paymentStatus === "REJECTED" || /failed/i.test(record.orderStatus || ""),
+      ).length;
 
       setText("collected-total", money(collected));
       setText("outstanding-total", money(outstanding));
@@ -206,7 +212,9 @@
       setText("collected-total", "Unavailable");
       setText("outstanding-total", "Unavailable");
       setText("failed-total", "-");
-      if (table) table.innerHTML = '<tr><td colspan="8">Payment and billing records could not be loaded.</td></tr>';
+      if (table)
+        table.innerHTML =
+          '<tr><td colspan="8">Payment and billing records could not be loaded.</td></tr>';
     }
   }
 
@@ -252,7 +260,14 @@
     setText("detail-order-status", label(record.orderStatus));
     setText("detail-subtotal", money(billing && billing.subtotal));
     setText("detail-discount", money(billing && billing.discountAmount));
-    setText("detail-payable", money(billing && billing.finalPayableAmount != null ? billing.finalPayableAmount : record.payableAmount));
+    setText(
+      "detail-payable",
+      money(
+        billing && billing.finalPayableAmount != null
+          ? billing.finalPayableAmount
+          : record.payableAmount,
+      ),
+    );
     setText("detail-paid", money(record.paidAmount));
     setText("detail-outstanding", money(record.outstandingAmount));
     setText("detail-refund-amount", money(record.refundAmount));
@@ -260,12 +275,21 @@
     setText("detail-refund-reason", cleanValue(record.refundReason));
     setText("detail-refund-status", cleanValue(record.refundStatus));
     setText("detail-refund-requested", dateTimeLabel(record.refundRequestedAt));
-    setText("detail-refund-requested-by", record.refundRequestedBy == null ? "Customer" : `Customer #${record.refundRequestedBy}`);
+    setText(
+      "detail-refund-requested-by",
+      record.refundRequestedBy == null ? "Customer" : `Customer #${record.refundRequestedBy}`,
+    );
 
     const refunded = record.paymentStatus === "REFUNDED";
     const refundRequested = record.refundStatus === "REQUESTED";
     const hasRefundWorkflow = !!record.refundStatus;
-    ["detail-refund-amount-row", "detail-refund-reason-row", "detail-refund-status-row", "detail-refund-requested-row", "detail-refund-requested-by-row"].forEach((id) => {
+    [
+      "detail-refund-amount-row",
+      "detail-refund-reason-row",
+      "detail-refund-status-row",
+      "detail-refund-requested-row",
+      "detail-refund-requested-by-row",
+    ].forEach((id) => {
       const element = document.getElementById(id);
       if (element) element.hidden = !hasRefundWorkflow;
     });
@@ -290,9 +314,9 @@
         finalStatus.hidden = false;
         finalStatus.className = `alert ${rejected ? "alert_error" : "alert_success"}`;
         finalStatus.textContent = verified
-          ? (refundRequested
+          ? refundRequested
             ? "This payment has a refund request waiting for review."
-            : "This payment has already been accepted. No further action is required.")
+            : "This payment has already been accepted. No further action is required."
           : rejected
             ? "This payment has already been rejected. No further action is available."
             : "This verified payment has been refunded. No further action is available.";
@@ -303,7 +327,8 @@
       } else if (orderCancelled) {
         finalStatus.hidden = false;
         finalStatus.className = "alert alert_error";
-        finalStatus.textContent = "This order has been cancelled. The payment can only be rejected.";
+        finalStatus.textContent =
+          "This order has been cancelled. The payment can only be rejected.";
       } else {
         finalStatus.hidden = true;
         finalStatus.textContent = "";
@@ -338,14 +363,19 @@
       if (reject) reject.disabled = true;
       let result;
       try {
-        result = await api(`/api/payments/management/${currentRecord.paymentID}/${action}`, { method: "POST" });
+        result = await api(`/api/payments/management/${currentRecord.paymentID}/${action}`, {
+          method: "POST",
+        });
       } catch (error) {
         // A 409 now carries the server's reason (for example that the order was cancelled).
-        showMessage("detail-error", error.status === 409 && error.body && error.body.message
-          ? error.body.message
-          : error.status === 409
-            ? "This payment cannot be updated until the full amount has been paid."
-            : "Payment status could not be updated.");
+        showMessage(
+          "detail-error",
+          error.status === 409 && error.body && error.body.message
+            ? error.body.message
+            : error.status === 409
+              ? "This payment cannot be updated until the full amount has been paid."
+              : "Payment status could not be updated.",
+        );
         // Nothing changed, so give back whichever actions the payment still allows.
         applyVerifyButtons(currentRecord);
         return;
@@ -371,17 +401,23 @@
       if (approveRefund) approveRefund.disabled = true;
       if (rejectRefund) rejectRefund.disabled = true;
       try {
-        const result = await api(`/api/payments/management/${currentRecord.paymentID}/refund/${action}`, { method: "POST" });
+        const result = await api(
+          `/api/payments/management/${currentRecord.paymentID}/refund/${action}`,
+          { method: "POST" },
+        );
         showMessage("detail-success", result.message || "Refund request updated.");
         await refresh();
       } catch (error) {
-        const message = error.body && error.body.message
-          ? error.body.message
-          : "Refund request could not be updated.";
+        const message =
+          error.body && error.body.message
+            ? error.body.message
+            : "Refund request could not be updated.";
         showMessage("detail-error", message);
       } finally {
-        if (approveRefund && currentRecord && currentRecord.refundStatus === "REQUESTED") approveRefund.disabled = false;
-        if (rejectRefund && currentRecord && currentRecord.refundStatus === "REQUESTED") rejectRefund.disabled = false;
+        if (approveRefund && currentRecord && currentRecord.refundStatus === "REQUESTED")
+          approveRefund.disabled = false;
+        if (rejectRefund && currentRecord && currentRecord.refundStatus === "REQUESTED")
+          rejectRefund.disabled = false;
       }
     }
 
@@ -404,6 +440,11 @@
 
   if (page === "list") {
     const filters = document.getElementById("payment-filters");
+    // The related-order view links here with an order filter, avoiding a second manual search.
+    const linkedOrder = params().get("orderID");
+    const orderFilter = document.getElementById("order-id-filter");
+    if (orderFilter && linkedOrder && /^[1-9]\d*$/.test(linkedOrder))
+      orderFilter.value = linkedOrder;
     const clearFilters = document.getElementById("clear-payment-filters");
     const table = document.getElementById("manager-payment-table");
     // Clicking anywhere on a payment row opens that payment. A click on the View link itself is
