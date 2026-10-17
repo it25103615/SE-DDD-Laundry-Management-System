@@ -20,7 +20,7 @@ src/main/resources/
   application.properties
   static/        HTML, CSS and JavaScript
 src/test/java/    Tests mirroring the Java package layout
-database/       Additive database migrations
+Database/       Additive database migrations
 scripts/        Local setup and startup scripts
 Documentation/  Project and evaluation guides
 ```

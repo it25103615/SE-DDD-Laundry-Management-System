@@ -162,7 +162,7 @@ class ProcessingIntegrationTest {
     // Quality Inspection (21) is added by migration 015; skip instead of failing without it.
     assumeTrue(
       db.queryForObject("SELECT COUNT(*) FROM status WHERE statusID = 21", Integer.class) == 1,
-      "Status 21 not found - run database/migrations/015_quality_inspection_and_routes.sql"
+      "Status 21 not found - run Database/migrations/015_quality_inspection_and_routes.sql"
     );
     int washToDry = logRows(order, 9, 10),
       reworkLogs = logRows(order, 21, 9),

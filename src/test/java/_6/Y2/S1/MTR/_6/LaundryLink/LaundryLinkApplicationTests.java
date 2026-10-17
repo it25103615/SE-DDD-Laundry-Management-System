@@ -379,6 +379,8 @@ class LaundryLinkApplicationTests {
                 + " LIKE ?",
             Integer.class,
             customerId,
-            "%orderId=" + orderId));
+            // The payment trigger links to the receipt page as
+            // receipt.html?orderID=<order>&paymentID=<payment>, so the order id is followed by '&'.
+            "%orderID=" + orderId + "&%"));
   }
 }

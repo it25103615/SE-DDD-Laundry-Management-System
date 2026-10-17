@@ -4,13 +4,13 @@ param(
     # When omitted, Windows (integrated) authentication is used as before.
     [string]$SqlUser,
     [string]$SqlPassword,
-    # Also load database/ddd_assignment2_sample_data.sql (demo accounts and orders #1-#5)
+    # Also load Database/DDD - Assignment 2 SQL/DDD - Assignment 2 - Sample Data.sql (demo accounts and orders #1-#5)
     # before migration 005, so the laundry processing test orders are created too.
     [switch]$SampleData
 )
-# Fresh database: creates the complete current schema (initialize_database.sql).
+# Fresh database: creates the complete current schema (Database/initialize_database.sql).
 # Existing database: applies migrations 003 and 004 first (all migrations are safe to re-run).
-# Both cases then run every other file in database/migrations in name order, starting at 005.
+# Both cases then run every other file in Database/migrations in name order, starting at 005.
 # The files are read from the folder, so a new migration only needs to be added there as
 # NNN_description.sql; this script does not need to change.
 # The sample data (-SampleData) is loaded just before 005, so 005 and later migrations can add
@@ -25,7 +25,7 @@ $projectRoot = Split-Path $PSScriptRoot -Parent
 $firstMigrationAfterSampleData = 5
 
 # Read the migration files in name order and check their names before touching the database.
-$migrations = @(Get-ChildItem -LiteralPath (Join-Path $projectRoot 'database/migrations') -Filter '*.sql' | Sort-Object Name)
+$migrations = @(Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Database/migrations') -Filter '*.sql' | Sort-Object Name)
 $usedNumbers = @{}
 foreach ($migration in $migrations) {
     if ($migration.Name -notmatch '^(\d{3})_') {
@@ -52,7 +52,7 @@ $connection.add_InfoMessage({ param($sender, $event) Write-Output $event.Message
 function Invoke-SqlFile([System.Data.SqlClient.SqlCommand]$command, [string]$relativePath) {
     $sql = Get-Content -Raw -LiteralPath (Join-Path $projectRoot $relativePath)
     # Processing examples are opt-in, just like the other sample records.
-    if ($relativePath -eq 'database/migrations/005_processing.sql' -and !$SampleData) {
+    if ($relativePath -eq 'Database/migrations/005_processing.sql' -and !$SampleData) {
         $sampleSection = $sql.IndexOf('PART 2 - TEST DATA')
         if ($sampleSection -ge 0) { $sql = $sql.Substring(0, $sql.LastIndexOf('/*', $sampleSection)) }
     }
@@ -68,7 +68,7 @@ try {
     $command.CommandText = "SELECT DB_ID('laundryLinkDB')"
     $databaseId = $command.ExecuteScalar()
     if ($databaseId -is [DBNull]) {
-        Invoke-SqlFile $command 'initialize_database.sql'
+        Invoke-SqlFile $command 'Database/initialize_database.sql'
         Write-Output 'Created laundryLinkDB with the complete current schema (including the laundry processing tables).'
         # The fresh schema already contains everything up to 004, so start after them.
         $firstMigration = $firstMigrationAfterSampleData
@@ -83,7 +83,7 @@ try {
     # Loads the sample data once, and only when -SampleData was given.
     function Add-SampleData {
         if ($SampleData -and !$script:sampleDataLoaded) {
-            Invoke-SqlFile $command 'database/ddd_assignment2_sample_data.sql'
+            Invoke-SqlFile $command 'Database/DDD - Assignment 2 SQL/DDD - Assignment 2 - Sample Data.sql'
             Write-Output 'Sample data loaded (demo accounts and orders #1-#5).'
             $script:sampleDataLoaded = $true
         }
@@ -94,7 +94,7 @@ try {
         if ([int]$number -lt $firstMigration) { continue }
         # The sample data goes in after 003/004 and before 005 and everything later.
         if ([int]$number -ge $firstMigrationAfterSampleData) { Add-SampleData }
-        Invoke-SqlFile $command "database/migrations/$($migration.Name)"
+        Invoke-SqlFile $command "Database/migrations/$($migration.Name)"
         # Describe the migration from its file name, e.g. 011_refunds.sql -> "refunds".
         $description = $migration.BaseName.Substring(4).Replace('_', ' ')
         Write-Output "Migration $number applied ($description)."
