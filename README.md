@@ -87,7 +87,7 @@ This architecture encourages separation of concerns, modular development, mainta
 ## 📁 Project Structure
 
 ```text
-LaundryLink/
+SE-DDD-Laundry-Management-System/
 │
 ├── src/
 │   ├── main/
@@ -112,7 +112,8 @@ LaundryLink/
 │   │   │       ├── log/
 │   │   │       ├── notification/
 │   │   │       ├── common/
-│   │   │       └── config/
+│   │   │       ├── config/
+│   │   │       └── LaundryLinkApplication.java
 │   │   │
 │   │   └── resources/
 │   │       ├── application.properties
@@ -120,15 +121,18 @@ LaundryLink/
 │   │
 │   └── test/
 │
-├── database/
+├── Database/
 ├── scripts/
 ├── Documentation/
+├── .mvn/
+├── mvnw
+├── mvnw.cmd
 └── pom.xml
 ```
 
 Each feature package contains its relevant controller, service, repository, entity, and DTO classes where applicable.
 
-For more information, refer to the [Project Structure Documentation](https://github.com/it25103615/SE-DDD-Laundry-Management-System/blob/main/Documentation/Project-Structure.md).
+For more information, refer to the [Project Structure Documentation](Documentation/Project%20Structure.md).
 
 ---
 
@@ -218,7 +222,35 @@ Local database credentials and machine-specific authentication dependencies must
 
 ### 3. Prepare the Database
 
-Ensure SQL Server is running and apply the required database migrations from the `database/` directory.
+The application connects to a database named `laundryLinkDB` at `localhost:1433`. Run these commands from Windows PowerShell in the repository root.
+
+**a. Start SQL Server.** With SQL Server Express installed as the default `SQLEXPRESS` instance:
+
+```powershell
+Start-Service 'MSSQL$SQLEXPRESS'
+```
+
+**b. Enable TCP on port 1433.** SQL Server Express listens on a dynamic port by default. This script (run from an **Administrator** PowerShell) sets it to `localhost:1433` and restarts the service. The result is written to `sql-tcp-setup.log` in the repository root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/Enable-LocalSqlTcp.ps1
+```
+
+**c. Create the database and apply the migrations.** This script uses Windows authentication against `.\SQLEXPRESS`. On a fresh server it creates `laundryLinkDB` from `Database/initialize_database.sql`; on an existing database it keeps the data and applies the migrations in `Database/migrations`. It is safe to re-run. `-SampleData` also loads the demo accounts and orders:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/Initialize-SupportDatabase.ps1 -SampleData
+```
+
+For a SQL Server that uses a SQL login instead (for example a Docker container), pass the server and credentials:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/Initialize-SupportDatabase.ps1 -Server 'localhost,1433' -SqlUser sa -SqlPassword '<password>' -SampleData
+```
+
+**d. Check the login.** The application signs in with SQL Server authentication, so SQL Server must allow mixed-mode authentication, and the username and password in `application-local.properties` (step 2) must match a login with access to `laundryLinkDB`.
+
+Do not run `Database/initialize_database.sql` by hand against an existing database: it drops and recreates every table, deleting all data.
 
 ### 4. Run the Application
 
@@ -282,10 +314,10 @@ Each team member contributed to the development of functional components, which 
 |---|---|---|
 | Member 1 | @username | Account & User Management |
 | Member 2 | @username | Order Management |
-| Member 3 | @username | Laundry Processing |
+| Perera G. A. T. L. | IT25103615 | Laundry Processing |
 | Member 4 | @username | Pickup & Delivery |
 | Member 5 | @username | Payment & Billing |
-| Agksheya_B | IT25200308 | Customer Support |
+| Agksheya B. | IT25200308 | Customer Support |
 
 
 
@@ -295,9 +327,9 @@ Each team member contributed to the development of functional components, which 
 
 Additional technical documentation is available in the repository:
 
-- [Project Structure Guide](https://github.com/it25103615/SE-DDD-Laundry-Management-System/blob/main/Documentation/Project-Structure.md)
-- [Package Restructure Record](https://github.com/it25103615/SE-DDD-Laundry-Management-System/blob/main/Documentation/Package-Restructure.md)
-- [Support Evaluation Guide](https://github.com/it25103615/SE-DDD-Laundry-Management-System/blob/main/Documentation/Support-Progress-Evaluation.md)
+- [Project Structure Guide](Documentation/Project%20Structure.md)
+- [Email Password Recovery](Documentation/Email%20Password%20Recovery.md)
+- [Support Case Workflow](Documentation/Support%20Case%20Workflow.md)
 
 ---
 
